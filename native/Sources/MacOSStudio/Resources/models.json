@@ -13,8 +13,9 @@
     "cpu": "Apple M4 / M4 Pro / M4 Max",
     "arch": "Apple Silicon",
     "min_macos": "macOS Sequoia 15",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia"
     ],
@@ -49,8 +50,9 @@
     "cpu": "Apple M2 Pro/Max & M3 / M3 Pro / M3 Max",
     "arch": "Apple Silicon",
     "min_macos": "macOS Ventura 13 / Sonoma 14",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -77,8 +79,9 @@
     "cpu": "Apple M2",
     "arch": "Apple Silicon",
     "min_macos": "macOS Monterey 12.4",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -105,8 +108,9 @@
     "cpu": "Apple M1 Pro / M1 Max",
     "arch": "Apple Silicon",
     "min_macos": "macOS Monterey 12",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -131,8 +135,9 @@
     "cpu": "Apple M1",
     "arch": "Apple Silicon",
     "min_macos": "macOS Big Sur 11",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -459,8 +464,9 @@
     "cpu": "Apple M4",
     "arch": "Apple Silicon",
     "min_macos": "macOS Sequoia 15",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia"
     ],
@@ -483,8 +489,9 @@
     "cpu": "Apple M3",
     "arch": "Apple Silicon",
     "min_macos": "macOS Sonoma 14",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma"
@@ -508,8 +515,9 @@
     "cpu": "Apple M2",
     "arch": "Apple Silicon",
     "min_macos": "macOS Monterey 12.4 / Ventura 13",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -534,8 +542,9 @@
     "cpu": "Apple M1",
     "arch": "Apple Silicon",
     "min_macos": "macOS Big Sur 11",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -782,8 +791,9 @@
     "cpu": "Apple M4",
     "arch": "Apple Silicon",
     "min_macos": "macOS Sequoia 15",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia"
     ],
@@ -806,8 +816,9 @@
     "cpu": "Apple M3",
     "arch": "Apple Silicon",
     "min_macos": "macOS Ventura 13.5 / Sonoma 14",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -832,8 +843,9 @@
     "cpu": "Apple M1",
     "arch": "Apple Silicon",
     "min_macos": "macOS Big Sur 11.3",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -1098,8 +1110,9 @@
     "cpu": "Apple M1 / M2 / M2 Pro / M4 / M4 Pro",
     "arch": "Apple Silicon",
     "min_macos": "macOS Big Sur 11",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -1186,8 +1199,9 @@
     "cpu": "Apple M1 Max/Ultra & M2 Max/Ultra",
     "arch": "Apple Silicon",
     "min_macos": "macOS Monterey 12.3",
-    "max_macos": "macOS Tahoe 26 / Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
     "supported_versions": [
+      "Golden Gate",
       "Tahoe",
       "Sequoia",
       "Sonoma",
@@ -1260,5 +1274,166 @@
     "model_numbers": [
       "A1481"
     ]
+  },
+  {
+    "name": "MacBook Pro (14\", 2025, M5)",
+    "category": "MacBook Pro",
+    "year": 2025,
+    "identifiers": [
+      "Mac17,2"
+    ],
+    "cpu": "Apple M5",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Tahoe 26",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate",
+      "Tahoe"
+    ],
+    "hw_icon": "macbook_pro_m_series.png",
+    "oclp_supported": false,
+    "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität).",
+    "model_numbers": [
+      "A3434"
+    ]
+  },
+  {
+    "name": "MacBook Pro (14\" & 16\", 2026, M5 Pro / M5 Max)",
+    "category": "MacBook Pro",
+    "year": 2026,
+    "identifiers": [
+      "Mac17,6",
+      "Mac17,7",
+      "Mac17,8",
+      "Mac17,9"
+    ],
+    "cpu": "Apple M5 Pro / M5 Max",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Tahoe 26",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate",
+      "Tahoe"
+    ],
+    "hw_icon": "macbook_pro_m_series.png",
+    "oclp_supported": false,
+    "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität).",
+    "model_numbers": [
+      "A3426",
+      "A3427",
+      "A3428",
+      "A3429"
+    ]
+  },
+  {
+    "name": "MacBook Air (13\" & 15\", 2026, M5)",
+    "category": "MacBook Air",
+    "year": 2026,
+    "identifiers": [
+      "Mac17,3",
+      "Mac17,4"
+    ],
+    "cpu": "Apple M5",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Tahoe 26",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate",
+      "Tahoe"
+    ],
+    "hw_icon": "macbook_air_m_series.png",
+    "oclp_supported": false,
+    "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität).",
+    "model_numbers": [
+      "A3448",
+      "A3449"
+    ]
+  },
+  {
+    "name": "MacBook Neo (13\", 2026, A18 Pro)",
+    "category": "MacBook Neo",
+    "year": 2026,
+    "identifiers": [
+      "Mac17,5"
+    ],
+    "cpu": "Apple A18 Pro",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Tahoe 26",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate",
+      "Tahoe"
+    ],
+    "hw_icon": "macbook_air_m_series.png",
+    "oclp_supported": false,
+    "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität). Modellkennung laut AppleDB.",
+    "model_numbers": [
+      "A3404"
+    ]
+  },
+  {
+    "name": "Mac Studio (2025, M4 Max / M3 Ultra)",
+    "category": "Mac Studio",
+    "year": 2025,
+    "identifiers": [
+      "Mac16,9",
+      "Mac15,14"
+    ],
+    "cpu": "Apple M4 Max / M3 Ultra",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Sequoia 15",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate",
+      "Tahoe",
+      "Sequoia"
+    ],
+    "hw_icon": "mac_studio.png",
+    "oclp_supported": false,
+    "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität).",
+    "model_numbers": [
+      "A3143",
+      "A3389"
+    ]
+  },
+  {
+    "name": "Mac Studio (2026, M5 Max / M5 Ultra)",
+    "category": "Mac Studio",
+    "year": 2026,
+    "identifiers": [
+      "Mac17,14",
+      "Mac17,15"
+    ],
+    "cpu": "Apple M5 Max / M5 Ultra",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Golden Gate 27",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate"
+    ],
+    "hw_icon": "mac_studio.png",
+    "oclp_supported": false,
+    "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität). Ältere macOS-Versionen werden nicht angeboten.",
+    "model_numbers": []
+  },
+  {
+    "name": "Mac mini (2026, M6 / M5 Pro)",
+    "category": "Mac mini",
+    "year": 2026,
+    "identifiers": [
+      "Mac18,5",
+      "Mac17,16"
+    ],
+    "cpu": "Apple M6 / M5 Pro",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Golden Gate 27",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate"
+    ],
+    "hw_icon": "mac_mini.png",
+    "oclp_supported": false,
+    "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität). Ältere macOS-Versionen werden nicht angeboten.",
+    "model_numbers": []
   }
 ]

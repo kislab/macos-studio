@@ -2,7 +2,7 @@
 # Build first. This script signs an update using the private key in login Keychain.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-APP="$PWD/macOS Studio.app"
+APP="$PWD/dist/macOS Studio.app"
 TOOLS="$PWD/native/.build/artifacts/sparkle/Sparkle/bin"
 ACCOUNT="macos-studio-kislab"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
@@ -11,7 +11,9 @@ PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP/Contents/I
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ && "$BUILD" =~ ^[0-9]+$ ]] || exit 1
 [[ "$("$TOOLS/generate_keys" --account "$ACCOUNT" -p)" == "$PUBLIC_KEY" ]] || { echo 'Signing key does not match app.' >&2; exit 1; }
 codesign --verify --deep --strict "$APP"
-ARCHIVE="macOS-Studio-$VERSION-Universal.zip"
+ARCHIVE_NAME="macOS-Studio-$VERSION-Universal.zip"
+ARCHIVE="dist/$ARCHIVE_NAME"
+mkdir -p dist
 [ ! -e "$ARCHIVE" ] || { echo "Archive already exists: $ARCHIVE" >&2; exit 1; }
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ARCHIVE"
 SIGNATURE="$("$TOOLS/sign_update" --account "$ACCOUNT" -p "$ARCHIVE")"
@@ -34,12 +36,12 @@ cat > appcast.xml <<XML
       <sparkle:version>$BUILD</sparkle:version>
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/kislab/macos-studio/releases/download/$TAG/$ARCHIVE" sparkle:edSignature="$SIGNATURE" length="$LENGTH" type="application/octet-stream" />
+      <enclosure url="https://github.com/kislab/macos-studio/releases/download/$TAG/$ARCHIVE_NAME" sparkle:edSignature="$SIGNATURE" length="$LENGTH" type="application/octet-stream" />
     </item>
   </channel>
 </rss>
 XML
 "$TOOLS/sign_update" --account "$ACCOUNT" appcast.xml
 "$TOOLS/sign_update" --account "$ACCOUNT" --verify appcast.xml
-shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+(cd dist && shasum -a 256 "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
 printf 'Signed update ready: %s (publish release before pushing appcast.xml)\n' "$ARCHIVE"

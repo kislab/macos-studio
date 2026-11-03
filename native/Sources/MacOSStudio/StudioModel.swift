@@ -14,7 +14,8 @@ import StudioCore
     private let fileAccess = SavedFileAccess()
     @Published var selectedInstaller = ""
     @Published var selectedDisk = ""
-    @Published var selectedMac = ""
+    /// Target Mac filter for the installer list; remembered between launches.
+    @Published var selectedMac = "" { didSet { UserDefaults.standard.set(selectedMac, forKey: "selectedTargetMac") } }
     @Published var section = "download"
     @Published var query = ""
     @Published var modelQuery = ""
@@ -36,10 +37,19 @@ import StudioCore
     /// Privacy pane anchor to offer with the current error, if any.
     @Published var privacyPane: String?
     static let terminalAccessHint = "macOS hat Terminal den Schreibzugriff auf den USB-Stick verweigert (250). Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff „Terminal“ aktivieren, Terminal beenden und die USB-Erstellung erneut starten. Alternativ genügt bei „Dateien und Ordner“ für Terminal der Zugriff auf „Wechselmedien“."
-    /// Set while waiting for the Terminal window; lets the user stop waiting.
+    /// Set while the Terminal job runs; the user can cancel it from the app.
     @Published var waitingForTerminal = false
-    private var stopWaitingRequested = false
-    func stopWaitingForTerminal() { stopWaitingRequested = true }
+    @Published private(set) var cancelRequestedAt: Date?
+    private var activeJob: TerminalJob?
+    func cancelTerminalJob() {
+        guard let job = activeJob, cancelRequestedAt == nil else { return }
+        job.requestCancel(); cancelRequestedAt = Date()
+        status = "Abbruch angefordert …"
+    }
+    /// Apple's tool needs room for the whole installer plus boot files; at least 16 GB.
+    static func requiredUSBBytes(installerBytes: Int64?) -> Double {
+        max(16e9, Double(installerBytes ?? 0) + 1.5e9)
+    }
     @Published var completedPath = ""
     private var command: Command?
     private var metrics = ProgressMetrics()
@@ -52,6 +62,9 @@ import StudioCore
         if let url = Bundle.module.url(forResource: "models", withExtension: "json"),
            let data = try? Data(contentsOf: url) {
             models = (try? JSONDecoder().decode([MacModel].self, from: data)) ?? []
+        }
+        if let saved = UserDefaults.standard.string(forKey: "selectedTargetMac"), models.contains(where: { $0.id == saved }) {
+            selectedMac = saved
         }
         extraLocalPaths.formUnion(fileAccess.installers)
         refreshLocal()
@@ -360,6 +373,14 @@ import StudioCore
             guard checked == target else { throw failure("Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.") }
             let tool = selectedInstaller + "/Contents/Resources/createinstallmedia"
             if let issue = LocalInstaller.preparationIssue(at: selectedInstaller) { throw failure(issue) }
+            // The stick must hold the whole installer; check before anything is erased.
+            status = "Speicherplatz auf dem USB-Stick prüfen …"
+            let installerPath = selectedInstaller
+            let installerBytes = await Task.detached(priority: .userInitiated) { LocalInstaller.inspect(installerPath)?.bytes }.value
+            let required = Self.requiredUSBBytes(installerBytes: installerBytes)
+            guard target.bytes >= required else {
+                throw failure(String(format: "Der USB-Stick ist zu klein: %.1f GB vorhanden, für diesen Installer werden mindestens %.0f GB benötigt. Der USB-Stick wurde nicht verändert.", target.bytes / 1e9, (required / 1e9).rounded(.up)))
+            }
             var preparation: USBPreparation?
             let info = try await diskPlist(target.identifier)
             if info["FilesystemType"] as? String == "apfs" {
@@ -386,14 +407,14 @@ import StudioCore
             let preparedName = "macOSStudio-" + UUID().uuidString.prefix(8)
             let preparedMount = "/Volumes/" + preparedName
             let volume = preparation == nil ? target.mount : preparedMount
-            let setup = preparation.map { "echo " + shellQuote(USBProgress.prepareMarker) + " && " + $0.shellCommand(name: preparedName, mount: preparedMount) + " && " } ?? ""
-            let shell = "echo " + shellQuote(USBProgress.checkMarker) + " && " + safety + " && " + setup
-                + "echo " + shellQuote(USBProgress.startMarker) + " && " + shellQuote(tool) + " --volume " + shellQuote(volume) + " --nointeraction"
             // Run via Terminal: with AppleScript admin privileges macOS attributes the write to the
             // system authtrampoline, which cannot be granted access, and createinstallmedia fails (250).
             let job = TerminalJob(directory: FileManager.default.temporaryDirectory.appendingPathComponent("macOSStudio-USB-" + UUID().uuidString))
             // Keep the job while Terminal may still be running (user stopped waiting); the OS cleans temp files.
             defer { if job.exitStatus() != nil { job.remove() } }
+            let shell = job.usbRootCommand(safety: safety, mount: target.mount,
+                                           setup: preparation?.shellCommand(name: preparedName, mount: preparedMount),
+                                           tool: tool, volume: volume)
             try job.write(rootCommand: shell, headline: "macOS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht")
             let header = "Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster; Schritte und Fortschritt erscheinen hier live.\n\n"
             appendLog(header)
@@ -402,12 +423,15 @@ import StudioCore
             do { _ = try await NSWorkspace.shared.open([job.script], withApplicationAt: terminal, configuration: config) }
             catch { throw failure("Terminal konnte nicht geöffnet werden: " + error.localizedDescription) }
             status = "Im Terminal-Fenster das Mac-Passwort eingeben. Der USB-Stick wird dort erstellt …"
-            stopWaitingRequested = false; waitingForTerminal = true
-            defer { waitingForTerminal = false }
+            cancelRequestedAt = nil; activeJob = job; waitingForTerminal = true
+            defer { waitingForTerminal = false; activeJob = nil }
             var exit: Int32?
             var shown = ""
             while exit == nil {
-                if stopWaitingRequested { throw failure("Warten beendet. Läuft der Vorgang im Terminal noch, bitte dort abschließen lassen. Den USB-Stick erst danach verwenden oder auswerfen.") }
+                // Cancel requested but no reaction: Terminal is most likely still asking for the password.
+                if let asked = cancelRequestedAt, Date().timeIntervalSince(asked) > 20, job.output().isEmpty {
+                    throw failure("Abgebrochen. Im Terminal-Fenster ist vermutlich noch die Passwortabfrage offen – bitte das Fenster schließen. Auch nach einer Passworteingabe bricht der Vorgang sofort ab; der USB-Stick wurde nicht verändert.")
+                }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 exit = job.exitStatus()
                 // Mirror the Terminal output live: current step, percentage and log.
@@ -424,6 +448,18 @@ import StudioCore
             let output = USBProgress.clean(job.output())
             log = header + output
             guard exit == 0 else {
+                switch exit {
+                case TerminalJob.cancelledExit:
+                    throw failure(output.contains(USBProgress.startMarker)
+                        ? "USB-Erstellung abgebrochen. Der USB-Stick ist unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden.\n\n" + output
+                        : "USB-Erstellung abgebrochen. Der USB-Stick wurde nicht verändert.")
+                case TerminalJob.noWriteAccessExit:
+                    privacyPane = "Privacy_AllFiles"
+                    throw failure(Self.terminalAccessHint + "\n\nDie Prüfung erfolgte vor dem Löschen – der USB-Stick wurde nicht verändert.")
+                case TerminalJob.targetChangedExit:
+                    throw failure("Das Ziel-Laufwerk hat sich vor dem Schreiben geändert. Bitte die USB-Laufwerke aktualisieren und erneut auswählen. Der USB-Stick wurde nicht verändert.")
+                default: break
+                }
                 if output.localizedCaseInsensitiveContains("does not appear to be a valid OS installer") {
                     throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + output)
                 }

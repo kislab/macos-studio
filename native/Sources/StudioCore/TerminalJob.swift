@@ -8,6 +8,14 @@ public struct TerminalJob {
     public var script: URL { directory.appendingPathComponent("USB-Stick erstellen.command") }
     public var statusFile: URL { directory.appendingPathComponent("status") }
     public var logFile: URL { directory.appendingPathComponent("output.log") }
+    /// Created by the app to ask the root command to stop (before erasing, or by ending createinstallmedia).
+    public var cancelFile: URL { directory.appendingPathComponent("cancel") }
+
+    /// Exit codes of the USB root command besides createinstallmedia's own.
+    public static let targetChangedExit: Int32 = 3
+    public static let preparationFailedExit: Int32 = 4
+    public static let noWriteAccessExit: Int32 = 77
+    public static let cancelledExit: Int32 = 130
 
     public init(directory: URL) { self.directory = directory }
 
@@ -41,6 +49,38 @@ public struct TerminalJob {
     public func exitStatus() -> Int32? {
         guard let text = try? String(contentsOf: statusFile, encoding: .utf8) else { return nil }
         return Int32(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    public func requestCancel() { try? Data().write(to: cancelFile) }
+    public var cancelRequested: Bool { FileManager.default.fileExists(atPath: cancelFile.path) }
+
+    /// Root command for the USB stick. Order: verify target → stop if cancelled → probe write access
+    /// as the Terminal-attributed root process (fails before anything is erased if macOS denies it)
+    /// → optional APFS preparation → createinstallmedia in the background, ended if cancel is requested.
+    public func usbRootCommand(safety: String, mount: String, setup: String?, tool: String, volume: String) -> String {
+        let cancel = shellQuote(cancelFile.path)
+        let probe = shellQuote(mount + "/.macOSStudio-Schreibtest")
+        var lines = [
+            "echo " + shellQuote(USBProgress.checkMarker),
+            "if ! { " + safety + "; }; then echo 'Das Ziel-Laufwerk hat sich geändert. Abbruch ohne Änderung.'; exit \(Self.targetChangedExit); fi",
+            "if [ -e " + cancel + " ]; then echo " + shellQuote(USBProgress.cancelMarker) + "; exit \(Self.cancelledExit); fi",
+            "if ! ( : > " + probe + " ) 2>/dev/null; then echo " + shellQuote(USBProgress.noAccessMarker) + "; exit \(Self.noWriteAccessExit); fi",
+            "/bin/rm -f " + probe
+        ]
+        if let setup {
+            lines.append("echo " + shellQuote(USBProgress.prepareMarker))
+            lines.append("if ! { " + setup + "; }; then echo 'Vorbereitung des USB-Sticks fehlgeschlagen.'; exit \(Self.preparationFailedExit); fi")
+        }
+        lines += [
+            "echo " + shellQuote(USBProgress.startMarker),
+            shellQuote(tool) + " --volume " + shellQuote(volume) + " --nointeraction &",
+            "pid=$!",
+            "while /bin/kill -0 \"$pid\" 2>/dev/null; do",
+            "  if [ -e " + cancel + " ]; then echo; echo " + shellQuote(USBProgress.cancelMarker) + "; /bin/kill -TERM \"$pid\"; sleep 5; /bin/kill -KILL \"$pid\" 2>/dev/null; wait \"$pid\"; exit \(Self.cancelledExit); fi",
+            "  sleep 1",
+            "done",
+            "wait \"$pid\""
+        ]
+        return lines.joined(separator: "\n")
     }
     public func output() -> String { (try? String(contentsOf: logFile, encoding: .utf8)) ?? "" }
     public func remove() { try? FileManager.default.removeItem(at: directory) }

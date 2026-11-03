@@ -158,6 +158,44 @@ extension CoreTests {
         do { try job.write(rootCommand: "true", headline: "Test") } catch { failed = true }
         XCTAssertTrue(failed)
     }
+    func testUSBRootCommand() async throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("studio-usb-" + UUID().uuidString)
+        defer { try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: root.appendingPathComponent("ro").path); try? fm.removeItem(at: root) }
+        let mount = root.appendingPathComponent("Volume"), readOnly = root.appendingPathComponent("ro")
+        try fm.createDirectory(at: mount, withIntermediateDirectories: true)
+        try fm.createDirectory(at: readOnly, withIntermediateDirectories: true)
+        let tool = root.appendingPathComponent("fake-createinstallmedia")
+        try Data("#!/bin/bash\necho 'Erasing disk: 0%... 100%'\nsleep 3\necho 'Install media now available'\n".utf8).write(to: tool)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
+        func run(_ job: TerminalJob, mount: URL, cancelAfter: Double? = nil) async throws -> CommandResult {
+            try fm.createDirectory(at: job.directory, withIntermediateDirectories: true)
+            let command = job.usbRootCommand(safety: "true", mount: mount.path, setup: nil, tool: tool.path, volume: mount.path)
+            if let delay = cancelAfter {
+                Task { try? await Task.sleep(nanoseconds: UInt64(delay * 1e9)); job.requestCancel() }
+            }
+            return try await Command().run("/bin/bash", ["-c", command], timeout: 30)
+        }
+        let normal = try await run(TerminalJob(directory: root.appendingPathComponent("j1")), mount: mount)
+        XCTAssertEqual(normal.status, 0)
+        XCTAssertTrue(normal.output.contains("Install media now available"))
+        XCTAssertFalse(fm.fileExists(atPath: mount.appendingPathComponent(".macOSStudio-Schreibtest").path))
+        try fm.setAttributes([.posixPermissions: 0o555], ofItemAtPath: readOnly.path)
+        let denied = try await run(TerminalJob(directory: root.appendingPathComponent("j2")), mount: readOnly)
+        XCTAssertEqual(denied.status, TerminalJob.noWriteAccessExit)
+        XCTAssertFalse(denied.output.contains("Erasing"))
+        let early = TerminalJob(directory: root.appendingPathComponent("j3"))
+        try fm.createDirectory(at: early.directory, withIntermediateDirectories: true)
+        early.requestCancel()
+        let before = try await run(early, mount: mount)
+        XCTAssertEqual(before.status, TerminalJob.cancelledExit)
+        XCTAssertFalse(before.output.contains("Erasing"))
+        let during = try await run(TerminalJob(directory: root.appendingPathComponent("j4")), mount: mount, cancelAfter: 1.2)
+        XCTAssertEqual(during.status, TerminalJob.cancelledExit)
+        XCTAssertTrue(during.output.contains("Erasing"))
+        XCTAssertFalse(during.output.contains("Install media now available"))
+        XCTAssertEqual(USBProgress.parse(during.output)?.step, "Wird abgebrochen")
+    }
     func testUSBProgress() {
         XCTAssertNil(USBProgress.parse("Password:"))
         XCTAssertEqual(USBProgress.parse(USBProgress.checkMarker + "\n"), USBProgress(step: "Ziel-Laufwerk wird geprüft", percent: nil))
@@ -181,6 +219,7 @@ extension CoreTests {
         try tests.testLocalInstallerProtection()
         try tests.testTerminalJob()
         tests.testUSBProgress()
+        try await tests.testUSBRootCommand()
         let normal = try await Command().run("/usr/bin/printf", ["Installing: 42.5%%\rInstalling: 100%%"], timeout: 5)
         XCTAssertEqual(normal.status, 0)
         XCTAssertEqual(ProgressSample.parse(normal.output)?.percent, 100)
@@ -191,6 +230,6 @@ extension CoreTests {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("11 Swift test groups passed: local installers/trash, catalog, versions, metrics, disk protection, quoting, terminal job, USB progress, output, timeout, cancellation")
+        print("12 Swift test groups passed: local installers/trash, catalog, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

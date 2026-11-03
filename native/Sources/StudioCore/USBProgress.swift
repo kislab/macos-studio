@@ -11,6 +11,8 @@ public struct USBProgress: Equatable {
     public static let checkMarker = "▸ Ziel-Laufwerk wird geprüft"
     public static let prepareMarker = "▸ APFS-Stick wird als Mac OS Extended vorbereitet"
     public static let startMarker = "▸ createinstallmedia startet"
+    public static let cancelMarker = "▸ Abbruch angefordert"
+    public static let noAccessMarker = "▸ Kein Schreibzugriff für Terminal – USB-Stick bleibt unverändert"
 
     private static let phases: [(pattern: String, step: String)] = [
         (checkMarker, "Ziel-Laufwerk wird geprüft"),
@@ -25,7 +27,9 @@ public struct USBProgress: Equatable {
         ("Copying the macOS RecoveryOS", "macOS-Wiederherstellung wird kopiert"),
         ("Copying boot files", "Startdateien werden kopiert"),
         ("Copying installer files", "Installer wird auf den USB-Stick kopiert"),
-        ("Install media now available", "Fertig – USB-Stick ist bereit")
+        ("Install media now available", "Fertig – USB-Stick ist bereit"),
+        (cancelMarker, "Wird abgebrochen"),
+        (noAccessMarker, "Kein Schreibzugriff für Terminal")
     ]
 
     /// Printable text: carriage returns become line breaks, terminal control characters are removed.

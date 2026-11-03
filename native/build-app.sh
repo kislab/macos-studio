@@ -3,7 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 swift build -c release --arch arm64 --arch x86_64 --product MacOSStudio
 BIN_DIR="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
-APP="../macOS Studio.app"
+mkdir -p ../dist
+APP="../dist/macOS Studio.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN_DIR/MacOSStudio" "$APP/Contents/MacOS/MacOSStudio"
 for resource in "$BIN_DIR"/*.bundle; do
@@ -24,9 +25,11 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>macOS Studio</string>
 <key>CFBundleDisplayName</key><string>macOS Studio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.2.19</string>
-<key>CFBundleVersion</key><string>22</string>
+<key>CFBundleShortVersionString</key><string>1.2.20</string>
+<key>CFBundleVersion</key><string>23</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundleDevelopmentRegion</key><string>de</string>
+<key>CFBundleLocalizations</key><array><string>de</string></array>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSRemovableVolumesUsageDescription</key><string>macOS Studio benötigt Zugriff auf Wechselmedien, um mit Apples createinstallmedia einen bootfähigen USB-Stick zu erstellen.</string>

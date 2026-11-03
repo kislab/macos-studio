@@ -1,3 +1,21 @@
+Version 1.2.20
+
+• Golden Gate: In der Mac-Suche fehlte macOS 27 „Golden Gate“ bei allen Macs. Mit gewähltem Ziel-Mac wurden macOS-27-Installer deshalb ausgeblendet. Alle Apple-Silicon-Macs unterstützen Golden Gate jetzt laut Apples Kompatibilitätsliste.
+
+• Neue Macs in der Datenbank: MacBook Pro M5 (2025), MacBook Pro M5 Pro/Max, MacBook Air M5 und MacBook Neo (2026), Mac Studio 2025 und 2026 sowie Mac mini M6/M5 Pro (2026).
+
+• USB erstellen: „Abbrechen“ beendet den Vorgang jetzt wirklich, auch im Terminal. Vor dem Löschen bleibt der Stick dabei unverändert.
+
+• USB erstellen: Die App prüft vorher, ob der Stick groß genug ist, und testet noch vor dem Löschen, ob Terminal auf den Stick schreiben darf. Fehlt die Freigabe, bleibt der Stick unverändert.
+
+• Update-Dialoge und Systemtexte erscheinen jetzt auf Deutsch.
+
+• Feedback: Der Knopf „Feedback senden …“ steht größer über dem Hinweis unten links und zusätzlich im Hilfe-Menü.
+
+• Mac-Suche: Ziel-Mac, Modell- und Baujahrfilter bleiben beim nächsten Start erhalten.
+
+• Projekt: Build-Dateien liegen jetzt in dist/; es bleiben nur die drei neuesten Versionen.
+
 Version 1.2.19
 
 • Feedback: Unten links in der Seitenleiste öffnet „Feedback senden …“ dein E-Mail-Programm mit einer Nachricht an Kevin (mail@seitzke.com). App- und macOS-Version stehen bereits in der Nachricht.

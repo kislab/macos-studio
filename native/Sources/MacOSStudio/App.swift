@@ -74,6 +74,9 @@ import StudioCore
                 Button("Nach Updates suchen …") { updates.check() }
                     .disabled(!updates.canCheck || model.busy)
             }
+            CommandGroup(after: .help) {
+                Button("Feedback senden …") { StudioView.sendFeedback() }
+            }
         }
     }
 }
@@ -104,10 +107,15 @@ import StudioCore
     @Published var version = ""
     @Published var confirmErase = false
     @Published var details = false
-    @Published var macCategory = "Alle"
-    @Published var macYear = 0
+    @Published var macCategory = UserDefaults.standard.string(forKey: "macCategoryFilter") ?? "Alle" {
+        didSet { UserDefaults.standard.set(macCategory, forKey: "macCategoryFilter") }
+    }
+    @Published var macYear = UserDefaults.standard.integer(forKey: "macYearFilter") {
+        didSet { UserDefaults.standard.set(macYear, forKey: "macYearFilter") }
+    }
     @Published var trashTarget: LocalInstaller?
     @Published var confirmTrash = false
+    @Published var confirmCancelUSB = false
 }
 
 struct StudioView: View {
@@ -140,14 +148,17 @@ struct StudioView: View {
                     .padding(12)
                     .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
                 }
+                Button { Self.sendFeedback() } label: {
+                    Label("Feedback senden …", systemImage: "envelope.fill")
+                        .font(.body.weight(.medium)).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered).controlSize(.large)
+                .help("Öffnet dein E-Mail-Programm mit einer Nachricht an Kevin")
                 Text("Von Apple geladen.\nFür deinen Mac vorbereitet.")
                     .font(.caption).foregroundStyle(.secondary).lineSpacing(5)
                 Button("Programme im Finder", systemImage: "folder") {
                     NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications"))
                 }.buttonStyle(.plain).font(.caption)
-                Button("Feedback senden …", systemImage: "envelope") { Self.sendFeedback() }
-                    .buttonStyle(.plain).font(.caption)
-                    .help("Öffnet dein E-Mail-Programm mit einer Nachricht an Kevin")
             }.padding(20)
                 .navigationSplitViewColumnWidth(220)
         } detail: {
@@ -192,6 +203,12 @@ struct StudioView: View {
             Button("Abbrechen", role: .cancel) { ui.trashTarget = nil }
         } message: {
             Text("\(ui.trashTarget?.name ?? "")\n\(ui.trashTarget?.path ?? "")\n\nDer Installer kann anschließend über den Papierkorb wiederhergestellt werden. Dein installiertes macOS wird nicht gelöscht.")
+        }
+        .confirmationDialog("USB-Erstellung abbrechen?", isPresented: $ui.confirmCancelUSB, titleVisibility: .visible) {
+            Button("Abbrechen", role: .destructive) { model.cancelTerminalJob() }
+            Button("Weiter erstellen", role: .cancel) {}
+        } message: {
+            Text("Vor dem Löschen bleibt der USB-Stick unverändert. Läuft createinstallmedia bereits, ist der Stick danach unvollständig und muss neu erstellt werden.")
         }
         .confirmationDialog("USB-Laufwerk vollständig löschen?", isPresented: $ui.confirmErase, titleVisibility: .visible) {
             Button("Laufwerk löschen und Installer erstellen", role: .destructive) { ui.details = true; Task { await model.flash() } }
@@ -459,7 +476,10 @@ struct StudioView: View {
                 Label(model.activeTitle, systemImage: model.flashing ? "externaldrive" : "arrow.down.circle.fill").font(.headline)
                 Spacer()
                 if model.busy && !model.flashing { Button("Abbrechen", role: .destructive) { model.cancel() } }
-                if model.waitingForTerminal { Button("Warten beenden") { model.stopWaitingForTerminal() } }
+                if model.waitingForTerminal {
+                    Button("Abbrechen", role: .destructive) { ui.confirmCancelUSB = true }
+                        .disabled(model.cancelRequestedAt != nil)
+                }
                 if let pct = model.progress { Text(String(format: "%.1f %%", pct)).monospacedDigit().foregroundStyle(.blue) }
             }
             if let pct = model.progress { ProgressView(value: pct, total: 100) }
