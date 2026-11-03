@@ -145,6 +145,9 @@ struct StudioView: View {
                 Button("Programme im Finder", systemImage: "folder") {
                     NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications"))
                 }.buttonStyle(.plain).font(.caption)
+                Button("Feedback senden …", systemImage: "envelope") { Self.sendFeedback() }
+                    .buttonStyle(.plain).font(.caption)
+                    .help("Öffnet dein E-Mail-Programm mit einer Nachricht an Kevin")
             }.padding(20)
                 .navigationSplitViewColumnWidth(220)
         } detail: {
@@ -196,6 +199,22 @@ struct StudioView: View {
         } message: {
             Text("Alle Daten auf „\(model.disk?.name ?? "")“ (\(model.disk?.mount ?? ""), \(String(format: "%.1f", (model.disk?.bytes ?? 0) / 1e9)) GB) werden gelöscht. APFS wird bei einem Container mit genau einem Volume automatisch als Mac OS Extended vorbereitet. Danach öffnet sich Terminal: Dort das Mac-Passwort eingeben, der Installer wird anschließend geschrieben.")
         }
+    }
+    /// Opens the default mail app with recipient and subject prefilled; app and macOS version help with replies.
+    static func sendFeedback() {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        let os = ProcessInfo.processInfo.operatingSystemVersionString
+        var mail = URLComponents()
+        mail.scheme = "mailto"
+        mail.path = "mail@seitzke.com"
+        mail.queryItems = [
+            URLQueryItem(name: "subject", value: "Feedback zu MacOSStudio"),
+            URLQueryItem(name: "body", value: "\n\n\n—\nmacOS Studio \(version) (Build \(build))\nmacOS \(os)")
+        ]
+        guard let url = mail.url else { return }
+        NSWorkspace.shared.open(url)
     }
     private func navigation(_ id: String, _ title: String, _ symbol: String) -> some View {
         Button { model.section = id } label: {

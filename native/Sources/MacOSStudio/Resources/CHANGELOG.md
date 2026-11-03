@@ -1,3 +1,7 @@
+Version 1.2.19
+
+• Feedback: Unten links in der Seitenleiste öffnet „Feedback senden …“ dein E-Mail-Programm mit einer Nachricht an Kevin (mail@seitzke.com). App- und macOS-Version stehen bereits in der Nachricht.
+
 Version 1.2.18
 
 • USB erstellen: Schritte und Fortschritt erscheinen jetzt live auch in macOS Studio – Ziel prüfen, USB vorbereiten, Löschen, Kopieren und Bootfähig machen, jeweils mit Prozentangabe von Apple. Das Protokoll öffnet sich automatisch und läuft mit.
