@@ -11,8 +11,21 @@ import Sparkle
     override init() {
         super.init()
         controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
+    }
+
+    private var startupCheckStarted = false
+
+    func checkOnLaunch() async {
+        guard !startupCheckStarted else { return }
+        startupCheckStarted = true
+        // The window and busy-state callback must exist before showing update UI.
+        while isBusy() {
+            do { try await Task.sleep(nanoseconds: 500_000_000) }
+            catch { startupCheckStarted = false; return }
+        }
         controller.startUpdater()
-        // Check on every launch, before Sparkle starts its scheduled runloop cycle.
+        // Background launch check only offers newer releases; no up-to-date dialog.
+        // Invoke before Sparkle's next scheduled runloop cycle.
         if controller.updater.automaticallyChecksForUpdates {
             controller.updater.checkForUpdatesInBackground()
         }

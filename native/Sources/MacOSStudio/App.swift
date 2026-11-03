@@ -10,9 +10,10 @@ import StudioCore
         WindowGroup("macOS Studio") {
             StudioView(model: model)
                 .frame(minWidth: 980, minHeight: 720)
-                .onAppear {
+                .task {
                     delegate.model = model
                     updates.isBusy = { model.busy || model.loading || model.scanning || model.localScanning }
+                    await updates.checkOnLaunch()
                 }
         }
         .defaultSize(width: 1140, height: 850)
