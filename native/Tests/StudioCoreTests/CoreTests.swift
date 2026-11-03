@@ -97,6 +97,16 @@ final class CoreTests {
         XCTAssertTrue(rejected)
         XCTAssertTrue(fm.fileExists(atPath: app.path))
         let current = try XCTUnwrap(LocalInstaller.inspect(app.path))
+        let trash = root.appendingPathComponent("Trash")
+        try fm.createDirectory(at: trash, withIntermediateDirectories: true)
+        let move = try current.authorizedTrashCommand(trashDirectory: trash)
+        XCTAssertTrue(move.contains("/bin/mv -n"))
+        XCTAssertTrue(move.contains(shellQuote(app.path)))
+        let linkedTrash = root.appendingPathComponent("LinkedTrash")
+        try fm.createSymbolicLink(at: linkedTrash, withDestinationURL: trash)
+        var linkRejected = false
+        do { _ = try current.authorizedTrashCommand(trashDirectory: linkedTrash) } catch { linkRejected = true }
+        XCTAssertTrue(linkRejected)
         try current.moveToTrash()
         XCTAssertFalse(fm.fileExists(atPath: app.path))
     }

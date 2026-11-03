@@ -122,7 +122,23 @@ import StudioCore
         busy = true
         localNotice = "Installer wird in den Papierkorb verschoben …"
         do {
-            try await Task.detached(priority: .utility) { try item.moveToTrash() }.value
+            do {
+                try await Task.detached(priority: .utility) { try item.moveToTrash() }.value
+            } catch {
+                let problem = error as NSError
+                guard problem.domain == NSCocoaErrorDomain && [NSFileWriteNoPermissionError, NSFileReadNoPermissionError].contains(problem.code) else { throw error }
+                localNotice = "Administratorfreigabe zum Verschieben in den Papierkorb erforderlich …"
+                let trash = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
+                let shell = try await Task.detached(priority: .utility) {
+                    try item.authorizedTrashCommand(trashDirectory: trash)
+                }.value
+                let result = try await Command().run("/usr/bin/osascript",
+                    ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
+                guard result.status == 0 else {
+                    throw failure(result.output.contains("(-128)") ? "Entfernen abgebrochen. Der Installer bleibt erhalten." : "Installer konnte mit Administratorfreigabe nicht in den Papierkorb verschoben werden.\n" + result.output)
+                }
+                guard !FileManager.default.fileExists(atPath: item.path) else { throw failure("Der Installer wurde nicht verschoben. Bitte erneut prüfen.") }
+            }
             extraLocalPaths.remove(item.path)
             if selectedInstaller == item.path { selectedInstaller = "" }
             if completedPath == item.path { completedPath = "" }

@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 public struct LocalInstaller: Identifiable, Equatable, Sendable {
     public var id: String { path }
@@ -85,6 +86,22 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
                               created: attributes[.creationDate] as? Date,
                               modified: attributes[.modificationDate] as? Date,
                               preparationIssue: preparationIssue(at: url.path))
+    }
+
+    /// Only prepare a recoverable move for the exact installer the user confirmed.
+    public func authorizedTrashCommand(trashDirectory: URL) throws -> String {
+        guard Self.inspect(path) == self,
+              trashDirectory.standardizedFileURL.resolvingSymlinksInPath().path == trashDirectory.standardizedFileURL.path,
+              let attributes = try? FileManager.default.attributesOfItem(atPath: trashDirectory.path),
+              attributes[.type] as? FileAttributeType == .typeDirectory,
+              (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid() else {
+            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: "Installer oder Papierkorb wurde verändert. Bitte die Liste aktualisieren."])
+        }
+        let destination = trashDirectory.appendingPathComponent(UUID().uuidString + "-" + URL(fileURLWithPath: path).lastPathComponent).path
+        let source = shellQuote(path)
+        return "test ! -L " + source + " && test -d " + source
+            + " && test ! -e " + shellQuote(destination)
+            + " && /bin/mv -n " + source + " " + shellQuote(destination)
     }
 
     /// Revalidate the exact bundle shown in the confirmation before moving it.
