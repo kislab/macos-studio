@@ -8,7 +8,7 @@ import StudioCore
     @StateObject private var updates = AppUpdates()
     var body: some Scene {
         WindowGroup("macOS Studio") {
-            StudioView(model: model)
+            StudioView(updates: updates, model: model)
                 .frame(minWidth: 980, minHeight: 720)
                 .task {
                     delegate.model = model
@@ -60,6 +60,7 @@ import StudioCore
 }
 
 struct StudioView: View {
+    @ObservedObject var updates: AppUpdates
     @ObservedObject var model: StudioModel
     @StateObject private var ui = ViewState()
     var body: some View {
@@ -75,6 +76,19 @@ struct StudioView: View {
                     navigation("usb", "USB erstellen", "externaldrive")
                 }
                 Spacer()
+                if let version = updates.availableVersion {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Update verfügbar", systemImage: "arrow.down.circle.fill")
+                            .font(.caption.weight(.semibold)).foregroundStyle(.blue)
+                        Text("Version " + version).font(.caption).foregroundStyle(.secondary)
+                        Button("Update öffnen …") { updates.check() }
+                            .buttonStyle(.borderedProminent).controlSize(.small)
+                            .disabled(!updates.canCheck || model.busy || model.loading || model.scanning || model.localScanning)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                }
                 Text("Von Apple geladen.\nFür deinen Mac vorbereitet.")
                     .font(.caption).foregroundStyle(.secondary).lineSpacing(5)
                 Button("Programme im Finder", systemImage: "folder") {

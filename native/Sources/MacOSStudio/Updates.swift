@@ -4,12 +4,22 @@ import Sparkle
 
 @MainActor final class AppUpdates: NSObject, ObservableObject, SPUUpdaterDelegate {
     @Published var canCheck = false
+    @Published private(set) var availableVersion: String?
     var isBusy: () -> Bool = { false }
     private(set) lazy var controller = SPUStandardUpdaterController(
         startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
 
     override init() {
         super.init()
+        let defaults = UserDefaults.standard
+        let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        if let build = defaults.string(forKey: "availableUpdateBuild"),
+           build.compare(current, options: .numeric) == .orderedDescending {
+            availableVersion = defaults.string(forKey: "availableUpdateVersion")
+        } else {
+            defaults.removeObject(forKey: "availableUpdateBuild")
+            defaults.removeObject(forKey: "availableUpdateVersion")
+        }
         controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
     }
 
@@ -32,6 +42,12 @@ import Sparkle
     }
 
     func check() { controller.checkForUpdates(nil) }
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        availableVersion = item.displayVersionString
+        UserDefaults.standard.set(item.versionString, forKey: "availableUpdateBuild")
+        UserDefaults.standard.set(item.displayVersionString, forKey: "availableUpdateVersion")
+    }
 
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
         if isBusy() {
