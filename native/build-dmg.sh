@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 APP="$PWD/macOS Studio.app"
-OUTPUT="$PWD/macOS-Studio-1.2.2-Universal.dmg"
+OUTPUT="$PWD/macOS-Studio-1.2.3-Universal.dmg"
 if [ ! -x "$APP/Contents/MacOS/MacOSStudio" ]; then
     ./native/build-app.sh
 fi
@@ -18,7 +18,7 @@ STAGING="$(mktemp -d "${TMPDIR:-/tmp}/macos-studio-dmg.XXXXXX")"
 ditto "$APP" "$STAGING/macOS Studio.app"
 ln -s /Applications "$STAGING/Programme"
 cat > "$STAGING/Installation.txt" <<'TXT'
-macOS Studio 1.2.2 — Universal für Intel und Apple Silicon
+macOS Studio 1.2.3 — Universal für Intel und Apple Silicon
 
 Installation:
 1. „macOS Studio.app“ auf „Programme“ ziehen.

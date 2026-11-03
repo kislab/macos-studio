@@ -152,6 +152,38 @@ import StudioCore
     func download(_ item: Installer) async {
         guard !busy && !loading else { return }
         guard Installer.validVersion(item.version) else { error = "Bitte eine Version wie 15.7.2 eingeben."; return }
+        busy = true
+        status = "Vorhandene Installer werden geprüft …"
+        completedPath = ""; error = nil
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let roots = ["/Applications", home.appendingPathComponent("Applications").path,
+                     home.appendingPathComponent("Downloads").path, home.appendingPathComponent("Desktop").path]
+        let known = Array(extraLocalPaths.union(localInstallers))
+        let found = await Task.detached(priority: .utility) {
+            LocalInstaller.discover(roots: roots, known: known)
+        }.value
+        localItems = found
+        extraLocalPaths.formUnion(found.map(\.path))
+        refreshLocal()
+        busy = false
+        if let existing = found.first(where: { $0.matches(item) }) {
+            completedPath = existing.path; selectedInstaller = existing.path
+            activeTitle = item.title + " " + item.version
+            progress = 100; total = Double(existing.bytes ?? 0); amount = total; mbits = nil
+            status = "Passender Installer bereits vorhanden – kein Download nötig"
+            log = "Vorhandener Installer: \(existing.path)\n"
+            error = "Dieser Installer ist bereits vorhanden:\n\(existing.path)\n\nVersion und Installationsdaten wurden erkannt. Er wurde für die USB-Erstellung ausgewählt; ein erneuter Download ist nicht nötig."
+            return
+        }
+        if let existing = found.first(where: { $0.name.localizedCaseInsensitiveContains(item.title) }) {
+            status = "Vorhandenen Installer prüfen"
+            if let issue = existing.preparationIssue {
+                error = "\(existing.path)\n\n\(issue)\nBitte unter „Installer lokal“ in den Papierkorb verschieben und danach erneut laden."
+            } else {
+                error = "Ein Installer dieser macOS-Reihe ist bereits vorhanden:\n\(existing.path)\n\nDie gewünschte Version \(item.version) (\(item.build)) konnte nicht bestätigt werden. Bitte unter „Installer lokal“ prüfen. Für einen neuen Download den vorhandenen Installer zuerst an einen anderen Ort verschieben oder in den Papierkorb legen."
+            }
+            return
+        }
         let free = ((try? FileManager.default.attributesOfFileSystem(forPath: "/Applications")[.systemFreeSize]) as? NSNumber)?.doubleValue ?? 0
         guard free > max(item.bytes * 2 + 5e9, 20e9) else { error = "Nicht genügend freier Speicher für Download und Entpacken."; return }
         busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version

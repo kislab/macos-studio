@@ -29,6 +29,24 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
         return nil
     }
 
+    /// Read target OS metadata, never the InstallAssistant application's own version.
+    public func matches(_ installer: Installer) -> Bool {
+        guard preparationIssue == nil else { return false }
+        let support = URL(fileURLWithPath: path).appendingPathComponent("Contents/SharedSupport")
+        for filename in ["InstallInfo.plist", "com_apple_MobileAsset_MacSoftwareUpdate.xml"] {
+            guard let data = try? Data(contentsOf: support.appendingPathComponent(filename)),
+                  let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { continue }
+            var records = plist["Assets"] as? [[String: Any]] ?? []
+            if let info = plist["System Image Info"] as? [String: Any] { records.append(info) }
+            for record in records {
+                let version = record["OSVersion"] as? String ?? record["version"] as? String
+                let build = record["Build"] as? String ?? record["build"] as? String
+                if version == installer.version && (installer.build == "Manuell" || build == installer.build) { return true }
+            }
+        }
+        return false
+    }
+
     public static func discover(roots: [String], known: [String]) -> [LocalInstaller] {
         var paths = Set(known)
         for root in roots {
