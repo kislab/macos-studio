@@ -2,18 +2,52 @@ import SwiftUI
 import AppKit
 import StudioCore
 
+@MainActor final class StartupState: ObservableObject {
+    @Published var starting = true
+    @Published var phase = "Lade Katalog …"
+    var started = false
+}
+
 @main struct MacOSStudioApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var model = StudioModel()
     @StateObject private var updates = AppUpdates()
+    @StateObject private var startup = StartupState()
     var body: some Scene {
         WindowGroup("macOS Studio") {
-            StudioView(updates: updates, model: model)
+            Group {
+                if startup.starting {
+                    VStack(spacing: 24) {
+                        Image(nsImage: NSApplication.shared.applicationIconImage)
+                            .resizable().scaledToFit().frame(width: 116, height: 116)
+                            .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+                        Text("macOS Studio").font(.system(size: 38, weight: .bold))
+                        Text("Dein nächstes macOS wird vorbereitet.")
+                            .font(.title3).foregroundStyle(.secondary)
+                        ProgressView().controlSize(.large).padding(.top, 12)
+                        Text(startup.phase).font(.headline).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(LinearGradient(colors: [Color.blue.opacity(0.09), Color(nsColor: .windowBackgroundColor)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                } else {
+                    StudioView(updates: updates, model: model)
+                }
+            }
                 .frame(minWidth: 980, minHeight: 720)
                 .task {
+                    guard !startup.started else { return }
+                    startup.started = true
                     delegate.model = model
                     updates.isBusy = { model.busy || model.loading || model.scanning || model.localScanning }
+                    await model.loadCatalog()
+                    startup.phase = "Prüfe auf Updates …"
                     await updates.checkOnLaunch()
+                    let deadline = Date().addingTimeInterval(15)
+                    while updates.startupPending && Date() < deadline {
+                        do { try await Task.sleep(nanoseconds: 100_000_000) }
+                        catch { break }
+                    }
+                    startup.starting = false
                 }
         }
         .defaultSize(width: 1140, height: 850)
@@ -108,7 +142,6 @@ struct StudioView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .tint(.blue)
-        .task { await model.loadCatalog() }
         .alert("Hinweis", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }

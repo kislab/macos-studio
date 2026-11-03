@@ -4,6 +4,7 @@ import Sparkle
 
 @MainActor final class AppUpdates: NSObject, ObservableObject, SPUUpdaterDelegate {
     @Published var canCheck = false
+    @Published private(set) var startupPending = false
     @Published private(set) var availableVersion: String?
     var isBusy: () -> Bool = { false }
     private(set) lazy var controller = SPUStandardUpdaterController(
@@ -33,12 +34,13 @@ import Sparkle
             do { try await Task.sleep(nanoseconds: 500_000_000) }
             catch { startupCheckStarted = false; return }
         }
+        startupPending = true
         controller.startUpdater()
         // Background launch check only offers newer releases; no up-to-date dialog.
         // Invoke before Sparkle's next scheduled runloop cycle.
         if controller.updater.automaticallyChecksForUpdates {
             controller.updater.checkForUpdatesInBackground()
-        }
+        } else { startupPending = false }
     }
 
     // A unique query avoids stale GitHub/CDN and URL-loading caches for each check.
@@ -48,6 +50,14 @@ import Sparkle
               var url = URLComponents(string: feed) else { return nil }
         url.queryItems = (url.queryItems ?? []) + [URLQueryItem(name: "check", value: UUID().uuidString)]
         return url.url?.absoluteString
+    }
+
+    func updater(_ updater: SPUUpdater, didFinishLoading appcast: SUAppcast) {
+        startupPending = false
+    }
+
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
+        startupPending = false
     }
 
     func check() { controller.checkForUpdates(nil) }
