@@ -141,6 +141,27 @@ final class CoreTests {
     }
 }
 
+extension CoreTests {
+    func testTerminalJob() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("studio-check-" + UUID().uuidString)
+        let job = TerminalJob(directory: dir)
+        defer { job.remove() }
+        let text = job.scriptText(rootCommand: "echo 'it''s' && true", headline: "Test")
+        XCTAssertTrue(text.hasPrefix("#!/bin/zsh\n"))
+        XCTAssertTrue(text.contains("/usr/bin/sudo /bin/bash -c 'echo '\\''it'\\'''\\''s'\\'' && true'"))
+        try job.write(rootCommand: "true", headline: "Test")
+        let attrs = try FileManager.default.attributesOfItem(atPath: job.script.path)
+        XCTAssertEqual((attrs[.posixPermissions] as? NSNumber)?.intValue, 0o500)
+        XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: dir.path)[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+        XCTAssertNil(job.exitStatus())
+        try Data("250\n".utf8).write(to: job.statusFile)
+        XCTAssertEqual(job.exitStatus(), 250)
+        var failed = false
+        do { try job.write(rootCommand: "true", headline: "Test") } catch { failed = true }
+        XCTAssertTrue(failed)
+    }
+}
+
 @main struct Checks {
     static func main() async throws {
         let tests = CoreTests()
@@ -150,6 +171,7 @@ final class CoreTests {
         try tests.testDiskValidationFailsClosed()
         tests.testQuoting()
         try tests.testLocalInstallerProtection()
+        try tests.testTerminalJob()
         let normal = try await Command().run("/usr/bin/printf", ["Installing: 42.5%%\rInstalling: 100%%"], timeout: 5)
         XCTAssertEqual(normal.status, 0)
         XCTAssertEqual(ProgressSample.parse(normal.output)?.percent, 100)
@@ -160,6 +182,6 @@ final class CoreTests {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("9 Swift test groups passed: local installers/trash, catalog, versions, metrics, disk protection, quoting, output, timeout, cancellation")
+        print("10 Swift test groups passed: local installers/trash, catalog, versions, metrics, disk protection, quoting, terminal job, output, timeout, cancellation")
     }
 }

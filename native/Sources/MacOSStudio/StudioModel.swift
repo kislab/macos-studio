@@ -35,11 +35,11 @@ import StudioCore
     @Published var error: String?
     /// Privacy pane anchor to offer with the current error, if any.
     @Published var privacyPane: String?
-    static let fullDiskAccessHint = "macOS Studio benötigt Festplattenvollzugriff, damit Apples createinstallmedia den USB-Stick fertigstellen kann. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff „macOS Studio“ aktivieren. Ist die App dort schon aktiv, den Eintrag mit „–“ entfernen und neu hinzufügen: Nach jedem Update erkennt macOS die ad-hoc signierte App sonst nicht wieder. Danach macOS Studio beenden, neu öffnen und die USB-Erstellung erneut starten."
-    /// Reading the system TCC database is only possible with Full Disk Access.
-    static var hasFullDiskAccess: Bool {
-        FileHandle(forReadingAtPath: "/Library/Application Support/com.apple.TCC/TCC.db") != nil
-    }
+    static let terminalAccessHint = "macOS hat Terminal den Schreibzugriff auf den USB-Stick verweigert (250). Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff „Terminal“ aktivieren, Terminal beenden und die USB-Erstellung erneut starten. Alternativ genügt bei „Dateien und Ordner“ für Terminal der Zugriff auf „Wechselmedien“."
+    /// Set while waiting for the Terminal window; lets the user stop waiting.
+    @Published var waitingForTerminal = false
+    private var stopWaitingRequested = false
+    func stopWaitingForTerminal() { stopWaitingRequested = true }
     @Published var completedPath = ""
     private var command: Command?
     private var metrics = ProgressMetrics()
@@ -350,18 +350,6 @@ import StudioCore
             guard checked == target else { throw failure("Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.") }
             let tool = selectedInstaller + "/Contents/Resources/createinstallmedia"
             if let issue = LocalInstaller.preparationIssue(at: selectedInstaller) { throw failure(issue) }
-            // Ask for the Removable Volumes permission from the app itself before erasing anything.
-            // The elevated createinstallmedia process is attributed to this app by macOS privacy control.
-            do { _ = try FileManager.default.contentsOfDirectory(atPath: target.mount) }
-            catch {
-                privacyPane = "Privacy_RemovableVolume"
-                throw failure("macOS erlaubt macOS Studio keinen Zugriff auf Wechselmedien. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Dateien und Ordner bei macOS Studio „Wechselmedien“ aktivieren und die USB-Erstellung erneut starten. Der USB-Stick wurde nicht verändert.")
-            }
-            // createinstallmedia writes .IAPhysicalMedia only with Full Disk Access for the responsible app.
-            guard Self.hasFullDiskAccess else {
-                privacyPane = "Privacy_AllFiles"
-                throw failure(Self.fullDiskAccessHint + " Der USB-Stick wurde nicht verändert.")
-            }
             var preparation: USBPreparation?
             let info = try await diskPlist(target.identifier)
             if info["FilesystemType"] as? String == "apfs" {
@@ -390,19 +378,39 @@ import StudioCore
             let volume = preparation == nil ? target.mount : preparedMount
             let setup = preparation.map { $0.shellCommand(name: preparedName, mount: preparedMount) + " && " } ?? ""
             let shell = safety + " && " + setup + shellQuote(tool) + " --volume " + shellQuote(volume) + " --nointeraction"
-            status = "Administratorfreigabe bestätigen. Anschließend wird der USB-Stick erstellt …"
-            appendLog("Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nApple liefert die Ausgabe dieses administrativen Vorgangs nach Abschluss.\n")
-            let result = try await Command().run("/usr/bin/osascript", ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
-            appendLog(result.output)
-            guard result.status == 0 else {
-                if result.output.localizedCaseInsensitiveContains("does not appear to be a valid OS installer") {
-                    throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + result.output)
+            // Run via Terminal: with AppleScript admin privileges macOS attributes the write to the
+            // system authtrampoline, which cannot be granted access, and createinstallmedia fails (250).
+            let job = TerminalJob(directory: FileManager.default.temporaryDirectory.appendingPathComponent("macOSStudio-USB-" + UUID().uuidString))
+            defer { job.remove() }
+            try job.write(rootCommand: shell, headline: "macOS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht")
+            appendLog("Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster. Dort Passwort eingeben; der Fortschritt erscheint dort live.\n")
+            let config = NSWorkspace.OpenConfiguration(); config.activates = true
+            guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { throw failure("Terminal wurde nicht gefunden.") }
+            do { _ = try await NSWorkspace.shared.open([job.script], withApplicationAt: terminal, configuration: config) }
+            catch { throw failure("Terminal konnte nicht geöffnet werden: " + error.localizedDescription) }
+            status = "Im Terminal-Fenster das Mac-Passwort eingeben. Der USB-Stick wird dort erstellt …"
+            stopWaitingRequested = false; waitingForTerminal = true
+            defer { waitingForTerminal = false }
+            var exit: Int32?
+            while exit == nil {
+                if stopWaitingRequested { throw failure("Warten beendet. Läuft der Vorgang im Terminal noch, bitte dort abschließen lassen. Den USB-Stick erst danach verwenden oder auswerfen.") }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                exit = job.exitStatus()
+            }
+            let output = job.output()
+            appendLog(output)
+            guard exit == 0 else {
+                if output.localizedCaseInsensitiveContains("does not appear to be a valid OS installer") {
+                    throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + output)
                 }
-                if result.output.contains("Operation not permitted") || result.output.contains(".IAPhysicalMedia") {
+                if output.contains("Operation not permitted") || output.contains(".IAPhysicalMedia") {
                     privacyPane = "Privacy_AllFiles"
-                    throw failure("macOS hat createinstallmedia den Schreibzugriff auf den USB-Stick verweigert (250). " + Self.fullDiskAccessHint + "\n\n" + result.output)
+                    throw failure(Self.terminalAccessHint + "\n\n" + output)
                 }
-                throw failure(result.output.isEmpty ? "USB-Erstellung fehlgeschlagen." : result.output)
+                if exit == 1 && output.localizedCaseInsensitiveContains("sudo") {
+                    throw failure("Die Administratorfreigabe im Terminal ist fehlgeschlagen. Der USB-Stick wurde nicht verändert.\n\n" + output)
+                }
+                throw failure(output.isEmpty ? "USB-Erstellung fehlgeschlagen (Code \(exit ?? -1))." : output)
             }
             progress = 100; status = "Bootfähiger USB-Stick ist bereit"
         } catch { status = "USB-Erstellung nicht abgeschlossen"; self.error = error.localizedDescription }

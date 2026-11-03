@@ -194,7 +194,7 @@ struct StudioView: View {
             Button("Laufwerk löschen und Installer erstellen", role: .destructive) { Task { await model.flash() } }
             Button("Abbrechen", role: .cancel) {}
         } message: {
-            Text("Alle Daten auf „\(model.disk?.name ?? "")“ (\(model.disk?.mount ?? ""), \(String(format: "%.1f", (model.disk?.bytes ?? 0) / 1e9)) GB) werden gelöscht. APFS wird bei einem Container mit genau einem Volume automatisch als Mac OS Extended vorbereitet. Danach wird der Installer geschrieben. Es folgt die macOS-Administratorfreigabe.")
+            Text("Alle Daten auf „\(model.disk?.name ?? "")“ (\(model.disk?.mount ?? ""), \(String(format: "%.1f", (model.disk?.bytes ?? 0) / 1e9)) GB) werden gelöscht. APFS wird bei einem Container mit genau einem Volume automatisch als Mac OS Extended vorbereitet. Danach öffnet sich Terminal: Dort das Mac-Passwort eingeben, der Installer wird anschließend geschrieben.")
         }
     }
     private func navigation(_ id: String, _ title: String, _ symbol: String) -> some View {
@@ -440,6 +440,7 @@ struct StudioView: View {
                 Label(model.activeTitle, systemImage: model.flashing ? "externaldrive" : "arrow.down.circle.fill").font(.headline)
                 Spacer()
                 if model.busy && !model.flashing { Button("Abbrechen", role: .destructive) { model.cancel() } }
+                if model.waitingForTerminal { Button("Warten beenden") { model.stopWaitingForTerminal() } }
                 if let pct = model.progress { Text(String(format: "%.1f %%", pct)).monospacedDigit().foregroundStyle(.blue) }
             }
             if let pct = model.progress { ProgressView(value: pct, total: 100) }
