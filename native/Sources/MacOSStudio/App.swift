@@ -174,7 +174,7 @@ struct StudioView: View {
             Button("Laufwerk löschen und Installer erstellen", role: .destructive) { Task { await model.flash() } }
             Button("Abbrechen", role: .cancel) {}
         } message: {
-            Text("Alle Daten auf „\(model.disk?.name ?? "")“ (\(model.disk?.mount ?? ""), \(String(format: "%.1f", (model.disk?.bytes ?? 0) / 1e9)) GB) werden gelöscht. Danach folgt die macOS-Administratorfreigabe.")
+            Text("Alle Daten auf „\(model.disk?.name ?? "")“ (\(model.disk?.mount ?? ""), \(String(format: "%.1f", (model.disk?.bytes ?? 0) / 1e9)) GB) werden gelöscht. APFS wird bei einem Container mit genau einem Volume automatisch als Mac OS Extended vorbereitet. Danach wird der Installer geschrieben. Es folgt die macOS-Administratorfreigabe.")
         }
     }
     private func navigation(_ id: String, _ title: String, _ symbol: String) -> some View {

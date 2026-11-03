@@ -48,7 +48,23 @@ final class CoreTests {
     }
     func testDiskValidationFailsClosed() throws {
         var info: [String: Any] = ["Internal": false, "MountPoint": "/Volumes/Test", "DeviceIdentifier": "disk4s1", "VolumeUUID": "ABC", "TotalSize": 32e9, "BusProtocol": "USB"]
-        XCTAssertNotNil(ExternalDisk.validated(info))
+        let target = try XCTUnwrap(ExternalDisk.validated(info))
+        var container: [String: Any] = ["ContainerReference": "disk4", "APFSContainerUUID": "CONTAINER", "Volumes": [["DeviceIdentifier": "disk4s1", "APFSVolumeUUID": "ABC"]], "PhysicalStores": [["DeviceIdentifier": "disk3s2", "DiskUUID": "STORE"]]]
+        var store: [String: Any] = ["DeviceIdentifier": "disk3s2", "DiskUUID": "STORE", "Internal": false, "BusProtocol": "USB"]
+        let plan = try XCTUnwrap(USBPreparation(target: target, container: container, storeInfo: store))
+        let shell = plan.shellCommand(name: "Test", mount: "/Volumes/Test")
+        XCTAssertTrue(shell.contains("deleteContainer"))
+        XCTAssertFalse(shell.contains("eraseDisk"))
+        let syntax = Process()
+        syntax.executableURL = URL(fileURLWithPath: "/bin/sh")
+        syntax.arguments = ["-n", "-c", shell]
+        try syntax.run(); syntax.waitUntilExit()
+        XCTAssertEqual(syntax.terminationStatus, 0)
+        store["Internal"] = true
+        XCTAssertNil(USBPreparation(target: target, container: container, storeInfo: store))
+        store["Internal"] = false
+        container["Volumes"] = [["DeviceIdentifier": "disk4s1", "APFSVolumeUUID": "ABC"], ["DeviceIdentifier": "disk4s2", "APFSVolumeUUID": "OTHER"]]
+        XCTAssertNil(USBPreparation(target: target, container: container, storeInfo: store))
         info["Internal"] = true
         XCTAssertNil(ExternalDisk.validated(info))
         info.removeValue(forKey: "Internal")

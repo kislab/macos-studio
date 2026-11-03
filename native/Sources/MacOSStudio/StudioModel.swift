@@ -319,6 +319,12 @@ import StudioCore
               let disk = ExternalDisk.validated(plist) else { throw failure("Kein geeignetes externes USB-Volume.") }
         return disk
     }
+    private func diskPlist(_ identifier: String) async throws -> [String: Any] {
+        let result = try await Command().run("/usr/sbin/diskutil", ["info", "-plist", identifier], timeout: 5)
+        guard result.status == 0, !result.timedOut,
+              let info = try PropertyListSerialization.propertyList(from: Data(result.output.utf8), format: nil) as? [String: Any] else { throw failure("Laufwerksinformationen konnten nicht gelesen werden.") }
+        return info
+    }
     func flash() async {
         guard canFlash, let target = disk, validInstaller(selectedInstaller) else { return }
         busy = true; flashing = true; progress = nil; amount = nil; mbits = nil; total = 0
@@ -330,13 +336,34 @@ import StudioCore
             guard checked == target else { throw failure("Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.") }
             let tool = selectedInstaller + "/Contents/Resources/createinstallmedia"
             if let issue = LocalInstaller.preparationIssue(at: selectedInstaller) { throw failure(issue) }
+            var preparation: USBPreparation?
+            let info = try await diskPlist(target.identifier)
+            if info["FilesystemType"] as? String == "apfs" {
+                let result = try await Command().run("/usr/sbin/diskutil", ["apfs", "list", "-plist"], timeout: 10)
+                guard result.status == 0,
+                      let list = try PropertyListSerialization.propertyList(from: Data(result.output.utf8), format: nil) as? [String: Any],
+                      let containers = list["Containers"] as? [[String: Any]],
+                      let container = containers.first(where: { ($0["ContainerReference"] as? String) == (info["APFSContainerReference"] as? String) }),
+                      let stores = container["PhysicalStores"] as? [[String: Any]], stores.count == 1,
+                      let store = stores[0]["DeviceIdentifier"] as? String else { throw failure("APFS-Ziel konnte nicht sicher zugeordnet werden.") }
+                let physical = try await diskPlist(store)
+                guard let plan = USBPreparation(target: target, container: container, storeInfo: physical) else {
+                    throw failure("Dieser APFS-Container enthält weitere Volumes oder lässt sich keinem einzelnen externen USB-Speicher zuordnen. Automatische Formatierung wurde gestoppt, um andere Daten zu schützen.")
+                }
+                preparation = plan
+            }
             // Direct, escaped command; no writable temporary root shell script.
             // Recheck UUID and Internal under elevation immediately before invoking Apple's tool.
             let lookup = "/usr/sbin/diskutil info -plist " + shellQuote(target.identifier)
             let checkUUID = "$(" + lookup + " | /usr/bin/plutil -extract VolumeUUID raw -o - -)"
             let checkInternal = "$(" + lookup + " | /usr/bin/plutil -extract Internal raw -o - -)"
             let checkMount = "$(" + lookup + " | /usr/bin/plutil -extract MountPoint raw -o - -)"
-            let shell = "test \"" + checkUUID + "\" = " + shellQuote(target.uuid) + " && test \"" + checkInternal + "\" = false && test \"" + checkMount + "\" = " + shellQuote(target.mount) + " && " + shellQuote(tool) + " --volume " + shellQuote(target.mount) + " --nointeraction"
+            let safety = "test \"" + checkUUID + "\" = " + shellQuote(target.uuid) + " && test \"" + checkInternal + "\" = false && test \"" + checkMount + "\" = " + shellQuote(target.mount)
+            let preparedName = "macOSStudio-" + UUID().uuidString.prefix(8)
+            let preparedMount = "/Volumes/" + preparedName
+            let volume = preparation == nil ? target.mount : preparedMount
+            let setup = preparation.map { $0.shellCommand(name: preparedName, mount: preparedMount) + " && " } ?? ""
+            let shell = safety + " && " + setup + shellQuote(tool) + " --volume " + shellQuote(volume) + " --nointeraction"
             status = "Administratorfreigabe bestätigen. Anschließend wird der USB-Stick erstellt …"
             appendLog("Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nApple liefert die Ausgabe dieses administrativen Vorgangs nach Abschluss.\n")
             let result = try await Command().run("/usr/bin/osascript", ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
