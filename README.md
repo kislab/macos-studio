@@ -8,7 +8,7 @@
 
 ## Installation
 
-1. Die **macOS-Studio-1.2.17-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
+1. Die **macOS-Studio-1.2.18-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
 2. Die DMG öffnen und **macOS Studio** auf **Programme** ziehen.
 3. Die DMG auswerfen und die App aus Programme starten.
 
@@ -47,14 +47,14 @@ Gesucht wird in `/Applications` sowie Programme, Downloads und Schreibtisch im B
 
 Die Erstellung **löscht das ausgewählte Ziel-Volume**. Nach der Zielbestätigung öffnet sich Terminal; dort wird das Mac-Passwort für `sudo` eingegeben. Interne Laufwerke werden ausgeschlossen; Volume-UUID, Mountpoint und intern/extern werden vor dem Schreiben erneut geprüft.
 
-Der Fortschritt von `createinstallmedia` erscheint live im Terminal-Fenster; das Protokoll übernimmt die App nach Abschluss. Terminal benötigt einmalig Zugriff auf Wechselmedien oder Festplattenvollzugriff. Der Weg über Terminal ist nötig, weil macOS den Schreibzugriff bei AppleScript-Administratorrechten dem Systemdienst `authtrampoline` zuordnet und `createinstallmedia` dann mit Fehler 250 abbricht.
+Schritte, Prozentangaben und Protokoll von `createinstallmedia` erscheinen live im Terminal-Fenster und gleichzeitig in der App. Terminal benötigt einmalig Zugriff auf Wechselmedien oder Festplattenvollzugriff. Der Weg über Terminal ist nötig, weil macOS den Schreibzugriff bei AppleScript-Administratorrechten dem Systemdienst `authtrampoline` zuordnet und `createinstallmedia` dann mit Fehler 250 abbricht.
 
 ## Bekannte Grenzen und Teststand
 
 - Die Kompatibilitätsdatenbank ist lokal gespeichert und keine aktuelle Live-Auskunft von Apple.
 - Nicht jedes historische Modell und nicht jeder zukünftige macOS-Release ist enthalten.
 - Ein Test auf echter Intel-Hardware steht aus; beide Architekturen sind im Build enthalten.
-- Oberfläche, Apple-Katalogabfrage, USB-Erkennung und zehn automatisierte Prüfgruppen wurden geprüft.
+- Oberfläche, Apple-Katalogabfrage, USB-Erkennung und elf automatisierte Prüfgruppen wurden geprüft.
 - Ein vollständiger Installer-Download und ein echter USB-Schreibvorgang wurden für dieses Release nicht durchgetestet.
 
 ## Selbst bauen

@@ -191,7 +191,7 @@ struct StudioView: View {
             Text("\(ui.trashTarget?.name ?? "")\n\(ui.trashTarget?.path ?? "")\n\nDer Installer kann anschließend über den Papierkorb wiederhergestellt werden. Dein installiertes macOS wird nicht gelöscht.")
         }
         .confirmationDialog("USB-Laufwerk vollständig löschen?", isPresented: $ui.confirmErase, titleVisibility: .visible) {
-            Button("Laufwerk löschen und Installer erstellen", role: .destructive) { Task { await model.flash() } }
+            Button("Laufwerk löschen und Installer erstellen", role: .destructive) { ui.details = true; Task { await model.flash() } }
             Button("Abbrechen", role: .cancel) {}
         } message: {
             Text("Alle Daten auf „\(model.disk?.name ?? "")“ (\(model.disk?.mount ?? ""), \(String(format: "%.1f", (model.disk?.bytes ?? 0) / 1e9)) GB) werden gelöscht. APFS wird bei einem Container mit genau einem Volume automatisch als Mac OS Extended vorbereitet. Danach öffnet sich Terminal: Dort das Mac-Passwort eingeben, der Installer wird anschließend geschrieben.")

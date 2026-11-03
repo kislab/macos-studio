@@ -21,8 +21,8 @@ public struct TerminalJob {
         print -r -- \(shellQuote(headline))
         print -r -- 'Bitte dein Mac-Passwort eingeben. Die Eingabe bleibt unsichtbar.'
         print
-        /usr/bin/sudo /bin/bash -c \(shellQuote(rootCommand)) 2>&1 | /usr/bin/tee \(shellQuote(logFile.path))
-        code=${pipestatus[1]}
+        /usr/bin/sudo /usr/bin/script -q -F \(shellQuote(logFile.path)) /bin/bash -c \(shellQuote(rootCommand))
+        code=$?
         print -r -- "$code" > \(shellQuote(statusFile.path + ".tmp")) && /bin/mv \(shellQuote(statusFile.path + ".tmp")) \(status)
         print
         if [[ $code -eq 0 ]]; then print 'Fertig. Du kannst dieses Fenster schließen.'; else print "Fehlgeschlagen (Code $code). Details stehen auch in macOS Studio."; fi

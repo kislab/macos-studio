@@ -386,15 +386,17 @@ import StudioCore
             let preparedName = "macOSStudio-" + UUID().uuidString.prefix(8)
             let preparedMount = "/Volumes/" + preparedName
             let volume = preparation == nil ? target.mount : preparedMount
-            let setup = preparation.map { $0.shellCommand(name: preparedName, mount: preparedMount) + " && " } ?? ""
-            let shell = safety + " && " + setup + shellQuote(tool) + " --volume " + shellQuote(volume) + " --nointeraction"
+            let setup = preparation.map { "echo " + shellQuote(USBProgress.prepareMarker) + " && " + $0.shellCommand(name: preparedName, mount: preparedMount) + " && " } ?? ""
+            let shell = "echo " + shellQuote(USBProgress.checkMarker) + " && " + safety + " && " + setup
+                + "echo " + shellQuote(USBProgress.startMarker) + " && " + shellQuote(tool) + " --volume " + shellQuote(volume) + " --nointeraction"
             // Run via Terminal: with AppleScript admin privileges macOS attributes the write to the
             // system authtrampoline, which cannot be granted access, and createinstallmedia fails (250).
             let job = TerminalJob(directory: FileManager.default.temporaryDirectory.appendingPathComponent("macOSStudio-USB-" + UUID().uuidString))
             // Keep the job while Terminal may still be running (user stopped waiting); the OS cleans temp files.
             defer { if job.exitStatus() != nil { job.remove() } }
             try job.write(rootCommand: shell, headline: "macOS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht")
-            appendLog("Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster. Dort Passwort eingeben; der Fortschritt erscheint dort live.\n")
+            let header = "Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster; Schritte und Fortschritt erscheinen hier live.\n\n"
+            appendLog(header)
             let config = NSWorkspace.OpenConfiguration(); config.activates = true
             guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { throw failure("Terminal wurde nicht gefunden.") }
             do { _ = try await NSWorkspace.shared.open([job.script], withApplicationAt: terminal, configuration: config) }
@@ -403,13 +405,24 @@ import StudioCore
             stopWaitingRequested = false; waitingForTerminal = true
             defer { waitingForTerminal = false }
             var exit: Int32?
+            var shown = ""
             while exit == nil {
                 if stopWaitingRequested { throw failure("Warten beendet. Läuft der Vorgang im Terminal noch, bitte dort abschließen lassen. Den USB-Stick erst danach verwenden oder auswerfen.") }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 exit = job.exitStatus()
+                // Mirror the Terminal output live: current step, percentage and log.
+                let current = job.output()
+                if current != shown {
+                    shown = current
+                    log = header + USBProgress.clean(current)
+                    if let live = USBProgress.parse(current) {
+                        progress = live.percent
+                        status = live.percent.map { "\(live.step) · \(Int($0)) %" } ?? live.step + " …"
+                    }
+                }
             }
-            let output = job.output()
-            appendLog(output)
+            let output = USBProgress.clean(job.output())
+            log = header + output
             guard exit == 0 else {
                 if output.localizedCaseInsensitiveContains("does not appear to be a valid OS installer") {
                     throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + output)
@@ -418,7 +431,7 @@ import StudioCore
                     privacyPane = "Privacy_AllFiles"
                     throw failure(Self.terminalAccessHint + "\n\n" + output)
                 }
-                if exit == 1 && output.localizedCaseInsensitiveContains("sudo") {
+                if exit == 1 && output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     throw failure("Die Administratorfreigabe im Terminal ist fehlgeschlagen. Der USB-Stick wurde nicht verändert.\n\n" + output)
                 }
                 throw failure(output.isEmpty ? "USB-Erstellung fehlgeschlagen (Code \(exit ?? -1))." : output)

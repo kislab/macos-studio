@@ -146,7 +146,7 @@ extension CoreTests {
         defer { job.remove() }
         let text = job.scriptText(rootCommand: "echo 'it''s' && true", headline: "Test")
         XCTAssertTrue(text.hasPrefix("#!/bin/zsh\n"))
-        XCTAssertTrue(text.contains("/usr/bin/sudo /bin/bash -c 'echo '\\''it'\\'''\\''s'\\'' && true'"))
+        XCTAssertTrue(text.contains("/usr/bin/sudo /usr/bin/script -q -F " + shellQuote(job.logFile.path) + " /bin/bash -c 'echo '\\''it'\\'''\\''s'\\'' && true'"))
         try job.write(rootCommand: "true", headline: "Test")
         let attrs = try FileManager.default.attributesOfItem(atPath: job.script.path)
         XCTAssertEqual((attrs[.posixPermissions] as? NSNumber)?.intValue, 0o500)
@@ -157,6 +157,16 @@ extension CoreTests {
         var failed = false
         do { try job.write(rootCommand: "true", headline: "Test") } catch { failed = true }
         XCTAssertTrue(failed)
+    }
+    func testUSBProgress() {
+        XCTAssertNil(USBProgress.parse("Password:"))
+        XCTAssertEqual(USBProgress.parse(USBProgress.checkMarker + "\n"), USBProgress(step: "Ziel-Laufwerk wird geprüft", percent: nil))
+        let erase = "\u{04}\u{08}\u{08}" + USBProgress.startMarker + "\r\nReady to start.\r\nErasing disk: 0%... 10%... 30%... "
+        XCTAssertEqual(USBProgress.parse(erase), USBProgress(step: "USB-Stick wird gelöscht", percent: 30))
+        XCTAssertEqual(USBProgress.parse(erase + "100%\nMaking disk bootable...\n"), USBProgress(step: "USB-Stick wird bootfähig gemacht", percent: nil))
+        XCTAssertEqual(USBProgress.parse(erase + "100%\nMaking disk bootable...\nCopying to disk: 0%... 10%... 40%"), USBProgress(step: "Installer wird auf den USB-Stick kopiert", percent: 40))
+        XCTAssertEqual(USBProgress.parse("Copying to disk: 100%\nInstall media now available at \"/Volumes/X\""), USBProgress(step: "Fertig – USB-Stick ist bereit", percent: nil))
+        XCTAssertEqual(USBProgress.clean("a\u{1B}[2Kb\rc"), "ab\nc")
     }
 }
 
@@ -170,6 +180,7 @@ extension CoreTests {
         tests.testQuoting()
         try tests.testLocalInstallerProtection()
         try tests.testTerminalJob()
+        tests.testUSBProgress()
         let normal = try await Command().run("/usr/bin/printf", ["Installing: 42.5%%\rInstalling: 100%%"], timeout: 5)
         XCTAssertEqual(normal.status, 0)
         XCTAssertEqual(ProgressSample.parse(normal.output)?.percent, 100)
@@ -180,6 +191,6 @@ extension CoreTests {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("10 Swift test groups passed: local installers/trash, catalog, versions, metrics, disk protection, quoting, terminal job, output, timeout, cancellation")
+        print("11 Swift test groups passed: local installers/trash, catalog, versions, metrics, disk protection, quoting, terminal job, USB progress, output, timeout, cancellation")
     }
 }

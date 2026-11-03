@@ -1,3 +1,7 @@
+Version 1.2.18
+
+• USB erstellen: Schritte und Fortschritt erscheinen jetzt live auch in macOS Studio – Ziel prüfen, USB vorbereiten, Löschen, Kopieren und Bootfähig machen, jeweils mit Prozentangabe von Apple. Das Protokoll öffnet sich automatisch und läuft mit.
+
 Version 1.2.17
 
 • Installer löschen: Von Apple geladene Installer gehören dem System. Das Verschieben in den Papierkorb mit Administratorfreigabe scheiterte bisher am macOS-Datenschutz für den Papierkorb. Jetzt überträgt die Freigabe nur den Besitz des bestätigten Installers an dich; danach verschiebt die App ihn normal und wiederherstellbar in den Papierkorb.
