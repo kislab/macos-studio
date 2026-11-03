@@ -106,7 +106,7 @@ struct StudioView: View {
                 VStack(spacing: 6) {
                     navigation("download", "Installer laden", "arrow.down.circle")
                     navigation("local", "Installer lokal", "internaldrive")
-                    navigation("compatibility", "Mac prüfen", "laptopcomputer")
+                    navigation("compatibility", "Mac suchen", "laptopcomputer")
                     navigation("usb", "USB erstellen", "externaldrive")
                 }
                 Spacer()
@@ -302,7 +302,7 @@ struct StudioView: View {
     }
     private var compatibility: some View {
         VStack(alignment: .leading, spacing: 16) {
-            heading("Welchen Mac hast du?", "Mac auswählen und passende macOS-Installer finden.")
+            heading("Mac suchen", "Mac auswählen und passende macOS-Installer finden.")
             HStack(spacing: 16) {
                 Image(systemName: "laptopcomputer.and.arrow.down").font(.system(size: 30)).foregroundStyle(.blue)
                 VStack(alignment: .leading, spacing: 4) {
@@ -319,7 +319,14 @@ struct StudioView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Oder einen anderen Mac auswählen").font(.headline)
                 HStack {
-                    TextField("Suchen, z. B. MacBook Pro 2019 oder M1", text: $model.modelQuery).textFieldStyle(.roundedBorder)
+                    TextField("Modell, Modellnummer oder Seriennummer suchen", text: $model.modelQuery)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            if model.serialSearchAvailable {
+                                ui.macCategory = "Alle"; ui.macYear = 0
+                                Task { await model.searchSerial() }
+                            }
+                        }
                     Picker("Modell", selection: $ui.macCategory) {
                         Text("Alle Modelle").tag("Alle")
                         ForEach(Array(Set(model.models.map(\.category))).sorted(), id: \.self) { Text($0).tag($0) }
@@ -328,6 +335,21 @@ struct StudioView: View {
                         Text("Alle").tag(0)
                         ForEach(Array(Set(model.models.map(\.year))).sorted(by: >), id: \.self) { Text(String($0)).tag($0) }
                     }.frame(width: 135)
+                }
+                if model.serialSearchAvailable {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "number").foregroundStyle(.blue)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Seriennummer suchen").font(.subheadline.bold())
+                            Text("Dieser Mac wird lokal erkannt. Bei anderen Geräten öffnen wir Apples Suche und kopieren die Nummer zum Einfügen.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Seriennummer suchen …") {
+                            ui.macCategory = "Alle"; ui.macYear = 0
+                            Task { await model.searchSerial() }
+                        }.disabled(model.detectingMac)
+                    }.padding(12).background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
                 }
                 HStack {
                     Text("\(visibleMacs.count) Modelle").font(.caption).foregroundStyle(.secondary)
@@ -348,7 +370,7 @@ struct StudioView: View {
                         VStack(spacing: 10) {
                             Image(systemName: "magnifyingglass").font(.largeTitle)
                             Text("Kein passender Mac gefunden").font(.headline)
-                            Text("Versuche nur den Modellnamen oder setze die Filter zurück.").foregroundStyle(.secondary)
+                            Text("Suche nach Modellname, Modellkennung (z. B. MacBookAir10,1) oder Modellnummer (z. B. A2337).").foregroundStyle(.secondary)
                         }.padding(32).frame(maxWidth: .infinity)
                     }
                 }
@@ -501,6 +523,9 @@ struct MacModelCard: View {
                     Text("Unterstützt: " + mac.supported_versions.joined(separator: ", "))
                     Text("Prozessor: " + mac.cpu)
                     Text("Modellkennung: " + mac.identifiers.joined(separator: ", ")).textSelection(.enabled)
+                    if let numbers = mac.model_numbers, !numbers.isEmpty {
+                        Text("Modellnummer: " + numbers.joined(separator: ", ")).textSelection(.enabled)
+                    }
                 }.font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
             }.font(.caption).foregroundStyle(.secondary)
         }.padding(18).background(.background, in: RoundedRectangle(cornerRadius: 16))

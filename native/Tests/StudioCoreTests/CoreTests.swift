@@ -23,6 +23,14 @@ final class CoreTests {
         XCTAssertTrue(Installer.validVersion("15.7.2"))
         XCTAssertFalse(Installer.validVersion("15; touch /tmp/bad"))
         XCTAssertFalse(Installer.validVersion(""))
+        XCTAssertTrue(MacModel.isSerialQuery("C02ABC123XYZ"))
+        XCTAssertFalse(MacModel.isSerialQuery("A2337"))
+        XCTAssertFalse(MacModel.isSerialQuery("MacBookAir10,1"))
+        let data = Data(#"{"name":"MacBook Air","category":"MacBook Air","year":2020,"identifiers":["MacBookAir10,1"],"model_numbers":["A2337"],"cpu":"M1","hw_icon":"test","arch":"arm64","min_macos":"11","max_macos":"26","supported_versions":[],"notes":""}"#.utf8)
+        let mac = try! JSONDecoder().decode(MacModel.self, from: data)
+        XCTAssertTrue(mac.matches(query: "a2337"))
+        XCTAssertTrue(mac.matches(query: "MacBookAir10,1"))
+        XCTAssertFalse(mac.matches(query: "A2338"))
     }
     func testProgressAndMetrics() throws {
         var metrics = ProgressMetrics()

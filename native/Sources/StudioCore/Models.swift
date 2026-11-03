@@ -59,6 +59,7 @@ public struct MacModel: Decodable, Identifiable {
     public let category: String
     public let year: Int
     public let identifiers: [String]
+    public let model_numbers: [String]?
     public let cpu: String
     public let hw_icon: String
     public let arch: String
@@ -66,6 +67,16 @@ public struct MacModel: Decodable, Identifiable {
     public let max_macos: String
     public let supported_versions: [String]
     public let notes: String
+    public func matches(query: String) -> Bool {
+        let text = "\(name) \(year) \(identifiers.joined(separator: " ")) \((model_numbers ?? []).joined(separator: " ")) \(cpu)"
+        return query.split(whereSeparator: { $0.isWhitespace }).allSatisfy { text.localizedCaseInsensitiveContains(String($0)) }
+    }
+    public static func isSerialQuery(_ query: String) -> Bool {
+        let value = query.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return value.range(of: "^[A-Z0-9]{10,12}$", options: .regularExpression) != nil
+            && value.rangeOfCharacter(from: .decimalDigits) != nil
+            && value.rangeOfCharacter(from: .letters) != nil
+    }
     public func supports(_ installer: Installer) -> Bool {
         supported_versions.contains { installer.title.localizedCaseInsensitiveContains($0) }
     }

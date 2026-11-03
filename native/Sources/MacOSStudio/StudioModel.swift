@@ -55,12 +55,27 @@ import StudioCore
         }
     }
     var filteredModels: [MacModel] {
-        let words = modelQuery.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        return models.filter { mac in
-            let text = "\(mac.name) \(mac.year) \(mac.identifiers.joined(separator: " ")) \(mac.cpu)"
-            return words.allSatisfy { text.localizedCaseInsensitiveContains($0) }
-        }
+        models.filter { $0.matches(query: modelQuery) }
     }
+    var serialSearchAvailable: Bool { MacModel.isSerialQuery(modelQuery) && filteredModels.isEmpty }
+    func searchSerial() async {
+        guard serialSearchAvailable && !detectingMac else { return }
+        let serial = modelQuery.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        // Only read this Mac's serial when the user submits a serial search.
+        if let result = try? await Command().run("/usr/sbin/ioreg", ["-rd1", "-c", "IOPlatformExpertDevice", "-a"], timeout: 5),
+           let data = result.output.data(using: .utf8),
+           let devices = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [[String: Any]],
+           let local = devices.first?["IOPlatformSerialNumber"] as? String,
+           local.uppercased() == serial {
+            await detectMac()
+            return
+        }
+        // Apple provides the public serial lookup; do not guess randomized serials.
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(serial, forType: .string)
+        NSWorkspace.shared.open(URL(string: "https://checkcoverage.apple.com/")!)
+    }
+
     var disk: ExternalDisk? { disks.first { $0.id == selectedDisk } }
     var canFlash: Bool { !busy && !loading && !scanning && disk != nil && !selectedInstaller.isEmpty && validInstaller(selectedInstaller) }
 
