@@ -33,6 +33,7 @@ import StudioCore
     @Published var activeTitle = ""
     @Published var log = ""
     @Published var error: String?
+    @Published var errorNeedsPrivacySettings = false
     @Published var completedPath = ""
     private var command: Command?
     private var metrics = ProgressMetrics()
@@ -334,6 +335,7 @@ import StudioCore
     func flash() async {
         guard canFlash, let target = disk, validInstaller(selectedInstaller) else { return }
         busy = true; flashing = true; progress = nil; amount = nil; mbits = nil; total = 0
+        errorNeedsPrivacySettings = false
         completedPath = ""
         activeTitle = "USB-Stick erstellen"; log = ""; status = "Ziel-Laufwerk erneut prüfen …"
         defer { busy = false; flashing = false }
@@ -342,6 +344,13 @@ import StudioCore
             guard checked == target else { throw failure("Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.") }
             let tool = selectedInstaller + "/Contents/Resources/createinstallmedia"
             if let issue = LocalInstaller.preparationIssue(at: selectedInstaller) { throw failure(issue) }
+            // Ask for the Removable Volumes permission from the app itself before erasing anything.
+            // The elevated createinstallmedia process is attributed to this app by macOS privacy control.
+            do { _ = try FileManager.default.contentsOfDirectory(atPath: target.mount) }
+            catch {
+                errorNeedsPrivacySettings = true
+                throw failure("macOS erlaubt macOS Studio keinen Zugriff auf Wechselmedien. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Dateien und Ordner bei macOS Studio „Wechselmedien“ aktivieren und die USB-Erstellung erneut starten. Der USB-Stick wurde nicht verändert.")
+            }
             var preparation: USBPreparation?
             let info = try await diskPlist(target.identifier)
             if info["FilesystemType"] as? String == "apfs" {
@@ -379,12 +388,17 @@ import StudioCore
                     throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + result.output)
                 }
                 if result.output.contains("Operation not permitted") || result.output.contains(".IAPhysicalMedia") {
-                    throw failure("Das USB-Format wurde vorbereitet, aber macOS verweigert createinstallmedia den Schreibzugriff (250). Bitte den Zugriff auf Wechselmedien in den macOS-Datenschutzeinstellungen freigeben und erneut starten. Diese Systemberechtigung kann die App nicht selbst erteilen.\n\n" + result.output)
+                    errorNeedsPrivacySettings = true
+                    throw failure("macOS hat createinstallmedia den Schreibzugriff auf den USB-Stick verweigert (250). Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Dateien und Ordner bei macOS Studio „Wechselmedien“ aktivieren (falls vorhanden, auch unter „Festplattenvollzugriff“) und die USB-Erstellung erneut starten. Nach einem App-Update kann diese Freigabe erneut nötig sein.\n\n" + result.output)
                 }
                 throw failure(result.output.isEmpty ? "USB-Erstellung fehlgeschlagen." : result.output)
             }
             progress = 100; status = "Bootfähiger USB-Stick ist bereit"
         } catch { status = "USB-Erstellung nicht abgeschlossen"; self.error = error.localizedDescription }
+    }
+    func openPrivacySettings() {
+        let pane = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_RemovableVolume")!
+        if !NSWorkspace.shared.open(pane) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security")!) }
     }
     private func failure(_ message: String) -> NSError { NSError(domain: "MacOSStudio", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
 }

@@ -8,7 +8,7 @@
 
 ## Installation
 
-1. Die **macOS-Studio-1.2.13-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
+1. Die **macOS-Studio-1.2.14-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
 2. Die DMG öffnen und **macOS Studio** auf **Programme** ziehen.
 3. Die DMG auswerfen und die App aus Programme starten.
 

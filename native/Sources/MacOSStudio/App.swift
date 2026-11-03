@@ -159,8 +159,11 @@ struct StudioView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .tint(.blue)
-        .alert("Hinweis", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
-            Button("OK") { model.error = nil }
+        .alert("Hinweis", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil; model.errorNeedsPrivacySettings = false } })) {
+            if model.errorNeedsPrivacySettings {
+                Button("Datenschutzeinstellungen öffnen") { model.error = nil; model.errorNeedsPrivacySettings = false; model.openPrivacySettings() }
+            }
+            Button("OK") { model.error = nil; model.errorNeedsPrivacySettings = false }
         } message: { Text(model.error ?? "") }
         .sheet(isPresented: $ui.manual) {
             VStack(alignment: .leading, spacing: 18) {

@@ -1,3 +1,9 @@
+Version 1.2.14
+
+• USB-Zugriff: Die App fragt jetzt selbst nach dem macOS-Zugriff auf Wechselmedien, bevor der USB-Stick gelöscht wird. Ohne Freigabe bleibt der Stick unverändert.
+
+• Bei verweigertem Zugriff öffnet ein Knopf direkt die passenden Datenschutzeinstellungen.
+
 Version 1.2.13
 
 • Änderungsprotokoll: Nach einer neuen Version erscheint diese Übersicht einmalig. Im Menü „macOS Studio → Änderungsprotokoll“ kannst du sie wieder öffnen.
