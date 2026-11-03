@@ -8,13 +8,19 @@
 
 ## Installation
 
-1. Die **macOS-Studio-1.1-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
+1. Die **macOS-Studio-1.2-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
 2. Die DMG öffnen und **macOS Studio** auf **Programme** ziehen.
 3. Die DMG auswerfen und die App aus Programme starten.
 
 **Systemanforderungen:** macOS 13 Ventura oder neuer. Die DMG enthält Intel (`x86_64`) und Apple Silicon (`arm64`) in einer Universal-App. Python wird nicht benötigt.
 
 **Signierung:** Diese Version ist lokal ad-hoc signiert, jedoch nicht mit einer Developer ID signiert oder Apple-notarisiert. macOS kann beim Öffnen des Downloads eine Sicherheitswarnung anzeigen. Eine notarisiert veröffentlichte Version steht noch aus.
+
+## Updates direkt in der App
+
+Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Du bekommst einen Hinweis und kannst das Update direkt installieren lassen – ohne eine DMG zu öffnen. Sparkle lädt das Update, prüft dessen Signatur und startet die aktualisierte App neu. Manuell prüfen: **macOS Studio → Nach Updates suchen …**.
+
+**Nutzer von 1.1 müssen 1.2 einmal normal installieren**, da die alte Version noch keinen Updater enthält. Neue Updates erfordern ein veröffentlichtes, signiertes Release; ein GitHub-Commit allein genügt nicht. [Anleitung zum Veröffentlichen](docs/UPDATES.md).
 
 ## Funktionen
 
@@ -82,7 +88,7 @@ Neun Prüfgruppen decken Parser, Eingabevalidierung, Fortschrittsmetriken, USB-L
 DMG und zugehörige `.sha256`-Datei in denselben Ordner laden und dort ausführen:
 
 ```sh
-shasum -a 256 -c macOS-Studio-1.1-Universal.dmg.sha256
+shasum -a 256 -c macOS-Studio-1.2-Universal.dmg.sha256
 ```
 
 ## Projektstruktur

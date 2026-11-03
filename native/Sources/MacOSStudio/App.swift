@@ -5,14 +5,24 @@ import StudioCore
 @main struct MacOSStudioApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var model = StudioModel()
+    @StateObject private var updates = AppUpdates()
     var body: some Scene {
         WindowGroup("macOS Studio") {
             StudioView(model: model)
                 .frame(minWidth: 980, minHeight: 720)
-                .onAppear { delegate.model = model }
+                .onAppear {
+                    delegate.model = model
+                    updates.isBusy = { model.busy || model.loading || model.scanning || model.localScanning }
+                }
         }
         .defaultSize(width: 1140, height: 850)
-        .commands { CommandGroup(replacing: .newItem) {} }
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+            CommandGroup(after: .appInfo) {
+                Button("Nach Updates suchen …") { updates.check() }
+                    .disabled(!updates.canCheck || model.busy)
+            }
+        }
     }
 }
 

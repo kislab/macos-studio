@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 APP="$PWD/macOS Studio.app"
-OUTPUT="$PWD/macOS-Studio-1.1-Universal.dmg"
+OUTPUT="$PWD/macOS-Studio-1.2-Universal.dmg"
 if [ ! -x "$APP/Contents/MacOS/MacOSStudio" ]; then
     ./native/build-app.sh
 fi
@@ -18,7 +18,7 @@ STAGING="$(mktemp -d "${TMPDIR:-/tmp}/macos-studio-dmg.XXXXXX")"
 ditto "$APP" "$STAGING/macOS Studio.app"
 ln -s /Applications "$STAGING/Programme"
 cat > "$STAGING/Installation.txt" <<'TXT'
-macOS Studio 1.1 — Universal für Intel und Apple Silicon
+macOS Studio 1.2 — Universal für Intel und Apple Silicon
 
 Installation:
 1. „macOS Studio.app“ auf „Programme“ ziehen.
@@ -37,5 +37,5 @@ Die USB-Erstellung löscht das ausgewählte Ziel-Volume nach Bestätigung.
 TXT
 hdiutil create -volname 'macOS Studio installieren' -srcfolder "$STAGING" -format UDZO -imagekey zlib-level=9 "$OUTPUT"
 hdiutil verify "$OUTPUT"
-shasum -a 256 "$OUTPUT" > "$OUTPUT.sha256"
+shasum -a 256 "$(basename "$OUTPUT")" > "$OUTPUT.sha256"
 printf 'Fertig: %s\n' "$OUTPUT"

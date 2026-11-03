@@ -11,3 +11,7 @@ dist/
 *.mobileprovision
 .env
 .env.*
+
+*.zip
+*.zip.sha256
+*.signature
