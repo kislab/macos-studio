@@ -7,15 +7,15 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <description>Signierte Updates für macOS Studio</description>
     <language>de</language>
     <item>
-      <title>macOS Studio 1.2.11</title>
+      <title>macOS Studio 1.2.12</title>
       <description>Eine neue Version von macOS Studio ist verfügbar. Das Update wird direkt in der App installiert.</description>
-      <sparkle:version>14</sparkle:version>
-      <sparkle:shortVersionString>1.2.11</sparkle:shortVersionString>
+      <sparkle:version>15</sparkle:version>
+      <sparkle:shortVersionString>1.2.12</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.2.11/macOS-Studio-1.2.11-Universal.zip" sparkle:edSignature="IAQADk+lKj7x/lQU705NEC+GDNPEERsd9U83VhpHoKklAaCBEixCMAw2+vEfofj/+BJDxAQWwTLuk2MSMdgnDg==" length="4119009" type="application/octet-stream"></enclosure>
+      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.2.12/macOS-Studio-1.2.12-Universal.zip" sparkle:edSignature="ptcuLuK4CtymC0rbKBannxbz5LJF04NW62HNxDqjsAU71KzmMigHkIwpxiAhPptKiNl4cDhKsVV9nGO/mxIIBQ==" length="4142762" type="application/octet-stream"></enclosure>
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: JOUvaI/2WLZxuS/RIX5Y8Eb5bxgsjWL/FlHnhRetTrW42qv/qNaLY11I+wJhzcCtoSXeEs4/lIk6R72bEV1eAA==
+edSignature: 6RpSFMQJo9FkrhK63y9ne60D6g/YJo9OEx6mr9A1EfX2HFHmDbCEsPr4Vn2sdf08fo9BxGR19ed/3BtbtMk4AA==
 length: 1277
 -->
