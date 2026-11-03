@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+.swiftpm/
+*.app/
+*.dmg
+*.dmg.sha256
+dist/
+*.log
+*.p12
+*.p8
+*.mobileprovision
+.env
+.env.*
