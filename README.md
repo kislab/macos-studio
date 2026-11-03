@@ -18,7 +18,7 @@
 
 ## Updates direkt in der App
 
-Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Du bekommst einen Hinweis und kannst das Update direkt installieren lassen – ohne eine DMG zu öffnen. Sparkle lädt das Update, prüft dessen Signatur und startet die aktualisierte App neu. Manuell prüfen: **macOS Studio → Nach Updates suchen …**.
+Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Seit **1.2.2** sucht sie direkt bei jedem Start und danach alle sechs Stunden. Du bekommst einen Hinweis und kannst das Update direkt installieren lassen – ohne eine DMG zu öffnen. Sparkle lädt das Update, prüft dessen Signatur und startet die aktualisierte App neu. Manuell prüfen: **macOS Studio → Nach Updates suchen …**.
 
 **Nutzer von 1.1 müssen 1.2 einmal normal installieren**, da die alte Version noch keinen Updater enthält. Neue Updates erfordern ein veröffentlichtes, signiertes Release; ein GitHub-Commit allein genügt nicht. [Anleitung zum Veröffentlichen](docs/UPDATES.md).
 

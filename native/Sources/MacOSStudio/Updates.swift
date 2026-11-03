@@ -12,6 +12,10 @@ import Sparkle
         super.init()
         controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
         controller.startUpdater()
+        // Check on every launch, before Sparkle starts its scheduled runloop cycle.
+        if controller.updater.automaticallyChecksForUpdates {
+            controller.updater.checkForUpdatesInBackground()
+        }
     }
 
     func check() { controller.checkForUpdates(nil) }

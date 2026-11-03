@@ -1,6 +1,6 @@
 # App-Updates veröffentlichen
 
-Ab Version 1.2 verwendet macOS Studio Sparkle 2.10.1. Die App prüft beim Start nach Sparkles Zeitplan und anschließend alle sechs Stunden auf Updates. „macOS Studio → Nach Updates suchen …“ prüft sofort. Vor Download/Installation wird der Nutzer gefragt; danach lädt Sparkle die ZIP-Datei, prüft die Ed25519-Signatur und ersetzt die App mit Neustart. Es muss keine DMG geöffnet werden.
+Ab Version 1.2 verwendet macOS Studio Sparkle 2.10.1. Ab Version 1.2.2 prüft die App direkt bei jedem Start im Hintergrund und anschließend alle sechs Stunden auf Updates, sofern automatische Prüfungen aktiviert sind. „macOS Studio → Nach Updates suchen …“ prüft sofort. Vor Download/Installation wird der Nutzer gefragt; danach lädt Sparkle die ZIP-Datei, prüft die Ed25519-Signatur und ersetzt die App mit Neustart. Es muss keine DMG geöffnet werden.
 
 Die App sperrt Update-Prüfungen und Neustarts während laufender Downloads, USB-Erstellung, Lösch- oder Suchvorgänge. Signierte Updates und signierter Feed sind verpflichtend. Es wird kein Systemprofil übertragen. Die privaten Schlüssel werden nicht mit ausgeliefert.
 
