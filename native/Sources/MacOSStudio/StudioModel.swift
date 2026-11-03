@@ -62,7 +62,7 @@ import StudioCore
         }
     }
     var disk: ExternalDisk? { disks.first { $0.id == selectedDisk } }
-    var canFlash: Bool { !busy && !loading && !scanning && disk != nil && !selectedInstaller.isEmpty }
+    var canFlash: Bool { !busy && !loading && !scanning && disk != nil && !selectedInstaller.isEmpty && validInstaller(selectedInstaller) }
 
     func appendLog(_ text: String) {
         log += text
@@ -80,7 +80,7 @@ import StudioCore
         if !localInstallers.contains(selectedInstaller) { selectedInstaller = localInstallers.first ?? "" }
     }
     func validInstaller(_ path: String) -> Bool {
-        path.hasSuffix(".app") && FileManager.default.isExecutableFile(atPath: path + "/Contents/Resources/createinstallmedia")
+        LocalInstaller.preparationIssue(at: path) == nil
     }
     func chooseInstaller() {
         let panel = NSOpenPanel()
@@ -88,7 +88,15 @@ import StudioCore
         panel.treatsFilePackagesAsDirectories = false
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         if panel.runModal() == .OK, let url = panel.url {
-            guard validInstaller(url.path) else { error = "Die App enthält kein ausführbares createinstallmedia."; return }
+            guard FileManager.default.isExecutableFile(atPath: url.path + "/Contents/Resources/createinstallmedia") else {
+                error = "Die App enthält kein ausführbares createinstallmedia."; return
+            }
+            if let issue = LocalInstaller.preparationIssue(at: url.path) {
+                extraLocalPaths.insert(url.path)
+                error = issue
+                Task { await scanLocal() }
+                return
+            }
             selectedInstaller = url.path; extraLocalPaths.insert(url.path); refreshLocal()
             Task { await scanLocal() }
         }
@@ -179,7 +187,7 @@ import StudioCore
             let changed = localInstallers.filter { before[$0] == nil || before[$0] != modification($0) }
             let named = localInstallers.filter { URL(fileURLWithPath: $0).lastPathComponent.localizedCaseInsensitiveContains(item.title) }
             guard let path = named.count == 1 ? named.first : (changed.count == 1 ? changed.first : nil) else {
-                throw failure("Apple hat den Vorgang beendet, aber kein passender bootfähiger Installer wurde gefunden.")
+                throw failure("Apple hat den Vorgang beendet, aber kein passender Installer mit Installationsdaten wurde gefunden. Unter „Installer lokal“ kannst du unvollständige Downloads prüfen und entfernen.")
             }
             completedPath = path; selectedInstaller = path; progress = 100; amount = total > 0 ? total : nil
             status = "Installer geladen und geprüft"
@@ -258,7 +266,7 @@ import StudioCore
             let checked = try await diskInfo(target.identifier)
             guard checked == target else { throw failure("Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.") }
             let tool = selectedInstaller + "/Contents/Resources/createinstallmedia"
-            guard validInstaller(selectedInstaller) else { throw failure("Installer nicht mehr verfügbar.") }
+            if let issue = LocalInstaller.preparationIssue(at: selectedInstaller) { throw failure(issue) }
             // Direct, escaped command; no writable temporary root shell script.
             // Recheck UUID and Internal under elevation immediately before invoking Apple's tool.
             let lookup = "/usr/sbin/diskutil info -plist " + shellQuote(target.identifier)
@@ -270,7 +278,12 @@ import StudioCore
             appendLog("Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nApple liefert die Ausgabe dieses administrativen Vorgangs nach Abschluss.\n")
             let result = try await Command().run("/usr/bin/osascript", ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
             appendLog(result.output)
-            guard result.status == 0 else { throw failure(result.output.isEmpty ? "USB-Erstellung fehlgeschlagen." : result.output) }
+            guard result.status == 0 else {
+                if result.output.localizedCaseInsensitiveContains("does not appear to be a valid OS installer") {
+                    throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + result.output)
+                }
+                throw failure(result.output.isEmpty ? "USB-Erstellung fehlgeschlagen." : result.output)
+            }
             progress = 100; status = "Bootfähiger USB-Stick ist bereit"
         } catch { status = "USB-Erstellung nicht abgeschlossen"; self.error = error.localizedDescription }
     }

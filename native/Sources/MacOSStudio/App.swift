@@ -209,6 +209,12 @@ struct StudioView: View {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(item.name).font(.headline)
                                     Text(item.bytes.map { String(format: "%.2f GB", Double($0) / 1e9) } ?? "Größe nicht vollständig lesbar").foregroundStyle(.secondary)
+                                    if let issue = item.preparationIssue {
+                                        Label("Unvollständig · nicht für USB verwendbar", systemImage: "exclamationmark.triangle.fill")
+                                            .font(.caption).foregroundStyle(.orange).help(issue)
+                                    } else {
+                                        Text("Installationsdaten vorhanden").font(.caption).foregroundStyle(.secondary)
+                                    }
                                     Text(item.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                                 }
                                 Spacer()
@@ -217,7 +223,7 @@ struct StudioView: View {
                                 Button("Im Finder", systemImage: "folder") { NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "") }
                                 Button("Für USB verwenden", systemImage: "externaldrive") {
                                     model.selectedInstaller = item.path; model.section = "usb"
-                                }.disabled(model.busy)
+                                }.disabled(model.busy || item.preparationIssue != nil)
                                 Spacer()
                                 Button("Löschen …", systemImage: "trash", role: .destructive) {
                                     ui.trashTarget = item; ui.confirmTrash = true

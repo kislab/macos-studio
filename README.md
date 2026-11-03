@@ -8,7 +8,7 @@
 
 ## Installation
 
-1. Die **macOS-Studio-1.2-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
+1. Die **macOS-Studio-1.2.1-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
 2. Die DMG öffnen und **macOS Studio** auf **Programme** ziehen.
 3. Die DMG auswerfen und die App aus Programme starten.
 
@@ -39,7 +39,7 @@ Der Balken übernimmt Apples Prozentangaben. Die GB-Anzeige ist mit `≈` als Sc
 
 ### Lokale Installer
 
-Gesucht wird in `/Applications` sowie Programme, Downloads und Schreibtisch im Benutzerordner. Andere Speicherorte lassen sich manuell hinzufügen. Erkannt werden Installer-Apps mit ausführbarem `createinstallmedia`; die Suche ist keine vollständige Laufwerksdurchsuchung und erfasst keine beliebigen DMG-/PKG-Dateien.
+Gesucht wird in `/Applications` sowie Programme, Downloads und Schreibtisch im Benutzerordner. Andere Speicherorte lassen sich manuell hinzufügen. Unvollständige Installer bleiben mit Warnhinweis sichtbar und können entfernt werden. Für USB werden zusätzlich lesbare, nicht leere Installationsdaten in `Contents/SharedSupport` vorausgesetzt; das ist keine vollständige Integritätsprüfung. Erkannt werden Installer-Apps mit ausführbarem `createinstallmedia`; die Suche ist keine vollständige Laufwerksdurchsuchung und erfasst keine beliebigen DMG-/PKG-Dateien.
 
 **Löschen verschiebt die ausgewählte Installer-App in den Papierkorb.** Das installierte Betriebssystem bleibt erhalten. Der Installer wird vor dem Verschieben erneut geprüft; während laufender Vorgänge ist Löschen gesperrt. Speicher wird erst beim Leeren des Papierkorbs freigegeben.
 
@@ -88,7 +88,7 @@ Neun Prüfgruppen decken Parser, Eingabevalidierung, Fortschrittsmetriken, USB-L
 DMG und zugehörige `.sha256`-Datei in denselben Ordner laden und dort ausführen:
 
 ```sh
-shasum -a 256 -c macOS-Studio-1.2-Universal.dmg.sha256
+shasum -a 256 -c macOS-Studio-1.2.1-Universal.dmg.sha256
 ```
 
 ## Projektstruktur

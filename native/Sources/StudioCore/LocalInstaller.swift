@@ -7,6 +7,27 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
     public let bytes: Int64?
     public let created: Date?
     public let modified: Date?
+    public let preparationIssue: String?
+
+    /// Structural preflight only; Apple's tool remains the final integrity check.
+    public static func preparationIssue(at path: String) -> String? {
+        let app = URL(fileURLWithPath: path).standardizedFileURL
+        guard app.pathExtension.lowercased() == "app",
+              FileManager.default.isExecutableFile(atPath: app.appendingPathComponent("Contents/Resources/createinstallmedia").path) else {
+            return "Kein ausführbares createinstallmedia gefunden."
+        }
+        let support = app.appendingPathComponent("Contents/SharedSupport")
+        let payloads = ["SharedSupport.dmg", "InstallESD.dmg", "InstallAssistant.pkg"]
+        let present = payloads.contains { name in
+            let file = support.appendingPathComponent(name)
+            guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isReadableKey]) else { return false }
+            return values.isRegularFile == true && values.isReadable == true && (values.fileSize ?? 0) > 0
+        }
+        guard present else {
+            return "Installer unvollständig: In Contents/SharedSupport fehlen lesbare Installationsdaten. Bitte den Installer erneut vollständig laden."
+        }
+        return nil
+    }
 
     public static func discover(roots: [String], known: [String]) -> [LocalInstaller] {
         var paths = Set(known)
@@ -44,7 +65,8 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
         return LocalInstaller(path: url.path, name: url.deletingPathExtension().lastPathComponent,
                               bytes: complete ? bytes : nil,
                               created: attributes[.creationDate] as? Date,
-                              modified: attributes[.modificationDate] as? Date)
+                              modified: attributes[.modificationDate] as? Date,
+                              preparationIssue: preparationIssue(at: url.path))
     }
 
     /// Revalidate the exact bundle shown in the confirmation before moving it.
