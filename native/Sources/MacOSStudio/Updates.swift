@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Sparkle
+import Foundation
 
 @MainActor final class AppUpdates: NSObject, ObservableObject, SPUUpdaterDelegate {
     @Published var canCheck = false
@@ -35,6 +36,7 @@ import Sparkle
             catch { startupCheckStarted = false; return }
         }
         startupPending = true
+        await resolveCurrentFeed()
         controller.startUpdater()
         // Background launch check only offers newer releases; no up-to-date dialog.
         // Invoke before Sparkle's next scheduled runloop cycle.
@@ -46,6 +48,7 @@ import Sparkle
     // A unique query avoids stale GitHub/CDN and URL-loading caches for each check.
     // The feed and archive still require their Ed25519 signatures.
     func feedURLString(for updater: SPUUpdater) -> String? {
+        if let resolvedFeed { return resolvedFeed }
         guard let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String,
               var url = URLComponents(string: feed) else { return nil }
         url.queryItems = (url.queryItems ?? []) + [URLQueryItem(name: "check", value: UUID().uuidString)]
@@ -54,13 +57,42 @@ import Sparkle
 
     func updater(_ updater: SPUUpdater, didFinishLoading appcast: SUAppcast) {
         startupPending = false
+        resolvedFeed = nil
     }
 
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
         startupPending = false
     }
 
-    func check() { controller.checkForUpdates(nil) }
+    private var resolvedFeed: String?
+    private var resolving = false
+
+    private func resolveCurrentFeed() async {
+        resolvedFeed = nil
+        var request = URLRequest(url: URL(string: "https://api.github.com/repos/kislab/macos-studio/commits/main?check=" + UUID().uuidString)!)
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        request.timeoutInterval = 10
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("macOS-Studio", forHTTPHeaderField: "User-Agent")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let sha = json["sha"] as? String,
+                  sha.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil else { return }
+            resolvedFeed = "https://raw.githubusercontent.com/kislab/macos-studio/" + sha + "/appcast.xml"
+        } catch { /* Use the signed main feed when the API is unavailable. */ }
+    }
+
+    func check() {
+        guard !resolving else { return }
+        resolving = true
+        Task {
+            await resolveCurrentFeed()
+            resolving = false
+            controller.checkForUpdates(nil)
+        }
+    }
 
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         availableVersion = item.displayVersionString
