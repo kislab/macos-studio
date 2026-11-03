@@ -19,6 +19,7 @@ Ein neuer Commit auf GitHub allein ist **kein** App-Update. Benötigt werden ein
 5. Ein GitHub-Release mit passendem Tag (z. B. `v1.3.0`) erstellen und ZIP und DMG für Erstinstallationen anhängen. Die Prüfsummen beider Dateien in einer gemeinsamen `SHA256SUMS.txt` hochladen; keine separaten `.dmg.sha256`/`.zip.sha256`-Assets. Oben in der Release-Beschreibung einen direkten DMG-Download-Link ergänzen.
 6. Release veröffentlichen und die Erreichbarkeit des ZIP-Downloads prüfen.
 7. Erst jetzt `appcast.xml` committen und pushen. Bereits installierte Apps erhalten dadurch das neue Angebot.
+8. Nur die drei neuesten veröffentlichten Releases behalten. Ältere Releases samt Assets entfernen; Git-Tags bleiben erhalten. Der Workflow `release-retention.yml` führt die Bereinigung bei jeder Veröffentlichung aus.
 
 Vorhandene Update-Archive überschreibt das Vorbereitungsskript nicht. Eine veröffentlichte Version nicht nachträglich mit anderen Binärdateien ersetzen; stattdessen Versions- und Buildnummer erhöhen. Signierte `appcast.xml` nicht manuell ändern, ohne sie erneut zu signieren.
 

@@ -1,0 +1,26 @@
+name: Keep three releases
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release-retention
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove releases older than the newest three
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release list --limit 1000 --json tagName,publishedAt,isDraft \
+            --jq '[.[] | select(.isDraft == false)] | sort_by(.publishedAt) | reverse | .[3:][] | .tagName' > /tmp/old-releases.txt
+          while IFS= read -r tag; do
+            gh release delete "$tag" --yes
+          done < /tmp/old-releases.txt
