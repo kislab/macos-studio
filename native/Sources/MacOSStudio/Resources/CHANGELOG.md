@@ -1,3 +1,11 @@
+Version 1.2.17
+
+• Installer löschen: Von Apple geladene Installer gehören dem System. Das Verschieben in den Papierkorb mit Administratorfreigabe scheiterte bisher am macOS-Datenschutz für den Papierkorb. Jetzt überträgt die Freigabe nur den Besitz des bestätigten Installers an dich; danach verschiebt die App ihn normal und wiederherstellbar in den Papierkorb.
+
+• Version eingeben: Eine manuell angeforderte Version wurde blockiert, sobald irgendein Installer vorhanden war. Das ist behoben.
+
+• USB erstellen: Nach „Warten beenden“ bleiben die Terminal-Daten erhalten, solange der Vorgang dort noch läuft.
+
 Version 1.2.16
 
 • USB erstellen über Terminal: Fehler 250 („.IAPhysicalMedia … Operation not permitted“) ist behoben. macOS ordnete den Schreibvorgang bisher dem Systemdienst authtrampoline zu, nicht macOS Studio, deshalb half keine Freigabe der App. Jetzt öffnet sich nach der Bestätigung Terminal: Dort das Mac-Passwort eingeben, der Fortschritt erscheint live. Terminal benötigt einmalig Zugriff auf Wechselmedien bzw. Festplattenvollzugriff; diese Freigabe bleibt auch nach App-Updates erhalten.

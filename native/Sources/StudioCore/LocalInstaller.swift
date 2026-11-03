@@ -88,20 +88,15 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
                               preparationIssue: preparationIssue(at: url.path))
     }
 
-    /// Only prepare a recoverable move for the exact installer the user confirmed.
-    public func authorizedTrashCommand(trashDirectory: URL) throws -> String {
-        guard Self.inspect(path) == self,
-              trashDirectory.standardizedFileURL.resolvingSymlinksInPath().path == trashDirectory.standardizedFileURL.path,
-              let attributes = try? FileManager.default.attributesOfItem(atPath: trashDirectory.path),
-              attributes[.type] as? FileAttributeType == .typeDirectory,
-              (attributes[.ownerAccountID] as? NSNumber)?.uint32Value == getuid() else {
-            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: "Installer oder Papierkorb wurde verändert. Bitte die Liste aktualisieren."])
+    /// Root-owned installers (softwareupdate) cannot be trashed by the user. Instead of moving them into
+    /// the privacy-protected ~/.Trash as root (denied for AppleScript admin privileges), hand ownership of
+    /// exactly the confirmed bundle to the user; the app then trashes it normally and recoverably.
+    public func authorizedOwnershipCommand(owner: uid_t) throws -> String {
+        guard Self.inspect(path) == self else {
+            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren."])
         }
-        let destination = trashDirectory.appendingPathComponent(UUID().uuidString + "-" + URL(fileURLWithPath: path).lastPathComponent).path
         let source = shellQuote(path)
-        return "test ! -L " + source + " && test -d " + source
-            + " && test ! -e " + shellQuote(destination)
-            + " && /bin/mv -n " + source + " " + shellQuote(destination)
+        return "test ! -L " + source + " && test -d " + source + " && /usr/sbin/chown -R -P " + String(owner) + " " + source
     }
 
     /// Revalidate the exact bundle shown in the confirmation before moving it.

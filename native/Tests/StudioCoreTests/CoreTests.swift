@@ -121,17 +121,15 @@ final class CoreTests {
         XCTAssertTrue(rejected)
         XCTAssertTrue(fm.fileExists(atPath: app.path))
         let current = try XCTUnwrap(LocalInstaller.inspect(app.path))
-        let trash = root.appendingPathComponent("Trash")
-        try fm.createDirectory(at: trash, withIntermediateDirectories: true)
-        let move = try current.authorizedTrashCommand(trashDirectory: trash)
-        XCTAssertTrue(move.contains("/bin/mv -n"))
-        XCTAssertTrue(move.contains(shellQuote(app.path)))
-        let linkedTrash = root.appendingPathComponent("LinkedTrash")
-        try fm.createSymbolicLink(at: linkedTrash, withDestinationURL: trash)
-        var linkRejected = false
-        do { _ = try current.authorizedTrashCommand(trashDirectory: linkedTrash) } catch { linkRejected = true }
-        XCTAssertTrue(linkRejected)
-        try current.moveToTrash()
+        let owner = try current.authorizedOwnershipCommand(owner: 501)
+        XCTAssertTrue(owner.hasSuffix("/usr/sbin/chown -R -P 501 " + shellQuote(app.path)))
+        XCTAssertTrue(owner.hasPrefix("test ! -L " + shellQuote(app.path)))
+        try Data("changed again".utf8).write(to: tool)
+        var changedRejected = false
+        do { _ = try current.authorizedOwnershipCommand(owner: 501) } catch { changedRejected = true }
+        XCTAssertTrue(changedRejected)
+        let refreshed = try XCTUnwrap(LocalInstaller.inspect(app.path))
+        try refreshed.moveToTrash()
         XCTAssertFalse(fm.fileExists(atPath: app.path))
     }
     func testQuoting() {

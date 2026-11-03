@@ -157,15 +157,21 @@ import StudioCore
                 let problem = error as NSError
                 guard problem.domain == NSCocoaErrorDomain && [NSFileWriteNoPermissionError, NSFileReadNoPermissionError].contains(problem.code) else { throw error }
                 localNotice = "Administratorfreigabe zum Verschieben in den Papierkorb erforderlich …"
-                let trash = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
                 let shell = try await Task.detached(priority: .utility) {
-                    try item.authorizedTrashCommand(trashDirectory: trash)
+                    try item.authorizedOwnershipCommand(owner: getuid())
                 }.value
                 let result = try await Command().run("/usr/bin/osascript",
                     ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
                 guard result.status == 0 else {
-                    throw failure(result.output.contains("(-128)") ? "Entfernen abgebrochen. Der Installer bleibt erhalten." : "Installer konnte mit Administratorfreigabe nicht in den Papierkorb verschoben werden.\n" + result.output)
+                    throw failure(result.output.contains("(-128)") ? "Entfernen abgebrochen. Der Installer bleibt erhalten." : "Installer konnte mit Administratorfreigabe nicht für den Papierkorb freigegeben werden.\n" + result.output)
                 }
+                // Ownership changed; revalidate the same bundle and trash it as the user.
+                try await Task.detached(priority: .utility) {
+                    guard let current = LocalInstaller.inspect(item.path), current.path == item.path, current.bytes == item.bytes else {
+                        throw NSError(domain: "LocalInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert. Bitte die Liste aktualisieren."])
+                    }
+                    try current.moveToTrash()
+                }.value
                 guard !FileManager.default.fileExists(atPath: item.path) else { throw failure("Der Installer wurde nicht verschoben. Bitte erneut prüfen.") }
             }
             extraLocalPaths.remove(item.path)
@@ -219,7 +225,9 @@ import StudioCore
             error = "Dieser Installer ist bereits vorhanden:\n\(existing.path)\n\nVersion und Installationsdaten wurden erkannt. Er wurde für die USB-Erstellung ausgewählt; ein erneuter Download ist nicht nötig."
             return
         }
-        if let existing = found.first(where: { $0.name.localizedCaseInsensitiveContains(item.title) }) {
+        // A manual request is titled only "macOS" and would match every installer; skip the series check.
+        let manual = item.build == "Manuell"
+        if !manual, let existing = found.first(where: { $0.name.localizedCaseInsensitiveContains(item.title) }) {
             status = "Vorhandenen Installer prüfen"
             if let issue = existing.preparationIssue {
                 error = "\(existing.path)\n\n\(issue)\nBitte unter „Installer lokal“ in den Papierkorb verschieben und danach erneut laden."
@@ -262,7 +270,9 @@ import StudioCore
             refreshLocal()
             let changed = localInstallers.filter { before[$0] == nil || before[$0] != modification($0) }
             let named = localInstallers.filter { URL(fileURLWithPath: $0).lastPathComponent.localizedCaseInsensitiveContains(item.title) }
-            guard let path = named.count == 1 ? named.first : (changed.count == 1 ? changed.first : nil) else {
+            let candidate = manual ? (changed.count == 1 ? changed.first : nil)
+                : (named.count == 1 ? named.first : (changed.count == 1 ? changed.first : nil))
+            guard let path = candidate else {
                 throw failure("Apple hat den Vorgang beendet, aber kein passender Installer mit Installationsdaten wurde gefunden. Unter „Installer lokal“ kannst du unvollständige Downloads prüfen und entfernen.")
             }
             completedPath = path; selectedInstaller = path; progress = 100; amount = total > 0 ? total : nil
@@ -381,7 +391,8 @@ import StudioCore
             // Run via Terminal: with AppleScript admin privileges macOS attributes the write to the
             // system authtrampoline, which cannot be granted access, and createinstallmedia fails (250).
             let job = TerminalJob(directory: FileManager.default.temporaryDirectory.appendingPathComponent("macOSStudio-USB-" + UUID().uuidString))
-            defer { job.remove() }
+            // Keep the job while Terminal may still be running (user stopped waiting); the OS cleans temp files.
+            defer { if job.exitStatus() != nil { job.remove() } }
             try job.write(rootCommand: shell, headline: "macOS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht")
             appendLog("Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster. Dort Passwort eingeben; der Fortschritt erscheint dort live.\n")
             let config = NSWorkspace.OpenConfiguration(); config.activates = true
