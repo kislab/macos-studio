@@ -8,8 +8,18 @@ import Foundation
     @Published private(set) var startupPending = false
     @Published private(set) var availableVersion: String?
     var isBusy: () -> Bool = { false }
-    private(set) lazy var controller = SPUStandardUpdaterController(
-        startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
+    private lazy var userDriver: AutoRelaunchUserDriver = {
+        let driver = AutoRelaunchUserDriver(hostBundle: .main, delegate: nil)
+        driver.isBusy = { [weak self] in self?.isBusy() ?? false }
+        return driver
+    }()
+    private(set) lazy var updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: userDriver, delegate: self)
+    private var updaterStarted = false
+    private func startUpdater() {
+        guard !updaterStarted else { return }
+        do { try updater.start(); updaterStarted = true }
+        catch { NSLog("Sparkle konnte nicht gestartet werden: %@", error.localizedDescription) }
+    }
 
     override init() {
         super.init()
@@ -22,7 +32,7 @@ import Foundation
             defaults.removeObject(forKey: "availableUpdateBuild")
             defaults.removeObject(forKey: "availableUpdateVersion")
         }
-        controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
+        updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
     }
 
     private var startupCheckStarted = false
@@ -37,11 +47,11 @@ import Foundation
         }
         startupPending = true
         await resolveCurrentFeed()
-        controller.startUpdater()
+        startUpdater()
         // Background launch check only offers newer releases; no up-to-date dialog.
         // Invoke before Sparkle's next scheduled runloop cycle.
-        if controller.updater.automaticallyChecksForUpdates {
-            controller.updater.checkForUpdatesInBackground()
+        if updater.automaticallyChecksForUpdates {
+            updater.checkForUpdatesInBackground()
         } else { startupPending = false }
     }
 
@@ -90,7 +100,8 @@ import Foundation
         Task {
             await resolveCurrentFeed()
             resolving = false
-            controller.checkForUpdates(nil)
+            startUpdater()
+            updater.checkForUpdates()
         }
     }
 
@@ -110,5 +121,14 @@ import Foundation
     func updaterShouldRelaunchApplication(_ updater: SPUUpdater) -> Bool {
         // Never replace/relaunch the app while downloading, flashing or deleting.
         !isBusy()
+    }
+}
+
+/// Standard Sparkle UI, but once an update is downloaded and verified the app
+/// installs it and relaunches without a second click — unless a task is running.
+@MainActor final class AutoRelaunchUserDriver: SPUStandardUserDriver {
+    var isBusy: () -> Bool = { false }
+    override func showReady(toInstallAndRelaunch reply: @escaping (SPUUserUpdateChoice) -> Void) {
+        if isBusy() { super.showReady(toInstallAndRelaunch: reply) } else { reply(.install) }
     }
 }

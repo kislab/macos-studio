@@ -1,3 +1,9 @@
+Version 1.2.15
+
+• USB erstellen: Apples createinstallmedia benötigt Festplattenvollzugriff für macOS Studio, sonst scheitert es mit Fehler 250 (.IAPhysicalMedia). Die App prüft das jetzt vor dem Löschen des USB-Sticks und öffnet auf Wunsch direkt die passende Einstellung. Nach einem Update muss der Eintrag eventuell entfernt und neu hinzugefügt werden.
+
+• Updates: Nach dem Laden und Prüfen eines Updates installiert sich die App automatisch und startet neu. Der zusätzliche Klick auf „Install and Relaunch“ entfällt. Läuft gerade ein Download, eine USB-Erstellung oder ein Löschvorgang, wartet die App weiterhin auf deine Bestätigung.
+
 Version 1.2.14
 
 • USB-Zugriff: Die App fragt jetzt selbst nach dem macOS-Zugriff auf Wechselmedien, bevor der USB-Stick gelöscht wird. Ohne Freigabe bleibt der Stick unverändert.

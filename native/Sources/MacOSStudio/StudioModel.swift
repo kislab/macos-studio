@@ -33,7 +33,13 @@ import StudioCore
     @Published var activeTitle = ""
     @Published var log = ""
     @Published var error: String?
-    @Published var errorNeedsPrivacySettings = false
+    /// Privacy pane anchor to offer with the current error, if any.
+    @Published var privacyPane: String?
+    static let fullDiskAccessHint = "macOS Studio benötigt Festplattenvollzugriff, damit Apples createinstallmedia den USB-Stick fertigstellen kann. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff „macOS Studio“ aktivieren. Ist die App dort schon aktiv, den Eintrag mit „–“ entfernen und neu hinzufügen: Nach jedem Update erkennt macOS die ad-hoc signierte App sonst nicht wieder. Danach macOS Studio beenden, neu öffnen und die USB-Erstellung erneut starten."
+    /// Reading the system TCC database is only possible with Full Disk Access.
+    static var hasFullDiskAccess: Bool {
+        FileHandle(forReadingAtPath: "/Library/Application Support/com.apple.TCC/TCC.db") != nil
+    }
     @Published var completedPath = ""
     private var command: Command?
     private var metrics = ProgressMetrics()
@@ -335,7 +341,7 @@ import StudioCore
     func flash() async {
         guard canFlash, let target = disk, validInstaller(selectedInstaller) else { return }
         busy = true; flashing = true; progress = nil; amount = nil; mbits = nil; total = 0
-        errorNeedsPrivacySettings = false
+        privacyPane = nil
         completedPath = ""
         activeTitle = "USB-Stick erstellen"; log = ""; status = "Ziel-Laufwerk erneut prüfen …"
         defer { busy = false; flashing = false }
@@ -348,8 +354,13 @@ import StudioCore
             // The elevated createinstallmedia process is attributed to this app by macOS privacy control.
             do { _ = try FileManager.default.contentsOfDirectory(atPath: target.mount) }
             catch {
-                errorNeedsPrivacySettings = true
+                privacyPane = "Privacy_RemovableVolume"
                 throw failure("macOS erlaubt macOS Studio keinen Zugriff auf Wechselmedien. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Dateien und Ordner bei macOS Studio „Wechselmedien“ aktivieren und die USB-Erstellung erneut starten. Der USB-Stick wurde nicht verändert.")
+            }
+            // createinstallmedia writes .IAPhysicalMedia only with Full Disk Access for the responsible app.
+            guard Self.hasFullDiskAccess else {
+                privacyPane = "Privacy_AllFiles"
+                throw failure(Self.fullDiskAccessHint + " Der USB-Stick wurde nicht verändert.")
             }
             var preparation: USBPreparation?
             let info = try await diskPlist(target.identifier)
@@ -388,8 +399,8 @@ import StudioCore
                     throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + result.output)
                 }
                 if result.output.contains("Operation not permitted") || result.output.contains(".IAPhysicalMedia") {
-                    errorNeedsPrivacySettings = true
-                    throw failure("macOS hat createinstallmedia den Schreibzugriff auf den USB-Stick verweigert (250). Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Dateien und Ordner bei macOS Studio „Wechselmedien“ aktivieren (falls vorhanden, auch unter „Festplattenvollzugriff“) und die USB-Erstellung erneut starten. Nach einem App-Update kann diese Freigabe erneut nötig sein.\n\n" + result.output)
+                    privacyPane = "Privacy_AllFiles"
+                    throw failure("macOS hat createinstallmedia den Schreibzugriff auf den USB-Stick verweigert (250). " + Self.fullDiskAccessHint + "\n\n" + result.output)
                 }
                 throw failure(result.output.isEmpty ? "USB-Erstellung fehlgeschlagen." : result.output)
             }
@@ -397,7 +408,7 @@ import StudioCore
         } catch { status = "USB-Erstellung nicht abgeschlossen"; self.error = error.localizedDescription }
     }
     func openPrivacySettings() {
-        let pane = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_RemovableVolume")!
+        let pane = URL(string: "x-apple.systempreferences:com.apple.preference.security?" + (privacyPane ?? "Privacy_AllFiles"))!
         if !NSWorkspace.shared.open(pane) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security")!) }
     }
     private func failure(_ message: String) -> NSError { NSError(domain: "MacOSStudio", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }

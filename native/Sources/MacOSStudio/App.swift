@@ -159,11 +159,11 @@ struct StudioView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .tint(.blue)
-        .alert("Hinweis", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil; model.errorNeedsPrivacySettings = false } })) {
-            if model.errorNeedsPrivacySettings {
-                Button("Datenschutzeinstellungen öffnen") { model.error = nil; model.errorNeedsPrivacySettings = false; model.openPrivacySettings() }
+        .alert("Hinweis", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil; model.privacyPane = nil } })) {
+            if model.privacyPane != nil {
+                Button("Datenschutzeinstellungen öffnen") { model.error = nil; model.openPrivacySettings(); model.privacyPane = nil }
             }
-            Button("OK") { model.error = nil; model.errorNeedsPrivacySettings = false }
+            Button("OK") { model.error = nil; model.privacyPane = nil }
         } message: { Text(model.error ?? "") }
         .sheet(isPresented: $ui.manual) {
             VStack(alignment: .leading, spacing: 18) {
