@@ -16,7 +16,7 @@ Ein neuer Commit auf GitHub allein ist **kein** App-Update. Benötigt werden ein
 2. `./native/build-app.sh` ausführen und die App prüfen.
 3. `./native/prepare-update.sh` ausführen. Das erzeugt die ZIP, Prüfsumme und `appcast.xml`; Archiv und Feed werden signiert und lokal verifiziert.
 4. Code und Release-Beschreibung committen/pushen, den neuen Feed zunächst noch zurückhalten.
-5. Ein GitHub-Release mit passendem Tag (z. B. `v1.3.0`) erstellen und ZIP sowie Prüfsumme hochladen. Optional eine DMG für Erstinstallationen bauen und anhängen.
+5. Ein GitHub-Release mit passendem Tag (z. B. `v1.3.0`) erstellen und ZIP und DMG für Erstinstallationen anhängen. Die Prüfsummen beider Dateien in einer gemeinsamen `SHA256SUMS.txt` hochladen; keine separaten `.dmg.sha256`/`.zip.sha256`-Assets. Oben in der Release-Beschreibung einen direkten DMG-Download-Link ergänzen.
 6. Release veröffentlichen und die Erreichbarkeit des ZIP-Downloads prüfen.
 7. Erst jetzt `appcast.xml` committen und pushen. Bereits installierte Apps erhalten dadurch das neue Angebot.
 

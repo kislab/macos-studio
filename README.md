@@ -88,7 +88,7 @@ Neun Prüfgruppen decken Parser, Eingabevalidierung, Fortschrittsmetriken, USB-L
 DMG und zugehörige `.sha256`-Datei in denselben Ordner laden und dort ausführen:
 
 ```sh
-shasum -a 256 -c macOS-Studio-1.2.3-Universal.dmg.sha256
+shasum -a 256 -c SHA256SUMS.txt
 ```
 
 ## Projektstruktur
