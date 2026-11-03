@@ -41,6 +41,15 @@ import Sparkle
         }
     }
 
+    // A unique query avoids stale GitHub/CDN and URL-loading caches for each check.
+    // The feed and archive still require their Ed25519 signatures.
+    func feedURLString(for updater: SPUUpdater) -> String? {
+        guard let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String,
+              var url = URLComponents(string: feed) else { return nil }
+        url.queryItems = (url.queryItems ?? []) + [URLQueryItem(name: "check", value: UUID().uuidString)]
+        return url.url?.absoluteString
+    }
+
     func check() { controller.checkForUpdates(nil) }
 
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
