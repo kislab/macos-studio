@@ -5,6 +5,7 @@ import StudioCore
 @MainActor final class StartupState: ObservableObject {
     @Published var starting = true
     @Published var phase = "Lade Katalog …"
+    @Published var showChanges = false
     var started = false
 }
 
@@ -34,6 +35,16 @@ import StudioCore
                 }
             }
                 .frame(minWidth: 980, minHeight: 720)
+                .sheet(isPresented: $startup.showChanges) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Label("Was ist neu in macOS Studio?", systemImage: "sparkles").font(.title2.bold())
+                        ScrollView {
+                            Text((Bundle.module.url(forResource: "CHANGELOG", withExtension: "md").flatMap { try? String(contentsOf: $0, encoding: .utf8) }) ?? "Änderungsprotokoll nicht verfügbar.")
+                                .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        HStack { Spacer(); Button("Weiter") { startup.showChanges = false }.keyboardShortcut(.defaultAction) }
+                    }.padding(28).frame(width: 620, height: 460)
+                }
                 .task {
                     guard !startup.started else { return }
                     startup.started = true
@@ -48,12 +59,18 @@ import StudioCore
                         catch { break }
                     }
                     startup.starting = false
+                    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+                    if UserDefaults.standard.string(forKey: "lastChangelogBuild") != build {
+                        UserDefaults.standard.set(build, forKey: "lastChangelogBuild")
+                        startup.showChanges = true
+                    }
                 }
         }
         .defaultSize(width: 1140, height: 850)
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(after: .appInfo) {
+                Button("Änderungsprotokoll …") { startup.showChanges = true }
                 Button("Nach Updates suchen …") { updates.check() }
                     .disabled(!updates.canCheck || model.busy)
             }
@@ -241,11 +258,12 @@ struct StudioView: View {
             HStack {
                 Label("\(model.localItems.count) lokale Installer", systemImage: "internaldrive").font(.headline)
                 Spacer()
-                Button("Installer auswählen …") { model.chooseInstaller() }.disabled(model.busy || model.localScanning)
+                Button("Suchordner merken …") { model.chooseSearchFolder() }
+                    Button("Installer auswählen …") { model.chooseInstaller() }.disabled(model.busy || model.localScanning)
                 Button("Aktualisieren", systemImage: "arrow.clockwise") { Task { await model.scanLocal() } }
                     .disabled(model.localScanning || model.busy)
             }
-            Text("Suche in Programme, deinem Programme-Ordner, Downloads und Schreibtisch. Andere Speicherorte kannst du über „Installer auswählen“ hinzufügen.")
+            Text("Suche in Programme und deinen gemerkten Ordnern. Downloads oder Schreibtisch kannst du einmalig über „Suchordner merken“ freigeben.")
                 .font(.caption).foregroundStyle(.secondary)
             if model.localScanning { ProgressView("Installer und Größen werden ermittelt …") }
             ScrollView {
@@ -321,6 +339,14 @@ struct StudioView: View {
                 HStack {
                     TextField("Modell, Modellnummer oder Seriennummer suchen", text: $model.modelQuery)
                         .textFieldStyle(.roundedBorder)
+                        .task(id: model.modelQuery) {
+                            do { try await Task.sleep(nanoseconds: 1_000_000_000) }
+                            catch { return }
+                            if model.serialSearchAvailable {
+                                ui.macCategory = "Alle"; ui.macYear = 0
+                                await model.searchSerial()
+                            }
+                        }
                         .onSubmit {
                             if model.serialSearchAvailable {
                                 ui.macCategory = "Alle"; ui.macYear = 0
@@ -337,19 +363,8 @@ struct StudioView: View {
                     }.frame(width: 135)
                 }
                 if model.serialSearchAvailable {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "number").foregroundStyle(.blue)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Seriennummer suchen").font(.subheadline.bold())
-                            Text("Dieser Mac wird lokal erkannt. Bei anderen Geräten öffnen wir Apples Suche und kopieren die Nummer zum Einfügen.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("Seriennummer suchen …") {
-                            ui.macCategory = "Alle"; ui.macYear = 0
-                            Task { await model.searchSerial() }
-                        }.disabled(model.detectingMac)
-                    }.padding(12).background(Color.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    Text("Apples Seriennummernsuche öffnet sich nach der Eingabe automatisch. Die Nummer wird zum Einfügen kopiert.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 HStack {
                     Text("\(visibleMacs.count) Modelle").font(.caption).foregroundStyle(.secondary)

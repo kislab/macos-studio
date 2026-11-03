@@ -11,6 +11,7 @@ import StudioCore
     @Published var localScanning = false
     @Published var localNotice = ""
     private var extraLocalPaths: Set<String> = []
+    private let fileAccess = SavedFileAccess()
     @Published var selectedInstaller = ""
     @Published var selectedDisk = ""
     @Published var selectedMac = ""
@@ -45,6 +46,7 @@ import StudioCore
            let data = try? Data(contentsOf: url) {
             models = (try? JSONDecoder().decode([MacModel].self, from: data)) ?? []
         }
+        extraLocalPaths.formUnion(fileAccess.installers)
         refreshLocal()
     }
     var currentMac: MacModel? { models.first { $0.id == selectedMac } }
@@ -58,18 +60,13 @@ import StudioCore
         models.filter { $0.matches(query: modelQuery) }
     }
     var serialSearchAvailable: Bool { MacModel.isSerialQuery(modelQuery) && filteredModels.isEmpty }
+    private var lastSerialLookup = ""
     func searchSerial() async {
         guard serialSearchAvailable && !detectingMac else { return }
         let serial = modelQuery.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        // Only read this Mac's serial when the user submits a serial search.
-        if let result = try? await Command().run("/usr/sbin/ioreg", ["-rd1", "-c", "IOPlatformExpertDevice", "-a"], timeout: 5),
-           let data = result.output.data(using: .utf8),
-           let devices = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [[String: Any]],
-           let local = devices.first?["IOPlatformSerialNumber"] as? String,
-           local.uppercased() == serial {
-            await detectMac()
-            return
-        }
+        guard serial != lastSerialLookup else { return }
+        lastSerialLookup = serial
+        guard !Task.isCancelled, modelQuery.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == serial else { lastSerialLookup = ""; return }
         // Apple provides the public serial lookup; do not guess randomized serials.
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(serial, forType: .string)
@@ -103,6 +100,7 @@ import StudioCore
         panel.treatsFilePackagesAsDirectories = false
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         if panel.runModal() == .OK, let url = panel.url {
+            do { try fileAccess.remember(url) } catch { self.error = "Speicherort konnte nicht dauerhaft gespeichert werden: " + error.localizedDescription; return }
             guard FileManager.default.isExecutableFile(atPath: url.path + "/Contents/Resources/createinstallmedia") else {
                 error = "Die App enthält kein ausführbares createinstallmedia."; return
             }
@@ -116,6 +114,16 @@ import StudioCore
             Task { await scanLocal() }
         }
     }
+    func chooseSearchFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false; panel.canChooseDirectories = true
+        panel.message = "Ordner für die Installer-Suche freigeben. Die Auswahl wird für kommende Starts gespeichert."
+        panel.prompt = "Ordner merken"
+        if panel.runModal() == .OK, let url = panel.url {
+            do { try fileAccess.remember(url); Task { await scanLocal() } }
+            catch { self.error = "Ordnerauswahl konnte nicht gespeichert werden: " + error.localizedDescription }
+        }
+    }
     func scanLocal() async {
         guard !localScanning else { return }
         localScanning = true
@@ -123,8 +131,7 @@ import StudioCore
         refreshLocal()
         let known = localInstallers
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let roots = ["/Applications", home.appendingPathComponent("Applications").path,
-                     home.appendingPathComponent("Downloads").path, home.appendingPathComponent("Desktop").path]
+        let roots = ["/Applications", home.appendingPathComponent("Applications").path] + fileAccess.directories
         let items = await Task.detached(priority: .utility) {
             LocalInstaller.discover(roots: roots, known: known)
         }.value
@@ -187,8 +194,7 @@ import StudioCore
         status = "Vorhandene Installer werden geprüft …"
         completedPath = ""; error = nil
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let roots = ["/Applications", home.appendingPathComponent("Applications").path,
-                     home.appendingPathComponent("Downloads").path, home.appendingPathComponent("Desktop").path]
+        let roots = ["/Applications", home.appendingPathComponent("Applications").path] + fileAccess.directories
         let known = Array(extraLocalPaths.union(localInstallers))
         let found = await Task.detached(priority: .utility) {
             LocalInstaller.discover(roots: roots, known: known)
@@ -371,6 +377,9 @@ import StudioCore
             guard result.status == 0 else {
                 if result.output.localizedCaseInsensitiveContains("does not appear to be a valid OS installer") {
                     throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + result.output)
+                }
+                if result.output.contains("Operation not permitted") || result.output.contains(".IAPhysicalMedia") {
+                    throw failure("Das USB-Format wurde vorbereitet, aber macOS verweigert createinstallmedia den Schreibzugriff (250). Bitte den Zugriff auf Wechselmedien in den macOS-Datenschutzeinstellungen freigeben und erneut starten. Diese Systemberechtigung kann die App nicht selbst erteilen.\n\n" + result.output)
                 }
                 throw failure(result.output.isEmpty ? "USB-Erstellung fehlgeschlagen." : result.output)
             }
