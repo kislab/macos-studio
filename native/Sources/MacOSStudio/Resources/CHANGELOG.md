@@ -1,3 +1,11 @@
+Version 1.2.27
+
+• Neu: Extras. iPhone oder iPad per Kabel anschließen – die App erkennt es und startet mit einem Klick den Wiederherstellungsmodus (Laptop und Kabel auf dem Display), ganz ohne Tasten. „Normal starten“ holt es wieder heraus. Dabei wird nichts gelöscht.
+
+• Extras: DFU-Modus mit Anleitung. Den DFU-Modus lässt Apple nur über die Tasten am Gerät zu. Die App wählt die passende Tastenfolge für dein Modell, zählt die Sekunden mit und meldet, sobald das Gerät im DFU-Modus ist.
+
+• Neu: Einstellungen (auch mit ⌘,). Automatische Update-Suche, Neuigkeiten nach Updates, Installer für andere Macs ein- oder ausblenden, Speicherort für iPhone-/iPad-Firmware, Gerätefotos laden und Zwischenspeicher leeren sowie alles auf Standard zurücksetzen.
+
 Version 1.2.26
 
 • iPhone & iPad: Jede Firmware zeigt jetzt das offizielle Foto des Geräts. Die App lädt die Fotos beim Start direkt von Apples Support-Seiten „iPhone-/iPad-Modell identifizieren“ und speichert sie auf deinem Mac zwischen – danach erscheinen sie auch ohne Internet. iPod touch behält sein Symbol.

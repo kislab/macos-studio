@@ -15,6 +15,10 @@ import Foundation
     }()
     private(set) lazy var updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: userDriver, delegate: self)
     private var updaterStarted = false
+    var automaticChecks: Bool {
+        get { updater.automaticallyChecksForUpdates }
+        set { objectWillChange.send(); updater.automaticallyChecksForUpdates = newValue }
+    }
     private func startUpdater() {
         guard !updaterStarted else { return }
         do { try updater.start(); updaterStarted = true }

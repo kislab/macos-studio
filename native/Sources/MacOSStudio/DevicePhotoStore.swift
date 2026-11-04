@@ -5,6 +5,22 @@ import StudioCore
 /// the pages are checked again after a week. Nothing is bundled with the app.
 @MainActor final class DevicePhotoStore: ObservableObject {
     @Published private(set) var revision = 0
+    @Published var enabled = UserDefaults.standard.object(forKey: AppSettings.photosKey) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(enabled, forKey: AppSettings.photosKey)
+            revision += 1
+            if enabled { Task { await refresh() } }
+        }
+    }
+    var cacheBytes: Int64 {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+        return files.reduce(0) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
+    }
+    func clearCache() {
+        try? FileManager.default.removeItem(at: folder)
+        index = [:]; images = [:]; revision += 1
+        if enabled { Task { await refresh() } }
+    }
     private var index: [String: String] = [:]          // normalized heading → cached file name
     private var images: [String: NSImage] = [:]
     private var refreshing = false
@@ -17,7 +33,7 @@ import StudioCore
     }
 
     func image(for identifier: String) -> NSImage? {
-        guard let heading = DevicePhotos.heading(for: identifier), let file = index[heading] else { return nil }
+        guard enabled, let heading = DevicePhotos.heading(for: identifier), let file = index[heading] else { return nil }
         if let cached = images[file] { return cached }
         guard let image = NSImage(contentsOf: folder.appendingPathComponent(file)) else { return nil }
         images[file] = image
@@ -25,7 +41,7 @@ import StudioCore
     }
 
     func refresh() async {
-        guard !refreshing else { return }
+        guard enabled, !refreshing else { return }
         refreshing = true
         defer { refreshing = false }
         let age = (try? indexFile.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate).map { Date().timeIntervalSince($0) } ?? .infinity

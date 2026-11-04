@@ -62,7 +62,7 @@ import StudioCore
                     let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
                     if UserDefaults.standard.string(forKey: "lastChangelogBuild") != build {
                         UserDefaults.standard.set(build, forKey: "lastChangelogBuild")
-                        startup.showChanges = true
+                        startup.showChanges = UserDefaults.standard.object(forKey: AppSettings.showChangelogKey) as? Bool ?? true
                     }
                 }
         }
@@ -71,6 +71,7 @@ import StudioCore
             CommandGroup(replacing: .newItem) {}
             CommandGroup(after: .appInfo) {
                 Button("Änderungsprotokoll …") { startup.showChanges = true }
+                Button("Einstellungen …") { model.section = "settings" }.keyboardShortcut(",", modifiers: .command)
                 Button("Nach Updates suchen …") { updates.check() }
                     .disabled(!updates.canCheck || model.busy)
             }
@@ -124,6 +125,7 @@ struct StudioView: View {
     @StateObject private var ui = ViewState()
     @StateObject private var firmware = FirmwareStore()
     @StateObject private var photos = DevicePhotoStore()
+    @StateObject private var monitor = DeviceMonitor.shared
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 24) {
@@ -136,6 +138,8 @@ struct StudioView: View {
                     navigation("compatibility", "Mac suchen", "laptopcomputer")
                     navigation("usb", "USB erstellen", "externaldrive")
                     navigation("firmware", "iPhone & iPad", "iphone")
+                    navigation("extras", "Extras", "wrench.and.screwdriver")
+                    navigation("settings", "Einstellungen", "gearshape")
                 }
                 Spacer()
                 if let version = updates.availableVersion {
@@ -170,6 +174,8 @@ struct StudioView: View {
                 else if model.section == "local" { localLibrary }
                 else if model.section == "compatibility" { compatibility }
                 else if model.section == "firmware" { FirmwareView(store: firmware, studio: model, photos: photos) }
+                else if model.section == "extras" { ExtrasView(monitor: monitor, photos: photos) }
+                else if model.section == "settings" { SettingsView(updates: updates, model: model, firmware: firmware, photos: photos) }
                 else { usb }
                 if !model.activeTitle.isEmpty { activity }
             }

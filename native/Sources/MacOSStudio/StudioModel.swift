@@ -71,8 +71,13 @@ import StudioCore
         refreshLocal()
     }
     var currentMac: MacModel? { models.first { $0.id == selectedMac } }
+    /// Settings: list installers this Mac cannot run itself (for other Macs).
+    @Published var showOtherMacInstallers = UserDefaults.standard.object(forKey: AppSettings.otherMacsKey) as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showOtherMacInstallers, forKey: AppSettings.otherMacsKey) }
+    }
     var filteredInstallers: [Installer] {
         installers.filter { item in
+            (showOtherMacInstallers || item.offeredForThisMac) &&
             (query.isEmpty || "\(item.title) \(item.version) \(item.build)".localizedCaseInsensitiveContains(query)) &&
             (currentMac == nil || currentMac!.supports(item))
         }

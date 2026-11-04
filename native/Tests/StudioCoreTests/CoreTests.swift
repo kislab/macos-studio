@@ -12,6 +12,26 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
 }
 
 final class CoreTests {
+    func testDFUGuide() {
+        XCTAssertTrue(DFUGuide.method(for: "iPhone17,1") == .faceIDiPhone)
+        XCTAssertTrue(DFUGuide.method(for: "iPhone10,1") == .faceIDiPhone)   // iPhone 8 uses the new sequence
+        XCTAssertTrue(DFUGuide.method(for: "iPhone12,8") == .faceIDiPhone)   // SE 2
+        XCTAssertTrue(DFUGuide.method(for: "iPhone9,3") == .iPhone7)
+        XCTAssertTrue(DFUGuide.method(for: "iPhone8,1") == .homeButtoniPhone)
+        XCTAssertTrue(DFUGuide.method(for: "iPad16,6") == .faceIDiPad)
+        XCTAssertTrue(DFUGuide.method(for: "iPad12,1") == .homeButtoniPad)
+        XCTAssertTrue(DFUGuide.method(for: "iPod9,1") == .homeButtoniPhone)
+        XCTAssertNil(DFUGuide.method(for: "Watch1,1"))
+        XCTAssertTrue(DFUGuide.Method.allCases.allSatisfy { !DFUGuide.steps(for: $0).isEmpty })
+        XCTAssertTrue(DFUGuide.usbMode(productID: 0x1227) == .dfu)
+        XCTAssertTrue(DFUGuide.usbMode(productID: 0x1281) == .recovery)
+        XCTAssertNil(DFUGuide.usbMode(productID: 0x12a8))                      // normal iPhone
+        let serial = "CPID:8030 CPRV:11 CPFM:03 SCEP:01 BDID:0C ECID:001A2B3C4D5E6F70 IBFL:3C SRTG:[iBoot-7429.61.2]"
+        XCTAssertEqual(DFUGuide.field("CPID", in: serial), "8030")
+        XCTAssertEqual(DFUGuide.field("ECID", in: serial), "001A2B3C4D5E6F70")
+        XCTAssertEqual(DFUGuide.field("SRTG", in: serial), "iBoot-7429.61.2")
+        XCTAssertNil(DFUGuide.field("SRNM", in: serial))
+    }
     func testDevicePhotos() throws {
         let html = #"<h2 class="gb-header">Find the model number</h2><p>Intro</p><h2 class="gb-header">iPad&nbsp;Air 13\#u{2011}inch (M4)</h2> <img class="gb-image" alt="x" src="https://cdsassets.apple.com/live/a/ipad-air-13.png" height="1"/><h2 class="gb-header">Evil</h2> <img class="gb-image" src="https://evil.example.com/x.png"/>"#
         let photos = DevicePhotos.parse(html: html)
@@ -342,6 +362,7 @@ final class LockedFlag: @unchecked Sendable {
         try tests.testSerialLookup()
         try tests.testFirmwareCatalog()
         try tests.testDevicePhotos()
+        tests.testDFUGuide()
         tests.testVersionValidation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
@@ -397,6 +418,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("16 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("17 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, DFU guide, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }
