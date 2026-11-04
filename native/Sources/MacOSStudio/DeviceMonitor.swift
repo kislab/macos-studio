@@ -136,6 +136,22 @@ import StudioCore
                          : "Das Gerät startet jetzt normal. Das dauert etwa eine Minute."
     }
 
+    /// Sends the USB-C VDM to a connected target Mac (Apple Silicon), via the app's own privileged helper.
+    func sendMacVDM(reboot: Bool) async {
+        guard !working else { return }
+        working = true
+        defer { working = false }
+        guard let exe = Bundle.main.executablePath else { message = "Programmpfad nicht gefunden."; return }
+        let shell = shellQuote(exe) + (reboot ? " --vdm-reboot" : " --vdm-dfu")
+        let script = "do shell script " + appleScriptQuote(shell) + " with administrator privileges"
+        do {
+            let result = try await Command().run("/usr/bin/osascript", ["-e", script], timeout: 120)
+            let output = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            if output.contains("(-128)") { message = "Abgebrochen. Es wurde nichts gesendet."; return }
+            message = output.isEmpty ? (result.status == 0 ? "Fertig." : "Fehlgeschlagen.") : output
+        } catch { message = error.localizedDescription }
+    }
+
     func scanUSB() {
         var found: [USBDevice] = []
         guard let matching = IOServiceMatching("IOUSBHostDevice") as NSMutableDictionary? else { return }

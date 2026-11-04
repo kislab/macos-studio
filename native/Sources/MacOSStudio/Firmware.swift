@@ -168,6 +168,13 @@ struct FirmwareView: View {
             }
             if let item = store.active { progressCard(item) }
             if store.loading { ProgressView(store.status).padding() }
+            if photos.loading && photos.total > 0 {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Gerätefotos von Apple werden geladen … \(photos.loaded)/\(photos.total)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     ForEach(DeviceNames.Family.allCases, id: \.self) { family in

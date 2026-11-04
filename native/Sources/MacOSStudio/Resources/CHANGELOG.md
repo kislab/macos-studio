@@ -1,3 +1,9 @@
+Version 1.1
+
+• iPhone & iPad: Die Gerätefotos werden jetzt mit sichtbarem Fortschritt geladen und auf dem Mac zwischengespeichert. Schon geladene Fotos werden nicht erneut geholt; beim nächsten Start sind sie sofort da.
+
+• Extras: Neu „Mac in DFU versetzen (USB-C)“. Ein Apple-Silicon-Mac kann einen zweiten, über den DFU-Port verbundenen Mac per Klick in den DFU-Modus versetzen oder neu starten – ohne Tasten. Experimentell, mit Admin-Passwort. Für iPhone/iPad funktioniert das nicht.
+
 Version 1.0
 
 Erste offizielle Version von OS Studio. Die bisherigen Vorabversionen sind damit abgeschlossen.

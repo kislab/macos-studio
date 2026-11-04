@@ -9,7 +9,7 @@ import StudioCore
     var started = false
 }
 
-@main struct MacOSStudioApp: App {
+struct MacOSStudioApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var model = StudioModel()
     @StateObject private var updates = AppUpdates()

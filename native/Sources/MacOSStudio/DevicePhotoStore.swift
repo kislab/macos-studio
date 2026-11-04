@@ -5,6 +5,9 @@ import StudioCore
 /// the pages are checked again after a week. Nothing is bundled with the app.
 @MainActor final class DevicePhotoStore: ObservableObject {
     @Published private(set) var revision = 0
+    @Published private(set) var loading = false
+    @Published private(set) var loaded = 0
+    @Published private(set) var total = 0
     @Published var enabled = UserDefaults.standard.object(forKey: AppSettings.photosKey) as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(enabled, forKey: AppSettings.photosKey)
@@ -58,6 +61,9 @@ import StudioCore
         }
         guard !photos.isEmpty else { return }
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let toLoad = photos.filter { !FileManager.default.fileExists(atPath: folder.appendingPathComponent($0.value.deletingLastPathComponent().lastPathComponent + "-" + $0.value.lastPathComponent).path) }
+        if !toLoad.isEmpty { loading = true; loaded = 0; total = toLoad.count }
+        defer { loading = false }
         let downloaded = await withTaskGroup(of: (String, String)?.self) { group -> [String: String] in
             var pending = Array(photos), running = 0, result: [String: String] = [:]
             func next() {
@@ -77,6 +83,7 @@ import StudioCore
             while let item = await group.next() {
                 running -= 1
                 if let (heading, name) = item { result[heading] = name }
+                await MainActor.run { if self.total > 0 { self.loaded += 1 } }
                 next()
             }
             return result

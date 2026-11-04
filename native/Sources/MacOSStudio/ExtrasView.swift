@@ -8,6 +8,8 @@ import StudioCore
     @Published var stepIndex = 0
     @Published var remaining = 0
     @Published var dfuReached = false
+    @Published var confirmMacDFU = false
+    @Published var confirmMacReboot = false
     var guideTask: Task<Void, Never>?
 }
 
@@ -33,6 +35,7 @@ struct ExtrasView: View {
                     restartCard
                     recoveryCard
                     dfuCard
+                    macDFUCard
                 }
             }
         }
@@ -227,6 +230,39 @@ struct ExtrasView: View {
         }
     }
     private func stopGuide() { state.guideTask?.cancel(); state.guideTask = nil; state.guiding = false }
+
+    // MARK: Mac DFU over USB-C
+
+    private var macDFUCard: some View {
+        card("Mac in DFU versetzen (USB-C)", "bolt.horizontal.circle") {
+            Text("Nur für einen zweiten Mac mit Apple Silicon: über den DFU-Port per USB-C-/Thunderbolt-Kabel verbunden, kann dieser Mac den anderen per Klick in den DFU-Modus versetzen oder neu starten – ohne Tasten. Für iPhone/iPad funktioniert das nicht.")
+                .font(.callout).foregroundStyle(.secondary)
+            Label("Experimentell und nicht getestet. Admin-Passwort nötig.", systemImage: "exclamationmark.triangle")
+                .font(.caption).foregroundStyle(.orange)
+            if !VDMTool.isAppleSilicon {
+                Text("Dieser Mac hat Intel – die Funktion steht nur auf Apple-Silicon-Macs zur Verfügung.")
+                    .font(.callout).foregroundStyle(.secondary)
+            } else {
+                HStack {
+                    Button("Ziel-Mac in DFU versetzen", systemImage: "bolt.fill") { state.confirmMacDFU = true }
+                        .buttonStyle(.borderedProminent).disabled(monitor.working)
+                    Button("Ziel-Mac neu starten", systemImage: "power") { state.confirmMacReboot = true }
+                        .disabled(monitor.working)
+                    if monitor.working { ProgressView().controlSize(.small) }
+                }
+                Text("DFU-Port: bei MacBooks der Anschluss nahe dem Netzteil/MagSafe, beim Mac mini/Studio der Port nächst der Strombuchse.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .confirmationDialog("Ziel-Mac in DFU versetzen?", isPresented: $state.confirmMacDFU, titleVisibility: .visible) {
+            Button("In DFU versetzen") { Task { await monitor.sendMacVDM(reboot: false) } }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { Text("Der per DFU-Port verbundene zweite Mac wird in den DFU-Modus versetzt. Auf diesem Mac passiert nichts.") }
+        .confirmationDialog("Ziel-Mac neu starten?", isPresented: $state.confirmMacReboot, titleVisibility: .visible) {
+            Button("Neu starten") { Task { await monitor.sendMacVDM(reboot: true) } }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { Text("Der per DFU-Port verbundene zweite Mac startet neu.") }
+    }
 
     private func card<Content: View>(_ title: String, _ symbol: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {

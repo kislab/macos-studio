@@ -12,6 +12,17 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
 }
 
 final class CoreTests {
+    func testVDM() {
+        XCTAssertEqual(VDM.fourCC("VDMs"), 0x56444D73)
+        XCTAssertEqual(VDM.fourCC("DBMa"), 0x44424D61)
+        XCTAssertEqual(VDM.fourCC("LOCK"), 0x4C4F434B)
+        XCTAssertEqual(VDM.fourCC("Gaid"), 0x47616964)
+        XCTAssertEqual(VDM.args(for: VDM.dfuWords), [0x33, 0x12, 0x80, 0xAC, 0x05, 0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x80])
+        XCTAssertEqual(VDM.args(for: VDM.rebootWords), [0x33, 0x12, 0x80, 0xAC, 0x05, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80])
+        XCTAssertEqual(VDM.replyHeader(for: VDM.dfuWords), 0x05AC8052)
+        XCTAssertEqual(VDM.key(fromBoardName: Array("J416".utf8)), 0x4A343136)
+        XCTAssertEqual(VDM.keyBytes(fromBoardName: Array("J416".utf8)), [0x36, 0x31, 0x34, 0x4A])
+    }
     func testDFUGuide() {
         XCTAssertTrue(DFUGuide.method(for: "iPhone17,1") == .faceIDiPhone)
         XCTAssertTrue(DFUGuide.method(for: "iPhone10,1") == .faceIDiPhone)   // iPhone 8 uses the new sequence
@@ -364,6 +375,7 @@ final class LockedFlag: @unchecked Sendable {
         try tests.testFirmwareCatalog()
         try tests.testDevicePhotos()
         tests.testDFUGuide()
+        tests.testVDM()
         tests.testVersionValidation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
@@ -419,6 +431,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("17 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, DFU guide, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("18 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, DFU guide, VDM, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }
