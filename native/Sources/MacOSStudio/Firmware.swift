@@ -139,6 +139,7 @@ import StudioCore
 struct FirmwareView: View {
     @ObservedObject var store: FirmwareStore
     @ObservedObject var studio: StudioModel
+    @ObservedObject var photos: DevicePhotoStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -197,7 +198,8 @@ struct FirmwareView: View {
 
     private func row(_ item: Firmware) -> some View {
         HStack(spacing: 16) {
-            FirmwareArtwork(item: item).frame(width: 58, height: 58)
+            FirmwareArtwork(item: item, photo: photos.image(for: item.devices.last ?? ""))
+                .frame(width: 112, height: 76).id(photos.revision)
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.deviceNames.joined(separator: ", ")).font(.headline).lineLimit(2)
                 Text("\(item.platform) \(item.version)  ·  Build \(item.build)").font(.subheadline).foregroundStyle(.secondary)
@@ -245,6 +247,7 @@ struct FirmwareView: View {
 /// Tile like the macOS installer artwork: device outline matching the model's design plus the OS version.
 struct FirmwareArtwork: View {
     let item: Firmware
+    var photo: NSImage? = nil
     private var symbol: String {
         let candidates: [String]
         switch item.design {
@@ -265,6 +268,22 @@ struct FirmwareArtwork: View {
         }
     }
     var body: some View {
+        if let photo {
+            ZStack(alignment: .bottomTrailing) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white)
+                Image(nsImage: photo).resizable().interpolation(.high).antialiased(true).scaledToFit().padding(5)
+                Text("\(item.platform) \(item.version.split(separator: ".").first ?? "")")
+                    .font(.system(size: 9, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                    .padding(.horizontal, 5).padding(.vertical, 2)
+                    .background(Color.black.opacity(0.65), in: Capsule()).padding(4)
+            }
+            .shadow(color: .black.opacity(0.18), radius: 3, y: 1.5)
+            .accessibilityLabel("\(item.deviceNames.first ?? "Gerät"), Foto von Apple")
+        } else {
+            symbolTile.frame(width: 58, height: 58).frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+    private var symbolTile: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))

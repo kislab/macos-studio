@@ -1,3 +1,7 @@
+Version 1.2.26
+
+• iPhone & iPad: Jede Firmware zeigt jetzt das offizielle Foto des Geräts. Die App lädt die Fotos beim Start direkt von Apples Support-Seiten „iPhone-/iPad-Modell identifizieren“ und speichert sie auf deinem Mac zwischen – danach erscheinen sie auch ohne Internet. iPod touch behält sein Symbol.
+
 Version 1.2.25
 
 • iPhone & iPad: Die neuesten Geräte stehen jetzt oben (iPhone 18 Pro, iPhone 17, iPhone 16 …).

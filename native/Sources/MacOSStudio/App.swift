@@ -123,6 +123,7 @@ struct StudioView: View {
     @ObservedObject var model: StudioModel
     @StateObject private var ui = ViewState()
     @StateObject private var firmware = FirmwareStore()
+    @StateObject private var photos = DevicePhotoStore()
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 24) {
@@ -168,7 +169,7 @@ struct StudioView: View {
                 if model.section == "download" { downloader }
                 else if model.section == "local" { localLibrary }
                 else if model.section == "compatibility" { compatibility }
-                else if model.section == "firmware" { FirmwareView(store: firmware, studio: model) }
+                else if model.section == "firmware" { FirmwareView(store: firmware, studio: model, photos: photos) }
                 else { usb }
                 if !model.activeTitle.isEmpty { activity }
             }
@@ -176,6 +177,7 @@ struct StudioView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .tint(.blue)
+        .task { await photos.refresh() }   // Apple's device photos, cached locally; loaded once at launch
         .alert("Hinweis", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil; model.privacyPane = nil } })) {
             if model.privacyPane != nil {
                 Button("Datenschutzeinstellungen öffnen") { model.error = nil; model.openPrivacySettings(); model.privacyPane = nil }

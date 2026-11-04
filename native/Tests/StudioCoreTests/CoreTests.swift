@@ -12,6 +12,21 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
 }
 
 final class CoreTests {
+    func testDevicePhotos() throws {
+        let html = #"<h2 class="gb-header">Find the model number</h2><p>Intro</p><h2 class="gb-header">iPad&nbsp;Air 13\#u{2011}inch (M4)</h2> <img class="gb-image" alt="x" src="https://cdsassets.apple.com/live/a/ipad-air-13.png" height="1"/><h2 class="gb-header">Evil</h2> <img class="gb-image" src="https://evil.example.com/x.png"/>"#
+        let photos = DevicePhotos.parse(html: html)
+        XCTAssertEqual(photos.count, 1)
+        XCTAssertEqual(photos["ipad air 13-inch (m4)"]?.lastPathComponent, "ipad-air-13.png")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPad16,10"), "ipad air 13-inch (m4)")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPhone14,6"), "iphone se (3rd generation)")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPad8,1"), "ipad pro 11-inch")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPad6,7"), "ipad pro (12.9-inch)")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPad8,11"), "ipad pro 12.9-inch (4th generation)")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPad7,3"), "ipad pro (10.5-inch)")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPad13,18"), "ipad (10th generation)")
+        XCTAssertEqual(DevicePhotos.heading(for: "iPhone19,4"), "iphone duo")
+        XCTAssertNil(DevicePhotos.heading(for: "iPod9,1"))
+    }
     func testFirmwareCatalog() throws {
         func restore(_ url: String, _ version: String, _ build: String, _ sha: String? = nil) -> [String: Any] {
             var r: [String: Any] = ["FirmwareURL": url, "ProductVersion": version, "BuildVersion": build]
@@ -326,6 +341,7 @@ final class LockedFlag: @unchecked Sendable {
         try tests.testAppleCatalog()
         try tests.testSerialLookup()
         try tests.testFirmwareCatalog()
+        try tests.testDevicePhotos()
         tests.testVersionValidation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
@@ -359,6 +375,15 @@ final class LockedFlag: @unchecked Sendable {
             XCTAssertTrue(firmware.allSatisfy { $0.url.scheme == "https" })
             let unnamed = Set(firmware.flatMap(\.devices).filter { DeviceNames.name(for: $0).contains("-Modell") })
             print("Live firmware list: \(firmware.count) IPSWs, \(firmware.filter { $0.sha1 != nil }.count) with SHA-1, unnamed: \(unnamed.sorted())")
+            var headings: [String: URL] = [:]
+            for page in DevicePhotos.pages {
+                var request = URLRequest(url: page); request.setValue("Mozilla/5.0 (Macintosh)", forHTTPHeaderField: "User-Agent")
+                let (html, _) = try await URLSession.shared.data(for: request)
+                headings.merge(DevicePhotos.parse(html: String(decoding: html, as: UTF8.self))) { a, _ in a }
+            }
+            let ids = Set(firmware.flatMap(\.devices)).filter { !$0.hasPrefix("iPod") }
+            let missing = ids.filter { id in DevicePhotos.heading(for: id).flatMap { headings[$0] } == nil }.sorted()
+            print("Live device photos: \(headings.count) Apple photos, \(ids.count - missing.count)/\(ids.count) devices matched, missing: \(missing)")
             print("Live Apple catalog: \(products.count) full installers, e.g. \(info.title) \(info.version) (\(info.build))")
         }
         try await tests.testUSBRootCommand()
@@ -372,6 +397,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("15 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("16 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }
