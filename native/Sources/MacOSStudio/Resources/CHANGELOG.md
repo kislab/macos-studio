@@ -1,3 +1,11 @@
+Version 1.1.1
+
+• Extras: Beim Anschließen eines iPhones/iPads bleibt die Oberfläche flüssig – das Auslesen (Verbinden, Kopplung, Sitzung) läuft jetzt im Hintergrund.
+
+• iPhone & iPad: Der Ladebalken für die Gerätefotos zählt wieder korrekt und zeigt nur die tatsächlich geladenen Fotos.
+
+• Intern: Geräte werden über Apples offizielle Retain/Release-Funktionen gehalten; Reste von Wiederherstellungs-Geräten werden sauber aufgeräumt.
+
 Version 1.1
 
 • iPhone & iPad: Die Gerätefotos werden jetzt mit sichtbarem Fortschritt geladen und auf dem Mac zwischengespeichert. Schon geladene Fotos werden nicht erneut geholt; beim nächsten Start sind sie sofort da.

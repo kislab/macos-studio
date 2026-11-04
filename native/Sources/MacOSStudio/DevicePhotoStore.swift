@@ -64,26 +64,26 @@ import StudioCore
         let toLoad = photos.filter { !FileManager.default.fileExists(atPath: folder.appendingPathComponent($0.value.deletingLastPathComponent().lastPathComponent + "-" + $0.value.lastPathComponent).path) }
         if !toLoad.isEmpty { loading = true; loaded = 0; total = toLoad.count }
         defer { loading = false }
-        let downloaded = await withTaskGroup(of: (String, String)?.self) { group -> [String: String] in
-            var pending = Array(photos), running = 0, result: [String: String] = [:]
+        let downloaded = await withTaskGroup(of: (heading: String, name: String, new: Bool)?.self) { group -> [String: String] in
+            var pending = Array(photos), result: [String: String] = [:]
             func next() {
                 guard let (heading, url) = pending.popLast() else { return }
-                running += 1
                 group.addTask {
                     let name = url.deletingLastPathComponent().lastPathComponent + "-" + url.lastPathComponent
                     let target = folder.appendingPathComponent(name)
-                    if FileManager.default.fileExists(atPath: target.path) { return (heading, name) }
+                    if FileManager.default.fileExists(atPath: target.path) { return (heading, name, false) }
                     guard let (data, response) = try? await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 60)),
                           (response as? HTTPURLResponse)?.statusCode == 200, NSImage(data: data) != nil,
                           (try? data.write(to: target, options: .atomic)) != nil else { return nil }
-                    return (heading, name)
+                    return (heading, name, true)
                 }
             }
             for _ in 0..<6 { next() }
             while let item = await group.next() {
-                running -= 1
-                if let (heading, name) = item { result[heading] = name }
-                await MainActor.run { if self.total > 0 { self.loaded += 1 } }
+                if let item {
+                    result[item.heading] = item.name
+                    if item.new { await MainActor.run { if self.total > 0 { self.loaded += 1 } } }
+                }
                 next()
             }
             return result

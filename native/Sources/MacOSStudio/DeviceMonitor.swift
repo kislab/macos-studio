@@ -55,29 +55,41 @@ import StudioCore
     fileprivate func attached(_ device: UnsafeMutableRawPointer) {
         guard let md, md.interfaceType(device) == 1,                       // 1 = USB, 2 = Wi-Fi
               let udid = md.copyIdentifier(device)?.takeRetainedValue() as String? else { return }
-        if handles[udid] == nil { handles[udid] = UnsafeMutableRawPointer(Unmanaged<AnyObject>.fromOpaque(device).retain().toOpaque()) }
-        var entry = Device(id: udid, name: "iPhone/iPad", productType: "", version: "", paired: false)
-        if md.connect(device) == 0 {
-            entry.paired = md.isPaired(device) == 1
-            if entry.paired, md.validatePairing(device) == 0, md.startSession(device) == 0 {
-                entry.name = md.string(device, "DeviceName") ?? entry.name
-                entry.productType = md.string(device, "ProductType") ?? ""
-                entry.version = md.string(device, "ProductVersion") ?? ""
-                _ = md.stopSession(device)
-            } else {
-                entry.productType = md.string(device, "ProductType") ?? ""
-                entry.version = md.string(device, "ProductVersion") ?? ""
-                entry.name = md.string(device, "DeviceName") ?? entry.name
-            }
-            _ = md.disconnect(device)
+        if handles[udid] == nil { md.retainDevice(device); handles[udid] = device }
+        if !devices.contains(where: { $0.id == udid }) {
+            devices.append(Device(id: udid, name: "iPhone/iPad", productType: "", version: "", paired: false))
         }
-        devices.removeAll { $0.id == udid }
-        devices.append(entry)
+        // lockdownd I/O (connect/pair/session) can block for a while on a locked device → off the main thread.
+        md.retainDevice(device)
+        Task.detached { [md] in
+            defer { md.releaseDevice(device) }
+            var entry = Device(id: udid, name: "iPhone/iPad", productType: "", version: "", paired: false)
+            if md.connect(device) == 0 {
+                entry.paired = md.isPaired(device) == 1
+                if entry.paired, md.validatePairing(device) == 0, md.startSession(device) == 0 {
+                    entry.name = md.string(device, "DeviceName") ?? entry.name
+                    entry.productType = md.string(device, "ProductType") ?? ""
+                    entry.version = md.string(device, "ProductVersion") ?? ""
+                    _ = md.stopSession(device)
+                } else {
+                    entry.productType = md.string(device, "ProductType") ?? ""
+                    entry.version = md.string(device, "ProductVersion") ?? ""
+                    entry.name = md.string(device, "DeviceName") ?? entry.name
+                }
+                _ = md.disconnect(device)
+            }
+            let result = entry
+            await MainActor.run {
+                guard DeviceMonitor.shared.handles[udid] != nil else { return }   // unplugged meanwhile
+                DeviceMonitor.shared.devices.removeAll { $0.id == udid }
+                DeviceMonitor.shared.devices.append(result)
+            }
+        }
     }
     fileprivate func detached(_ device: UnsafeMutableRawPointer) {
         guard let md, let udid = md.copyIdentifier(device)?.takeRetainedValue() as String? else { return }
         devices.removeAll { $0.id == udid }
-        if let handle = handles.removeValue(forKey: udid) { Unmanaged<AnyObject>.fromOpaque(handle).release() }
+        if let handle = handles.removeValue(forKey: udid) { md.releaseDevice(handle) }
     }
 
     /// Restarts the device into recovery mode (laptop-and-cable screen). Needs a trusted (paired) device.
@@ -169,6 +181,10 @@ import StudioCore
             IORegistryEntryGetRegistryEntryID(service, &entryID)
             found.append(USBDevice(id: String(entryID), mode: mode, serial: serial))
         }
+        if !found.contains(where: { $0.mode == .recovery }) && !recoveryHandles.isEmpty {
+            recoveryHandles.forEach { Unmanaged<AnyObject>.fromOpaque($0).release() }
+            recoveryHandles.removeAll()
+        }
         if found != usbDevices { usbDevices = found }
     }
 
@@ -199,12 +215,13 @@ private let recoveryDisconnected: MobileDevice.RestoreCallback = { device, _ in
 
 /// Function table for the private MobileDevice framework, resolved with dlsym. If anything is missing the
 /// framework is treated as unavailable and only USB detection works.
-struct MobileDevice {
+struct MobileDevice: @unchecked Sendable {
     typealias NotifyCallback = @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void
     typealias RestoreCallback = @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void
     typealias Subscribe = @convention(c) (NotifyCallback, UInt32, UInt32, UnsafeMutableRawPointer?, UnsafeMutablePointer<UnsafeMutableRawPointer?>) -> Int32
     typealias RegisterRestore = @convention(c) (RestoreCallback, RestoreCallback, RestoreCallback, RestoreCallback, UInt32, UnsafeMutableRawPointer?) -> Int32
     typealias DeviceCall = @convention(c) (UnsafeMutableRawPointer?) -> Int32
+    typealias DeviceVoid = @convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?
     typealias CopyString = @convention(c) (UnsafeMutableRawPointer?) -> Unmanaged<CFString>?
     typealias CopyValue = @convention(c) (UnsafeMutableRawPointer?, CFString?, CFString) -> Unmanaged<CFTypeRef>?
     typealias SetAutoBoot = @convention(c) (UnsafeMutableRawPointer?, UInt8) -> Int32
@@ -223,6 +240,10 @@ struct MobileDevice {
     let copyValue: CopyValue
     let setAutoBoot: SetAutoBoot
     let reboot: DeviceCall
+    let retain: DeviceVoid
+    let release: DeviceVoid
+    func retainDevice(_ d: UnsafeMutableRawPointer) { retain(d) }
+    func releaseDevice(_ d: UnsafeMutableRawPointer) { release(d) }
 
     func string(_ device: UnsafeMutableRawPointer, _ key: String) -> String? {
         copyValue(device, nil, key as CFString)?.takeRetainedValue() as? String
@@ -248,11 +269,14 @@ struct MobileDevice {
               let enterRecovery = symbol("AMDeviceEnterRecovery", DeviceCall.self),
               let copyValue = symbol("AMDeviceCopyValue", CopyValue.self),
               let setAutoBoot = symbol("AMRecoveryModeDeviceSetAutoBoot", SetAutoBoot.self),
-              let reboot = symbol("AMRecoveryModeDeviceReboot", DeviceCall.self)
+              let reboot = symbol("AMRecoveryModeDeviceReboot", DeviceCall.self),
+              let retain = symbol("AMDeviceRetain", DeviceVoid.self),
+              let release = symbol("AMDeviceRelease", DeviceVoid.self)
         else { return nil }
         return MobileDevice(subscribe: subscribe, registerRestore: registerRestore, copyIdentifier: copyIdentifier,
                             interfaceType: interfaceType, connect: connect, disconnect: disconnect, isPaired: isPaired,
                             validatePairing: validatePairing, startSession: startSession, stopSession: stopSession,
-                            enterRecovery: enterRecovery, copyValue: copyValue, setAutoBoot: setAutoBoot, reboot: reboot)
+                            enterRecovery: enterRecovery, copyValue: copyValue, setAutoBoot: setAutoBoot, reboot: reboot,
+                            retain: retain, release: release)
     }
 }
