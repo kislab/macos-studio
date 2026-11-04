@@ -10,24 +10,33 @@ public final class PackageDownload: NSObject, URLSessionDownloadDelegate, @unche
     private var session: URLSession?
     private var task: URLSessionDownloadTask?
     private var moveError: Error?
+    /// Resume data captured when a download is cancelled or fails partway, so it can continue later.
+    public private(set) var resumeData: Data?
 
     public override init() {}
 
-    public func run(_ url: URL, to destination: URL, onProgress: @escaping Progress) async throws -> URL {
+    public func run(_ url: URL, to destination: URL, resumeFrom: Data? = nil, onProgress: @escaping Progress) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             let configuration = URLSessionConfiguration.ephemeral
             configuration.timeoutIntervalForRequest = 120
             configuration.timeoutIntervalForResource = 48 * 3600
             let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-            let task = session.downloadTask(with: url)
+            let task = resumeFrom.map { session.downloadTask(withResumeData: $0) } ?? session.downloadTask(with: url)
             lock.lock()
             self.continuation = continuation; self.destination = destination; self.onProgress = onProgress
-            self.session = session; self.task = task
+            self.session = session; self.task = task; self.resumeData = nil
             lock.unlock()
             task.resume()
         }
     }
-    public func cancel() { lock.lock(); let task = task; lock.unlock(); task?.cancel() }
+    /// Cancels and keeps resume data for a later continuation (best effort).
+    public func cancel() {
+        lock.lock(); let task = task; lock.unlock()
+        task?.cancel { [weak self] data in
+            guard let self else { return }
+            self.lock.lock(); self.resumeData = data; self.lock.unlock()
+        }
+    }
 
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64,
                            totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
@@ -49,6 +58,8 @@ public final class PackageDownload: NSObject, URLSessionDownloadDelegate, @unche
         lock.lock()
         let continuation = continuation; self.continuation = nil
         let failure = error ?? moveError; let target = destination
+        // Keep resume data the server/URL loading system provides on a resumable failure.
+        if let data = (error as NSError?)?.userInfo[NSURLSessionDownloadTaskResumeData] as? Data { self.resumeData = data }
         self.session = nil; self.task = nil
         lock.unlock()
         session.finishTasksAndInvalidate()

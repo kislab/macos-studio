@@ -1,3 +1,19 @@
+Version 1.2.0
+
+• iPhone & iPad: „Prüfen“ gleicht eine geladene Firmware mit Apples SHA-1-Prüfsumme ab und markiert beschädigte oder unvollständige Dateien.
+
+• iPhone & iPad: Abgebrochene oder fehlgeschlagene Downloads lassen sich fortsetzen, statt die ganze Datei neu zu laden.
+
+• iPhone & iPad: Vor dem Laden prüft die App, ob genug Speicherplatz frei ist, und warnt rechtzeitig.
+
+• iPhone & iPad: „Aufräumen“ schlägt ältere IPSW-Dateien im Ordner zum Verschieben in den Papierkorb vor.
+
+• Installer lokal: „Prüfen“ kontrolliert, ob die Installationsdaten vollständig sind.
+
+• Laufende Downloads und die USB-Erstellung zeigen den Fortschritt jetzt auch als Prozentzahl am Dock-Symbol.
+
+• Hilfe und Einstellungen: „Diagnose exportieren …“ sichert App-Infos und das letzte Protokoll als Textdatei für Fehlerberichte.
+
 Version 1.1.1
 
 • Extras: Beim Anschließen eines iPhones/iPads bleibt die Oberfläche flüssig – das Auslesen (Verbinden, Kopplung, Sitzung) läuft jetzt im Hintergrund.

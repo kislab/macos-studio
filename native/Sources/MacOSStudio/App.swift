@@ -77,6 +77,7 @@ struct MacOSStudioApp: App {
             }
             CommandGroup(after: .help) {
                 Button("Feedback senden …") { StudioView.sendFeedback() }
+                Button("Diagnose exportieren …") { model.exportDiagnostics() }
             }
         }
     }
@@ -342,6 +343,9 @@ struct StudioView: View {
                             }
                             HStack {
                                 Button("Im Finder", systemImage: "folder") { NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "") }
+                                Button("Prüfen", systemImage: "checkmark.seal") { Task { await model.verifyLocal(item) } }
+                                    .disabled(model.busy || model.verifyingLocal || model.localScanning)
+                                    .help("Prüft, ob die Installationsdaten vollständig sind.")
                                 Button("Für USB verwenden", systemImage: "externaldrive") {
                                     model.selectedInstaller = item.path; model.section = "usb"
                                 }.disabled(model.busy || item.preparationIssue != nil)

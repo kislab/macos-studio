@@ -20,9 +20,46 @@ import StudioCore
     private var download: PackageDownload?
     private var sample: (time: TimeInterval, bytes: Int64) = (0, 0)
     private var cancelled = false
+    /// Verification state (#3) and interrupted-download resume (#4).
+    @Published var verifying: String?
+    @Published var verifyResults: [String: VerifyResult] = [:]
+    @Published var confirmCleanup = false
 
     var visible: [Firmware] { query.isEmpty ? items : items.filter { $0.matches(query: query) } }
     var downloading: Bool { active != nil && finished == nil }
+    func resumeFile(_ item: Firmware) -> URL { folder.appendingPathComponent(item.fileName + ".resume") }
+    func canResume(_ item: Firmware) -> Bool { existing(item) == nil && FileManager.default.fileExists(atPath: resumeFile(item).path) }
+
+    /// Checks a finished IPSW against Apple's published SHA-1 (the mobile list carries no size) (#3).
+    func verify(_ item: Firmware) async {
+        guard let file = existing(item), verifying == nil else { return }
+        verifying = item.fileName
+        defer { verifying = nil }
+        let size = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? NSNumber)?.int64Value
+        let sha = item.sha1 == nil ? nil : try? await Task.detached(priority: .userInitiated) { try? FirmwareCatalog.sha1(of: file) }.value
+        verifyResults[item.id] = FileVerify.result(actualSize: size, expectedSize: nil, actualSHA1: sha ?? nil, expectedSHA1: item.sha1)
+    }
+
+    /// Apple's IPSW size via a HEAD request (the list omits it), for the free-space check (#5).
+    private func remoteSize(_ url: URL) async -> Int64? {
+        var request = URLRequest(url: url, timeoutInterval: 30); request.httpMethod = "HEAD"
+        guard let (_, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, http.statusCode == 200, http.expectedContentLength > 0 else { return nil }
+        return http.expectedContentLength
+    }
+
+    /// IPSW files in the folder that Apple no longer lists (superseded or unrelated) (#10).
+    func cleanupCandidates() -> [(url: URL, bytes: Int64)] {
+        guard !items.isEmpty else { return [] }
+        let current = Set(items.map(\.fileName))
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+        return files.filter { $0.pathExtension.lowercased() == "ipsw" && !current.contains($0.lastPathComponent) }
+            .map { ($0, Int64((try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)) }
+            .sorted { $0.url.lastPathComponent < $1.url.lastPathComponent }
+    }
+    func trash(_ urls: [URL]) {
+        for url in urls { try? FileManager.default.trashItem(at: url, resultingItemURL: nil) }
+    }
 
     static var downloads: URL { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0] }
     /// Save folder for IPSW files: Downloads by default, or the folder the user picked (remembered).
@@ -85,7 +122,7 @@ import StudioCore
             NSWorkspace.shared.activateFileViewerSelecting([file]); return
         }
         studio.busy = true
-        defer { studio.busy = false; download = nil; mbits = nil }
+        defer { studio.busy = false; download = nil; mbits = nil; DockProgress.clear() }
         active = item; finished = nil; progress = 0; written = 0; expected = 0; cancelled = false
         phase = "IPSW wird geladen"
         let destination = folder
@@ -93,14 +130,24 @@ import StudioCore
             error = "In den gewählten Ordner kann nicht geschrieben werden:\n\(destination.path)\nBitte unter „Speicherort“ einen anderen Ordner wählen."
             active = nil; progress = nil; return
         }
+        phase = "Speicherplatz wird geprüft …"
+        if let size = await remoteSize(item.url), !Disk.hasSpace(forPath: destination.path, need: size) {
+            let free = Disk.freeBytes(forPath: destination.path).map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unbekannt"
+            error = "Nicht genügend Speicherplatz in „\(destination.lastPathComponent)“.\nBenötigt: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file)), frei: \(free)."
+            active = nil; progress = nil; phase = ""; return
+        }
         let target = destination.appendingPathComponent(item.fileName)
         let partial = destination.appendingPathComponent(item.fileName + ".download")
+        let resume = resumeFile(item)
+        let resumeData = try? Data(contentsOf: resume)
         let downloader = PackageDownload(); download = downloader
         sample = (ProcessInfo.processInfo.systemUptime, 0)
+        if resumeData != nil { phase = "Download wird fortgesetzt …" }
         do {
-            _ = try await downloader.run(item.url, to: partial) { [weak self] written, expected in
+            _ = try await downloader.run(item.url, to: partial, resumeFrom: resumeData) { [weak self] written, expected in
                 Task { @MainActor in self?.report(written: written, expected: expected) }
             }
+            try? FileManager.default.removeItem(at: resume)
             mbits = nil
             if let sha1 = item.sha1 {
                 phase = "Prüfsumme wird geprüft …"; progress = nil
@@ -111,14 +158,19 @@ import StudioCore
                 }
             }
             try FileManager.default.moveItem(at: partial, to: target)
-            finished = target; progress = 100
+            finished = target; progress = 100; verifyResults[item.id] = nil
             let place = destination.lastPathComponent
             phase = item.sha1 == nil ? "Fertig · gespeichert in „\(place)“" : "Fertig · Prüfsumme bestätigt · gespeichert in „\(place)“"
         } catch {
             try? FileManager.default.removeItem(at: partial)
+            // Keep resume data so the user can continue instead of restarting the multi-GB download (#4).
+            if let data = downloader.resumeData { try? data.write(to: resume, options: .atomic) }
             active = nil; progress = nil
-            if cancelled || (error as? URLError)?.code == .cancelled { phase = ""; return }
-            self.error = "Download fehlgeschlagen.\n\(error.localizedDescription)"
+            if cancelled || (error as? URLError)?.code == .cancelled {
+                phase = downloader.resumeData != nil ? "Abgebrochen · kann fortgesetzt werden" : ""
+                return
+            }
+            self.error = "Download fehlgeschlagen.\n\(error.localizedDescription)" + (downloader.resumeData != nil ? "\n\nDer Download kann fortgesetzt werden." : "")
         }
     }
     func cancel() { cancelled = true; download?.cancel() }
@@ -132,6 +184,7 @@ import StudioCore
         sample = (now, written)
         self.written = Double(written); self.expected = Double(max(expected, 0))
         progress = expected > 0 ? Double(written) / Double(expected) * 100 : nil
+        DockProgress.show(expected > 0 ? Double(written) / Double(expected) : nil)
     }
     private func failure(_ message: String) -> NSError { NSError(domain: "OSStudio", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
 }
@@ -194,6 +247,7 @@ struct FirmwareView: View {
                     }
                 }
             }
+            cleanupBar
             Text(store.status + " · Ältere Versionen führt Apple nicht mehr auf und signiert sie meist nicht mehr.")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -201,6 +255,25 @@ struct FirmwareView: View {
         .alert("Hinweis", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("OK") { store.error = nil }
         } message: { Text(store.error ?? "") }
+    }
+
+    @ViewBuilder private var cleanupBar: some View {
+        let candidates = store.cleanupCandidates()
+        if !candidates.isEmpty {
+            let total = candidates.reduce(Int64(0)) { $0 + $1.bytes }
+            HStack(spacing: 8) {
+                Label("\(candidates.count) ältere IPSW-Datei(en) im Ordner · \(ByteCountFormatter.string(fromByteCount: total, countStyle: .file))", systemImage: "trash")
+                    .font(.callout).foregroundStyle(.secondary)
+                Spacer()
+                Button("Aufräumen …") { store.confirmCleanup = true }
+            }
+            .confirmationDialog("Ältere Firmware-Dateien in den Papierkorb legen?", isPresented: $store.confirmCleanup, titleVisibility: .visible) {
+                Button("\(candidates.count) Datei(en) in den Papierkorb", role: .destructive) { store.trash(candidates.map(\.url)) }
+                Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text("Diese IPSW-Dateien stehen nicht mehr in Apples aktueller Liste:\n" + candidates.map { $0.url.lastPathComponent }.joined(separator: "\n") + "\n\nSie werden in den Papierkorb verschoben und sind wiederherstellbar.")
+            }
+        }
     }
 
     private func row(_ item: Firmware) -> some View {
@@ -214,13 +287,36 @@ struct FirmwareView: View {
             }
             Spacer()
             if let file = store.existing(item) {
+                verifyBadge(item)
+                if store.verifying == item.fileName {
+                    HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Prüfe …").font(.caption) }
+                } else {
+                    Button("Prüfen", systemImage: "checkmark.seal") { Task { await store.verify(item) } }
+                        .disabled(store.verifying != nil)
+                        .help(item.sha1 == nil ? "Für dieses Gerät veröffentlicht Apple keine Prüfsumme." : "Vergleicht die Datei mit Apples SHA-1-Prüfsumme.")
+                }
                 Button("Im Finder zeigen", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([file]) }
+            } else if store.canResume(item) {
+                Button("Fortsetzen", systemImage: "play.fill") { Task { await store.start(item, studio: studio) } }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(store.downloading || studio.busy || studio.loading)
+                    .help("Setzt den abgebrochenen Download fort.")
             } else {
                 Button("Laden", systemImage: "arrow.down") { Task { await store.start(item, studio: studio) } }
                     .buttonStyle(.borderedProminent)
                     .disabled(store.downloading || studio.busy || studio.loading)
             }
         }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder private func verifyBadge(_ item: Firmware) -> some View {
+        switch store.verifyResults[item.id] {
+        case .ok: Label("Geprüft", systemImage: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
+        case .wrongChecksum: Label("Prüfsumme falsch", systemImage: "xmark.seal.fill").font(.caption).foregroundStyle(.red)
+        case .wrongSize: Label("Unvollständig", systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
+        case .noReference: Label("Keine Prüfsumme", systemImage: "questionmark.circle").font(.caption).foregroundStyle(.secondary)
+        case .missing, .none: EmptyView()
+        }
     }
 
     private func progressCard(_ item: Firmware) -> some View {

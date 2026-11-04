@@ -70,6 +70,13 @@ struct SettingsView: View {
                             Button("Zwischenspeicher leeren") { photos.clearCache(); state.notice = "Gerätefotos gelöscht." + (photos.enabled ? " Sie werden neu von Apple geladen." : "") }
                         }
                     }
+                    section("Diagnose & Hilfe", "stethoscope") {
+                        HStack {
+                            Text("Fehlerbericht mit App-Infos und dem letzten Protokoll als Textdatei sichern.").foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Diagnose exportieren …") { model.exportDiagnostics() }
+                        }
+                    }
                     section("Zurücksetzen", "arrow.counterclockwise") {
                         HStack {
                             Text("Ziel-Mac, Filter, Speicherort und alle Schalter auf Standard setzen.").foregroundStyle(.secondary)

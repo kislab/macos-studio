@@ -202,6 +202,23 @@ import StudioCore
         extraLocalPaths.formUnion(items.map(\.path))
         refreshLocal()
     }
+    @Published var verifyingLocal = false
+    /// Re-checks a local macOS installer's structure (Apple publishes no per-app checksum) (#3).
+    func verifyLocal(_ item: LocalInstaller) async {
+        guard !busy && !verifyingLocal else { return }
+        verifyingLocal = true
+        defer { verifyingLocal = false }
+        localNotice = "„\(item.name)“ wird geprüft …"
+        let path = item.path
+        let fresh = await Task.detached(priority: .userInitiated) { LocalInstaller.inspect(path) }.value
+        guard let fresh else { localNotice = "„\(item.name)“ ist nicht mehr auffindbar. Liste aktualisieren."; return }
+        if let issue = fresh.preparationIssue {
+            localNotice = "„\(item.name)“: \(issue)"
+        } else {
+            let size = fresh.bytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unbekannt"
+            localNotice = "„\(item.name)“: OK – vollständige Installationsdaten vorhanden (\(size)). Bereit für die USB-Erstellung."
+        }
+    }
     func trashLocal(_ item: LocalInstaller) async {
         guard !busy && !localScanning && localItems.contains(item) else { return }
         busy = true
@@ -377,7 +394,7 @@ import StudioCore
                 }
             }
         }
-        defer { monitor.cancel(); command = nil; busy = false; mbits = nil }
+        defer { monitor.cancel(); command = nil; busy = false; mbits = nil; DockProgress.clear() }
         do {
             let result = try await cmd.run("/usr/sbin/softwareupdate", ["--fetch-full-installer", "--full-installer-version", item.version], timeout: 24 * 3600) { [weak self] text in
                 Task { @MainActor in self?.consume(text) }
@@ -480,6 +497,7 @@ import StudioCore
         let values = metrics.update(sample, total: total, time: ProcessInfo.processInfo.systemUptime)
         amount = values.bytes; mbits = values.mbits
         status = sample.phase == "downloading" ? "Installer wird geladen" : "Installer laden und vorbereiten"
+        DockProgress.show(progress.map { $0 / 100 })
     }
     func cancel() { guard !flashing else { return }; status = "Download wird abgebrochen …"; command?.cancel(); packageDownload?.cancel() }
     func detectMac() async {
@@ -595,7 +613,7 @@ import StudioCore
             catch { throw failure("Terminal konnte nicht geöffnet werden: " + error.localizedDescription) }
             status = "Im Terminal-Fenster das Mac-Passwort eingeben. Der USB-Stick wird dort erstellt …"
             cancelRequestedAt = nil; activeJob = job; waitingForTerminal = true
-            defer { waitingForTerminal = false; activeJob = nil }
+            defer { waitingForTerminal = false; activeJob = nil; DockProgress.clear() }
             var exit: Int32?
             var shown = ""
             while exit == nil {
@@ -613,6 +631,7 @@ import StudioCore
                     if let live = USBProgress.parse(current) {
                         progress = live.percent
                         status = live.percent.map { "\(live.step) · \(Int($0)) %" } ?? live.step + " …"
+                        DockProgress.show(live.percent.map { $0 / 100 })
                     }
                 }
             }
@@ -645,6 +664,32 @@ import StudioCore
             }
             progress = 100; status = "Bootfähiger USB-Stick ist bereit"
         } catch { status = "USB-Erstellung nicht abgeschlossen"; self.error = error.localizedDescription }
+    }
+    /// Bundles app/system info and the recent log into a text file for bug reports (#9).
+    func exportDiagnostics() {
+        let info = Bundle.main.infoDictionary
+        let version = "\(info?["CFBundleShortVersionString"] as? String ?? "–") (Build \(info?["CFBundleVersion"] as? String ?? "–"))"
+        let os = ProcessInfo.processInfo.operatingSystemVersionString
+        var report = """
+        OS Studio – Diagnose
+        Erstellt: \(ISO8601DateFormatter().string(from: Date()))
+        App-Version: \(version)
+        macOS: \(os)
+        Katalog: \(catalogStatus)
+        Lokale Installer: \(localItems.count)
+
+        — Letztes Protokoll —
+        """
+        report += "\n" + (log.isEmpty ? "(leer)" : log)
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "OS-Studio-Diagnose.txt"
+        panel.allowedContentTypes = [.plainText]
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try report.data(using: .utf8)?.write(to: url, options: .atomic)
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } catch { self.error = "Diagnose konnte nicht gespeichert werden: \(error.localizedDescription)" }
     }
     func openPrivacySettings() {
         let pane = URL(string: "x-apple.systempreferences:com.apple.preference.security?" + (privacyPane ?? "Privacy_AllFiles"))!
