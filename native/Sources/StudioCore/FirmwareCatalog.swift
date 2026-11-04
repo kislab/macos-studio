@@ -11,6 +11,8 @@ public struct Firmware: Identifiable, Equatable, Sendable {
     public let sha1: String?
     public let devices: [String]
     public var fileName: String { url.lastPathComponent }
+    public var family: DeviceNames.Family { DeviceNames.family(of: devices.first ?? "") }
+    public var design: DeviceNames.Design { DeviceNames.design(of: devices.last ?? "") }
     public var platform: String {
         devices.allSatisfy { $0.hasPrefix("iPad") } && (Int(version.split(separator: ".").first ?? "") ?? 0) >= 13 ? "iPadOS" : "iOS"
     }
@@ -66,12 +68,7 @@ public enum FirmwareCatalog {
             guard !current.isEmpty else { return nil }
             return Firmware(url: url, version: entry.version, build: entry.build, sha1: entry.sha1,
                             devices: current.sorted { DeviceNames.order($0, $1) })
-        }.sorted {
-            // iPhone, then iPad, then iPod touch; newest devices first within each family.
-            func rank(_ id: String) -> Int { id.hasPrefix("iPhone") ? 0 : id.hasPrefix("iPad") ? 1 : 2 }
-            let a = $0.devices.last ?? "", b = $1.devices.last ?? ""
-            return rank(a) == rank(b) ? DeviceNames.order(b, a) : rank(a) < rank(b)
-        }
+        }.sorted { DeviceNames.ascending($0.devices.first ?? "", $1.devices.first ?? "") }
     }
 
     /// Apple hosts only, always over HTTPS (the list still contains some http:// links).

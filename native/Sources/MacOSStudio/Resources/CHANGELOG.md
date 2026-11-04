@@ -1,3 +1,11 @@
+Version 1.2.24
+
+• iPhone & iPad: Jede Firmware hat jetzt ein eigenes Symbol – mit der passenden Bauform (Home-Taste, Notch oder Dynamic Island; iPad mit oder ohne Home-Taste) und der Systemversion.
+
+• iPhone & iPad: Übersichtlich nach iPhone, iPad und iPod touch gruppiert und aufsteigend sortiert – iPhone 11, iPhone 12, iPhone 13 und so weiter.
+
+• iPhone & iPad: Firmware (IPSW) landet weiterhin standardmäßig im Download-Ordner. Mit „Ändern …“ wählst du einen anderen Ordner, z. B. eine externe Festplatte; die Wahl bleibt gespeichert und gilt für iPhone, iPad und iPod touch. „Downloads verwenden“ stellt den Standard wieder her.
+
 Version 1.2.23
 
 • Neuer Name: Die App heißt jetzt „OS Studio“.

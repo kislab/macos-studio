@@ -8,6 +8,39 @@ public enum DeviceNames {
         return identifier
     }
 
+    public enum Family: Int, CaseIterable, Sendable { case iPhone, iPad, iPod
+        public var title: String { switch self { case .iPhone: "iPhone"; case .iPad: "iPad"; case .iPod: "iPod touch" } }
+    }
+    public static func family(of identifier: String) -> Family {
+        identifier.hasPrefix("iPhone") ? .iPhone : identifier.hasPrefix("iPad") ? .iPad : .iPod
+    }
+
+    /// Physical design, used to pick a matching device symbol.
+    public enum Design: Sendable { case homeButton, notch, dynamicIsland, padHomeButton, padFullScreen, pod }
+    public static func design(of identifier: String) -> Design {
+        let parts = identifier.drop { !$0.isNumber }.split(separator: ",").compactMap { Int($0) }
+        let major = parts.first ?? 0, minor = parts.count > 1 ? parts[1] : 0
+        switch family(of: identifier) {
+        case .iPod: return .pod
+        case .iPhone:
+            if identifier == "iPhone12,8" || identifier == "iPhone14,6" { return .homeButton }      // SE 2 & 3
+            if identifier == "iPhone17,5" { return .notch }                                         // 16e
+            if major < 10 || (major == 10 && [1, 2, 4, 5].contains(minor)) { return .homeButton }
+            if major >= 16 || (major == 15 && minor >= 2) { return .dynamicIsland }
+            return .notch
+        case .iPad:
+            let fullScreen: Set<String> = ["iPad13,18", "iPad13,19", "iPad15,7", "iPad15,8", "iPad14,1", "iPad14,2"]
+            if fullScreen.contains(identifier) || major == 8 || (major == 13 && minor != 18 && minor != 19) || major >= 14 { return .padFullScreen }
+            return .padHomeButton
+        }
+    }
+
+    /// Chronological sort key: family, then model identifier ascending (iPhone12,1 = iPhone 11 before iPhone13,2 = iPhone 12).
+    public static func ascending(_ a: String, _ b: String) -> Bool {
+        let fa = family(of: a), fb = family(of: b)
+        return fa == fb ? order(a, b) : fa.rawValue < fb.rawValue
+    }
+
     /// Sort by family, then by numeric generation (iPhone17,1 after iPhone9,1).
     public static func order(_ a: String, _ b: String) -> Bool { a.compare(b, options: .numeric) == .orderedAscending }
 

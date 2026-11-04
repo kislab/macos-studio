@@ -25,8 +25,38 @@ import StudioCore
     var downloading: Bool { active != nil && finished == nil }
 
     static var downloads: URL { FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0] }
+    /// Save folder for IPSW files: Downloads by default, or the folder the user picked (remembered).
+    @Published private(set) var folder: URL = FirmwareStore.savedFolder()
+    private static let folderKey = "firmwareFolder"
+    private static func savedFolder() -> URL {
+        var isDirectory: ObjCBool = false
+        if let path = UserDefaults.standard.string(forKey: folderKey),
+           FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        return downloads
+    }
+    var usesDownloads: Bool { folder.standardizedFileURL.path == Self.downloads.standardizedFileURL.path }
+    func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = folder
+        panel.prompt = "Hier speichern"
+        panel.message = "Ordner für iPhone-, iPad- und iPod-Firmware (IPSW) wählen"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard FileManager.default.isWritableFile(atPath: url.path) else {
+            error = "In diesen Ordner kann OS Studio nicht schreiben:\n\(url.path)\nBitte einen anderen Ordner wählen."; return
+        }
+        folder = url
+        UserDefaults.standard.set(url.path, forKey: Self.folderKey)
+    }
+    func resetFolder() {
+        folder = Self.downloads
+        UserDefaults.standard.removeObject(forKey: Self.folderKey)
+    }
     func existing(_ item: Firmware) -> URL? {
-        let url = Self.downloads.appendingPathComponent(item.fileName)
+        let url = folder.appendingPathComponent(item.fileName)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
@@ -51,15 +81,20 @@ import StudioCore
     func start(_ item: Firmware, studio: StudioModel) async {
         guard !downloading, !studio.busy, !studio.loading else { return }
         if let file = existing(item) {
-            error = "\(item.fileName) liegt bereits im Download-Ordner.\n\(file.path)"
+            error = "\(item.fileName) liegt bereits im gewählten Ordner.\n\(file.path)"
             NSWorkspace.shared.activateFileViewerSelecting([file]); return
         }
         studio.busy = true
         defer { studio.busy = false; download = nil; mbits = nil }
         active = item; finished = nil; progress = 0; written = 0; expected = 0; cancelled = false
         phase = "IPSW wird geladen"
-        let target = Self.downloads.appendingPathComponent(item.fileName)
-        let partial = Self.downloads.appendingPathComponent(item.fileName + ".download")
+        let destination = folder
+        guard FileManager.default.isWritableFile(atPath: destination.path) else {
+            error = "In den gewählten Ordner kann nicht geschrieben werden:\n\(destination.path)\nBitte unter „Speicherort“ einen anderen Ordner wählen."
+            active = nil; progress = nil; return
+        }
+        let target = destination.appendingPathComponent(item.fileName)
+        let partial = destination.appendingPathComponent(item.fileName + ".download")
         let downloader = PackageDownload(); download = downloader
         sample = (ProcessInfo.processInfo.systemUptime, 0)
         do {
@@ -77,7 +112,8 @@ import StudioCore
             }
             try FileManager.default.moveItem(at: partial, to: target)
             finished = target; progress = 100
-            phase = item.sha1 == nil ? "Fertig · im Download-Ordner" : "Fertig · Prüfsumme bestätigt · im Download-Ordner"
+            let place = destination.lastPathComponent
+            phase = item.sha1 == nil ? "Fertig · gespeichert in „\(place)“" : "Fertig · Prüfsumme bestätigt · gespeichert in „\(place)“"
         } catch {
             try? FileManager.default.removeItem(at: partial)
             active = nil; progress = nil
@@ -111,6 +147,18 @@ struct FirmwareView: View {
                 Text("Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert.")
                     .foregroundStyle(.secondary)
             }
+            HStack(spacing: 10) {
+                Label {
+                    Text("Speicherort: ").foregroundColor(.secondary) + Text(store.usesDownloads ? "Downloads" : store.folder.path)
+                } icon: { Image(systemName: "folder") }
+                .lineLimit(1).truncationMode(.middle)
+                .help(store.folder.path)
+                Spacer()
+                Button("Ändern …") { store.chooseFolder() }.disabled(store.downloading)
+                if !store.usesDownloads {
+                    Button("Downloads verwenden") { store.resetFolder() }.disabled(store.downloading)
+                }
+            }.font(.callout)
             HStack {
                 TextField("Gerät, Modellkennung oder Version suchen (z. B. iPhone 15, iPad Air, iPhone16,1)", text: $store.query)
                     .textFieldStyle(.roundedBorder)
@@ -120,8 +168,15 @@ struct FirmwareView: View {
             if let item = store.active { progressCard(item) }
             if store.loading { ProgressView(store.status).padding() }
             ScrollView {
-                LazyVStack(spacing: 10) {
-                    ForEach(store.visible) { item in row(item) }
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(DeviceNames.Family.allCases, id: \.self) { family in
+                        let group = store.visible.filter { $0.family == family }
+                        if !group.isEmpty {
+                            Text("\(family.title) · \(group.count)").font(.title3.bold())
+                                .padding(.top, family == .iPhone ? 0 : 14)
+                            ForEach(group) { item in row(item) }
+                        }
+                    }
                     if !store.loading && store.visible.isEmpty {
                         VStack(spacing: 10) {
                             Image(systemName: "magnifyingglass").font(.largeTitle)
@@ -142,9 +197,7 @@ struct FirmwareView: View {
 
     private func row(_ item: Firmware) -> some View {
         HStack(spacing: 16) {
-            Image(systemName: item.devices.first?.hasPrefix("iPad") == true ? "ipad" : (item.devices.first?.hasPrefix("iPod") == true ? "ipodtouch" : "iphone"))
-                .font(.system(size: 30)).frame(width: 48, height: 48)
-                .foregroundStyle(.blue)
+            FirmwareArtwork(item: item).frame(width: 58, height: 58)
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.deviceNames.joined(separator: ", ")).font(.headline).lineLimit(2)
                 Text("\(item.platform) \(item.version)  ·  Build \(item.build)").font(.subheadline).foregroundStyle(.secondary)
@@ -186,5 +239,43 @@ struct FirmwareView: View {
             }.font(.caption).foregroundStyle(.secondary)
         }
         .padding(16).background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+/// Tile like the macOS installer artwork: device outline matching the model's design plus the OS version.
+struct FirmwareArtwork: View {
+    let item: Firmware
+    private var symbol: String {
+        let candidates: [String]
+        switch item.design {
+        case .homeButton: candidates = ["iphone.gen1", "iphone.homebutton", "iphone"]
+        case .notch: candidates = ["iphone.gen2", "iphone"]
+        case .dynamicIsland: candidates = ["iphone.gen3", "iphone"]
+        case .padHomeButton: candidates = ["ipad.gen1", "ipad.homebutton", "ipad"]
+        case .padFullScreen: candidates = ["ipad.gen2", "ipad"]
+        case .pod: candidates = ["ipodtouch", "iphone.homebutton", "iphone"]
+        }
+        return candidates.first { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil } ?? "iphone"
+    }
+    private var colors: [Color] {
+        switch item.family {
+        case .iPhone: [Color(red: 0.18, green: 0.48, blue: 0.98), Color(red: 0.45, green: 0.28, blue: 0.95)]
+        case .iPad: [Color(red: 0.98, green: 0.55, blue: 0.20), Color(red: 0.93, green: 0.27, blue: 0.45)]
+        case .iPod: [Color(red: 0.20, green: 0.75, blue: 0.55), Color(red: 0.10, green: 0.55, blue: 0.75)]
+        }
+    }
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+            VStack(spacing: 2) {
+                Image(systemName: symbol).font(.system(size: 24, weight: .regular)).foregroundStyle(.white)
+                Text("\(item.platform) \(item.version.split(separator: ".").first ?? "")")
+                    .font(.system(size: 8.5, weight: .bold, design: .rounded)).foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }.padding(4)
+        }
+        .shadow(color: .black.opacity(0.18), radius: 3, y: 1.5)
+        .accessibilityLabel("\(item.deviceNames.first ?? "Gerät") Firmware-Symbol")
     }
 }
