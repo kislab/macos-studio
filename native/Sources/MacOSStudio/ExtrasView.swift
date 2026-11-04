@@ -30,6 +30,7 @@ struct ExtrasView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     connectedCard
+                    restartCard
                     recoveryCard
                     dfuCard
                 }
@@ -97,6 +98,41 @@ struct ExtrasView: View {
                         .buttonStyle(.borderedProminent).disabled(monitor.working)
                 }
             }
+        }
+    }
+
+    // MARK: Leave recovery / DFU
+
+    /// Highlighted when a device is in recovery or DFU, so a stuck device is easy to get back.
+    private var stuck: Bool { !monitor.usbDevices.isEmpty }
+    private var restartCard: some View {
+        card(stuck ? "Gerät aus dem Modus holen" : "Gerät neu starten", "power") {
+            if stuck {
+                Label("Ein Gerät ist im " + (inDFU.isEmpty ? "Wiederherstellungsmodus" : "DFU-Modus") + ". So kommt es wieder heraus:", systemImage: "exclamationmark.circle.fill")
+                    .font(.headline).foregroundStyle(.orange)
+            } else {
+                Text("Hängt ein Gerät im Wiederherstellungs- oder DFU-Modus, kommt es hiermit wieder heraus.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            if !inRecovery.isEmpty {
+                HStack {
+                    Text("Wiederherstellungsmodus erkannt – ein Klick genügt.").foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Normal starten", systemImage: "power") { Task { await monitor.exitRecovery() } }
+                        .buttonStyle(.borderedProminent).disabled(monitor.working || !monitor.available)
+                }
+            }
+            Divider()
+            HStack(alignment: .firstTextBaseline) {
+                Text("Per Tasten (funktioniert immer, auch im DFU-Modus):").fontWeight(.medium)
+                Spacer()
+                Picker("", selection: $state.method) {
+                    ForEach(DFUGuide.Method.allCases) { Text($0.title).tag($0) }
+                }.labelsHidden().frame(width: 320)
+            }
+            Text(DFUGuide.forceRestart(for: state.method))
+                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         }
     }
 

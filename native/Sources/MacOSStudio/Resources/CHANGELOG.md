@@ -1,3 +1,7 @@
+Version 1.2.28
+
+• Extras: Neue Karte „Gerät aus dem Modus holen“. Hängt ein iPhone oder iPad im Wiederherstellungs- oder DFU-Modus, holt „Normal starten“ es per Klick wieder heraus. Zusätzlich gibt es für jedes Gerät die Tastenfolge, die immer funktioniert – auch im DFU-Modus und ohne „Vertrauen“.
+
 Version 1.2.27
 
 • Neu: Extras. iPhone oder iPad per Kabel anschließen – die App erkennt es und startet mit einem Klick den Wiederherstellungsmodus (Laptop und Kabel auf dem Display), ganz ohne Tasten. „Normal starten“ holt es wieder heraus. Dabei wird nichts gelöscht.

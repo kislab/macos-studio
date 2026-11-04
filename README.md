@@ -8,7 +8,7 @@
 
 ## Installation
 
-1. Die **OS-Studio-1.2.27-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
+1. Die **OS-Studio-1.2.28-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
 2. Die DMG öffnen und **OS Studio** auf **Programme** ziehen.
 3. Die DMG auswerfen und die App aus Programme starten.
 

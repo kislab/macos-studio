@@ -53,6 +53,18 @@ public enum DFUGuide {
         }
     }
 
+    /// A single force-restart instruction that leaves recovery OR DFU mode (always works, needs no trust).
+    public static func forceRestart(for method: Method) -> String {
+        switch method {
+        case .faceIDiPhone, .faceIDiPad:
+            return "Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann die Seitentaste (beim iPad die obere Taste) gedrückt halten, bis das Apple-Logo erscheint (10–20 Sekunden). Laptop-und-Kabel-Bildschirm dabei ignorieren."
+        case .iPhone7:
+            return "Seitentaste und Leiser gleichzeitig gedrückt halten, bis das Apple-Logo erscheint (etwa 10 Sekunden)."
+        case .homeButtoniPhone, .homeButtoniPad:
+            return "Home-Taste und die obere bzw. seitliche Taste gleichzeitig gedrückt halten, bis das Apple-Logo erscheint (etwa 10 Sekunden)."
+        }
+    }
+
     /// USB product IDs Apple devices report in the boot ROM / iBoot.
     public enum USBMode: Equatable, Sendable { case dfu, recovery }
     public static func usbMode(productID: Int) -> USBMode? {

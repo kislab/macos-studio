@@ -31,6 +31,7 @@ final class CoreTests {
         XCTAssertEqual(DFUGuide.field("ECID", in: serial), "001A2B3C4D5E6F70")
         XCTAssertEqual(DFUGuide.field("SRTG", in: serial), "iBoot-7429.61.2")
         XCTAssertNil(DFUGuide.field("SRNM", in: serial))
+        XCTAssertTrue(DFUGuide.Method.allCases.allSatisfy { DFUGuide.forceRestart(for: $0).count > 20 })
     }
     func testDevicePhotos() throws {
         let html = #"<h2 class="gb-header">Find the model number</h2><p>Intro</p><h2 class="gb-header">iPad&nbsp;Air 13\#u{2011}inch (M4)</h2> <img class="gb-image" alt="x" src="https://cdsassets.apple.com/live/a/ipad-air-13.png" height="1"/><h2 class="gb-header">Evil</h2> <img class="gb-image" src="https://evil.example.com/x.png"/>"#

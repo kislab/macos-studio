@@ -118,7 +118,11 @@ import StudioCore
 
     /// Leaves recovery mode: sets auto-boot and restarts normally. Data on the device is not touched.
     func exitRecovery() async {
-        guard let md, !working else { return }
+        guard !working else { return }
+        guard let md else {
+            message = "Der Gerätedienst ist auf diesem Mac nicht verfügbar. Bitte das Gerät mit den Tasten neu starten – die Anleitung steht unten."
+            return
+        }
         working = true
         defer { working = false }
         let targets = recoveryHandles
