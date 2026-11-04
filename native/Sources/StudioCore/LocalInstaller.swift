@@ -99,6 +99,15 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
         return "test ! -L " + source + " && test -d " + source + " && /usr/sbin/chown -R -P " + String(owner) + " " + source
     }
 
+    /// Finder moves root-owned installers to the Trash with its own administrator prompt, and unlike
+    /// chown it is not blocked by macOS "App Management" protection for apps in /Applications.
+    public func finderTrashScript() throws -> String {
+        guard Self.inspect(path) == self else {
+            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren."])
+        }
+        return "tell application \"Finder\" to delete (POSIX file " + appleScriptQuote(path) + " as alias)"
+    }
+
     /// Revalidate the exact bundle shown in the confirmation before moving it.
     public func moveToTrash() throws {
         guard let current = Self.inspect(path), current == self else {

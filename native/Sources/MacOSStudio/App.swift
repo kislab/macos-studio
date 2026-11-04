@@ -273,6 +273,11 @@ struct StudioView: View {
                                 Text(item.title).font(.headline)
                                 Text("\(item.version)  ·  Build \(item.build)").font(.subheadline).foregroundStyle(.secondary)
                                 Text(String(format: "%.2f GB", item.bytes / 1e9)).font(.caption).foregroundStyle(.secondary)
+                                if !item.offeredForThisMac {
+                                    Label("Nicht für diesen Mac · für andere Macs als Apple-Paket", systemImage: "shippingbox")
+                                        .font(.caption).foregroundStyle(.orange)
+                                        .help("Apple bietet diese Version für diesen Mac nicht an. Sie wird direkt aus Apples Katalog geladen, geprüft und als Installer-App für USB-Sticks anderer Macs erstellt. Dafür ist das Administratorpasswort nötig.")
+                                }
                             }
                             Spacer()
                             Button("Laden", systemImage: "arrow.down") { Task { await model.download(item) } }

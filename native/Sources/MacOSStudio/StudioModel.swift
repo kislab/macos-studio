@@ -52,6 +52,7 @@ import StudioCore
     }
     @Published var completedPath = ""
     private var command: Command?
+    private var packageDownload: PackageDownload?
     private var metrics = ProgressMetrics()
     private var lastProgress = Date()
     private var lastSample: ProgressSample?
@@ -168,23 +169,11 @@ import StudioCore
                 try await Task.detached(priority: .utility) { try item.moveToTrash() }.value
             } catch {
                 let problem = error as NSError
-                guard problem.domain == NSCocoaErrorDomain && [NSFileWriteNoPermissionError, NSFileReadNoPermissionError].contains(problem.code) else { throw error }
-                localNotice = "Administratorfreigabe zum Verschieben in den Papierkorb erforderlich …"
-                let shell = try await Task.detached(priority: .utility) {
-                    try item.authorizedOwnershipCommand(owner: getuid())
-                }.value
-                let result = try await Command().run("/usr/bin/osascript",
-                    ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
-                guard result.status == 0 else {
-                    throw failure(result.output.contains("(-128)") ? "Entfernen abgebrochen. Der Installer bleibt erhalten." : "Installer konnte mit Administratorfreigabe nicht für den Papierkorb freigegeben werden.\n" + result.output)
-                }
-                // Ownership changed; revalidate the same bundle and trash it as the user.
-                try await Task.detached(priority: .utility) {
-                    guard let current = LocalInstaller.inspect(item.path), current.path == item.path, current.bytes == item.bytes else {
-                        throw NSError(domain: "LocalInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert. Bitte die Liste aktualisieren."])
-                    }
-                    try current.moveToTrash()
-                }.value
+                let posix = (problem.userInfo[NSUnderlyingErrorKey] as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? Int32($0.code) : nil }
+                let denied = (problem.domain == NSCocoaErrorDomain && [NSFileWriteNoPermissionError, NSFileReadNoPermissionError].contains(problem.code))
+                    || posix == EPERM || posix == EACCES
+                guard denied else { throw error }
+                try await trashWithAdministrator(item)
                 guard !FileManager.default.fileExists(atPath: item.path) else { throw failure("Der Installer wurde nicht verschoben. Bitte erneut prüfen.") }
             }
             extraLocalPaths.remove(item.path)
@@ -199,20 +188,95 @@ import StudioCore
         }
         busy = false
     }
+    /// Root-owned installers: first let Finder trash them (it asks for the password itself), then fall back to
+    /// handing ownership to the user. macOS "App Management" can block both for apps in /Applications.
+    private func trashWithAdministrator(_ item: LocalInstaller) async throws {
+        localNotice = "Finder verschiebt den Installer in den Papierkorb – bitte ggf. das Passwort eingeben …"
+        let script = try await Task.detached(priority: .utility) { try item.finderTrashScript() }.value
+        let finder = try await Command().run("/usr/bin/osascript", ["-e", script], timeout: .greatestFiniteMagnitude)
+        if finder.status == 0 && !FileManager.default.fileExists(atPath: item.path) { return }
+        if finder.output.contains("(-128)") { throw failure("Entfernen abgebrochen. Der Installer bleibt erhalten.") }
+        let automationDenied = finder.output.contains("(-1743)")
+        localNotice = "Administratorfreigabe zum Verschieben in den Papierkorb erforderlich …"
+        let shell = try await Task.detached(priority: .utility) {
+            try item.authorizedOwnershipCommand(owner: getuid())
+        }.value
+        let result = try await Command().run("/usr/bin/osascript",
+            ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
+        if result.output.contains("(-128)") { throw failure("Entfernen abgebrochen. Der Installer bleibt erhalten.") }
+        guard result.status == 0 else {
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
+            if automationDenied {
+                privacyPane = "Privacy_Automation"
+                throw failure("macOS hat macOS Studio die Steuerung des Finders verweigert. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Automation bei „macOS Studio“ den Finder erlauben und erneut löschen.\n\nAlternativ den im Finder markierten Installer selbst in den Papierkorb ziehen.")
+            }
+            privacyPane = result.output.contains("Operation not permitted") ? "Privacy_AppBundles" : nil
+            throw failure("macOS schützt den Installer vor Änderungen durch andere Apps („App-Verwaltung“). Der Installer ist jetzt im Finder markiert: Einfach in den Papierkorb ziehen und mit dem Passwort bestätigen.\n\nAlternativ unter Systemeinstellungen → Datenschutz & Sicherheit → App-Verwaltung „macOS Studio“ aktivieren und erneut löschen.")
+        }
+        // Ownership changed; revalidate the same bundle and trash it as the user.
+        try await Task.detached(priority: .utility) {
+            guard let current = LocalInstaller.inspect(item.path), current.path == item.path, current.bytes == item.bytes else {
+                throw NSError(domain: "LocalInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert. Bitte die Liste aktualisieren."])
+            }
+            try current.moveToTrash()
+        }.value
+    }
     func loadCatalog() async {
         guard !loading && !busy else { return }
         loading = true; catalogStatus = "Apple-Katalog wird geprüft … maximal 90 Sekunden"
         defer { loading = false }
+        async let offeredResult = Self.offeredInstallers()
+        async let catalogResult = Self.catalogInstallers()
+        let (offered, catalog) = await (offeredResult, catalogResult)
+        let merged = AppleCatalog.merge(offered: (try? offered.get()) ?? [], catalog: (try? catalog.get()) ?? [])
+        guard !merged.isEmpty else {
+            catalogStatus = "Katalog konnte nicht geladen werden"
+            let reasons = [offered, catalog].compactMap { result -> String? in
+                if case .failure(let problem) = result { return problem.localizedDescription }; return nil
+            }
+            error = reasons.isEmpty ? "Apple bietet keine Installer an." : reasons.joined(separator: "\n\n")
+            return
+        }
+        installers = merged
+        let extra = merged.filter { !$0.offeredForThisMac }.count
+        catalogStatus = "\(merged.count) Versionen abrufbar · Apple-Katalog" + (extra > 0 ? " · \(extra) davon nicht für diesen Mac, Download als Apple-Paket für andere Macs" : "")
+        if case .failure = catalog, extra == 0 { catalogStatus += " · vollständiger Katalog nicht erreichbar" }
+    }
+    private nonisolated static func offeredInstallers() async -> Result<[Installer], Error> {
         do {
             let result = try await Command().run("/usr/sbin/softwareupdate", ["--list-full-installers"], timeout: 90)
             guard !result.timedOut else { throw failure("Apple antwortet nicht. Verbindung prüfen und erneut laden.") }
             guard result.status == 0 else { throw failure(result.output) }
-            let items = Installer.parse(result.output)
-            guard !items.isEmpty else { throw failure("Apple bietet für diesen Mac keine Installer an.\n" + result.output) }
-            installers = items
-            catalogStatus = "\(items.count) Versionen für diesen Mac abrufbar · Apple-Katalog"
-        } catch { catalogStatus = "Katalog konnte nicht geladen werden"; self.error = error.localizedDescription }
+            return .success(Installer.parse(result.output))
+        } catch { return .failure(error) }
     }
+    /// Every full installer in Apple's public catalog, including versions this Mac cannot install itself.
+    private nonisolated static func catalogInstallers() async -> Result<[Installer], Error> {
+        do {
+            var request = URLRequest(url: AppleCatalog.url, timeoutInterval: 60)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw failure("Apple-Katalog nicht erreichbar.") }
+            let products = AppleCatalog.products(fromCatalog: try Gzip.decompress(data))
+            let items = await withTaskGroup(of: Installer?.self) { group in
+                for product in products {
+                    group.addTask {
+                        guard let (text, _) = try? await URLSession.shared.data(for: URLRequest(url: product.distribution, timeoutInterval: 30)),
+                              let info = AppleCatalog.describe(distribution: String(decoding: text, as: UTF8.self)) else { return nil }
+                        return Installer(title: info.title, version: info.version, build: info.build, bytes: product.bytes,
+                                         packageURL: product.package, offeredForThisMac: false)
+                    }
+                }
+                var collected: [Installer] = []
+                for await item in group { if let item { collected.append(item) } }
+                return collected
+            }
+            // Apple occasionally lists the same build twice; keep one.
+            var seen = Set<String>()
+            return .success(items.filter { seen.insert($0.version + $0.build).inserted })
+        } catch { return .failure(error) }
+    }
+    private nonisolated static func failure(_ message: String) -> NSError { NSError(domain: "MacOSStudio", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     func download(_ item: Installer) async {
         guard !busy && !loading else { return }
         guard Installer.validVersion(item.version) else { error = "Bitte eine Version wie 15.7.2 eingeben."; return }
@@ -251,6 +315,7 @@ import StudioCore
         }
         let free = ((try? FileManager.default.attributesOfFileSystem(forPath: "/Applications")[.systemFreeSize]) as? NSNumber)?.doubleValue ?? 0
         guard free > max(item.bytes * 2 + 5e9, 20e9) else { error = "Nicht genügend freier Speicher für Download und Entpacken."; return }
+        if !item.offeredForThisMac, item.packageURL != nil { await downloadPackage(item); return }
         busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version
         total = item.bytes; amount = nil; mbits = nil; progress = nil
         metrics.reset(); lastSample = nil; lastProgress = Date(); buffer = ""; stopReason = nil
@@ -292,6 +357,70 @@ import StudioCore
             status = "Installer geladen und geprüft"
         } catch { status = "Download fehlgeschlagen"; self.error = error.localizedDescription }
     }
+    /// Catalog-only installers: download Apple's InstallAssistant.pkg, verify it and let macOS' installer
+    /// create "Install macOS ….app" in /Applications. Works on Macs that cannot run this macOS themselves.
+    private func downloadPackage(_ item: Installer) async {
+        guard let url = item.packageURL else { return }
+        busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version
+        total = item.bytes; amount = nil; mbits = nil; progress = 0
+        status = "Apple-Paket wird geladen …"
+        let downloader = PackageDownload(); packageDownload = downloader
+        defer { packageDownload = nil; busy = false; mbits = nil }
+        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.appletools.macosstudio/Packages", isDirectory: true)
+        let package = folder.appendingPathComponent("InstallAssistant-\(item.build).pkg")
+        defer { try? FileManager.default.removeItem(at: package) }
+        appendLog("Quelle: \(url.absoluteString)\n")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            packageSample = (ProcessInfo.processInfo.systemUptime, 0)
+            _ = try await downloader.run(url, to: package) { [weak self] written, expected in
+                Task { @MainActor in self?.packageProgress(written: written, expected: expected) }
+            }
+            mbits = nil; progress = 95
+            let size = ((try? FileManager.default.attributesOfItem(atPath: package.path)[.size]) as? NSNumber)?.doubleValue ?? 0
+            guard item.bytes <= 0 || size == item.bytes else {
+                throw failure("Das geladene Paket ist unvollständig (\(Int64(size)) statt \(Int64(item.bytes)) Bytes). Bitte erneut laden.")
+            }
+            status = "Apple-Signatur wird geprüft …"
+            let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", package.path], timeout: 600)
+            appendLog(signature.output)
+            guard signature.status == 0, signature.output.contains("signed Apple Software") else {
+                throw failure("Das Paket ist nicht von Apple signiert und wird nicht installiert.\n\n" + signature.output)
+            }
+            status = "Installer-App wird erstellt – bitte Administratorpasswort eingeben …"; progress = 97
+            let before = Dictionary(uniqueKeysWithValues: localInstallers.map { ($0, modification($0)) })
+            let shell = "/usr/sbin/installer -pkg " + shellQuote(package.path) + " -target /"
+            let result = try await Command().run("/usr/bin/osascript",
+                ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: 3 * 3600)
+            appendLog(result.output)
+            if result.output.contains("(-128)") { status = "Abgebrochen"; return }
+            guard result.status == 0 else { throw failure("Apples Installer konnte die Installer-App nicht erstellen.\n\n" + String(result.output.suffix(1800))) }
+            refreshLocal()
+            let changed = localInstallers.filter { before[$0] == nil || before[$0] != modification($0) }
+            let found = LocalInstaller.discover(roots: ["/Applications"], known: changed)
+            guard let installed = found.first(where: { $0.matches(item) }) ?? (changed.count == 1 ? LocalInstaller.inspect(changed[0]) : nil) else {
+                throw failure("Das Paket wurde installiert, aber keine passende Installer-App wurde in /Applications gefunden.")
+            }
+            localItems = found
+            completedPath = installed.path; selectedInstaller = installed.path; progress = 100; amount = total
+            status = "Installer geladen und geprüft"
+        } catch {
+            if (error as? URLError)?.code == .cancelled { status = "Download abgebrochen"; return }
+            status = "Download fehlgeschlagen"; self.error = error.localizedDescription
+        }
+    }
+    private var packageSample: (time: TimeInterval, bytes: Int64) = (0, 0)
+    private func packageProgress(written: Int64, expected: Int64) {
+        guard busy else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - packageSample.time >= 1 else { return }
+        mbits = Double(written - packageSample.bytes) * 8 / (now - packageSample.time) / 1_000_000
+        packageSample = (now, written)
+        let size = expected > 0 ? Double(expected) : total
+        if size > 0 { total = size; progress = min(95, Double(written) / size * 95) }
+        amount = Double(written); status = "Apple-Paket wird geladen"
+    }
     private func modification(_ path: String) -> Date {
         (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate]) as? Date ?? .distantPast
     }
@@ -310,7 +439,7 @@ import StudioCore
         amount = values.bytes; mbits = values.mbits
         status = sample.phase == "downloading" ? "Installer wird geladen" : "Installer laden und vorbereiten"
     }
-    func cancel() { guard !flashing else { return }; status = "Download wird abgebrochen …"; command?.cancel() }
+    func cancel() { guard !flashing else { return }; status = "Download wird abgebrochen …"; command?.cancel(); packageDownload?.cancel() }
     func detectMac() async {
         guard !detectingMac else { return }
         detectingMac = true

@@ -1,3 +1,9 @@
+Version 1.2.21
+
+• Installer für andere Macs: Die Liste zeigt jetzt alle vollständigen Installer aus Apples Katalog – auch Versionen, die dieser Mac selbst nicht installieren kann (z. B. macOS 27 oder 26 auf Intel-Macs). Solche Einträge sind markiert; die App lädt Apples Installationspaket, prüft Größe und Apple-Signatur und erstellt daraus die Installer-App für den USB-Stick (Administratorpasswort nötig).
+
+• Installer lokal löschen: Von Apple geladene Installer ließen sich nicht entfernen („Operation not permitted“), weil macOS' App-Verwaltung Änderungen blockiert. Der Finder legt sie jetzt wiederherstellbar in den Papierkorb. Klappt das nicht, markiert die App den Installer im Finder und nennt die passende Datenschutzeinstellung.
+
 Version 1.2.20
 
 • Golden Gate: In der Mac-Suche fehlte macOS 27 „Golden Gate“ bei allen Macs. Mit gewähltem Ziel-Mac wurden macOS-27-Installer deshalb ausgeblendet. Alle Apple-Silicon-Macs unterstützen Golden Gate jetzt laut Apples Kompatibilitätsliste.

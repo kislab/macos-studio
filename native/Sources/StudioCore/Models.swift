@@ -6,8 +6,14 @@ public struct Installer: Identifiable, Equatable {
     public let version: String
     public let build: String
     public let bytes: Double
-    public init(title: String, version: String, build: String = "Manuell", bytes: Double = 0) {
+    /// InstallAssistant.pkg from Apple's public catalog; used when softwareupdate does not offer this version for the current Mac.
+    public var packageURL: URL?
+    /// True when `softwareupdate --list-full-installers` offers this installer on the current Mac.
+    public var offeredForThisMac: Bool
+    public init(title: String, version: String, build: String = "Manuell", bytes: Double = 0,
+                packageURL: URL? = nil, offeredForThisMac: Bool = true) {
         self.title = title; self.version = version; self.build = build; self.bytes = bytes
+        self.packageURL = packageURL; self.offeredForThisMac = offeredForThisMac
     }
     public static func parse(_ text: String) -> [Installer] {
         let pattern = #"Title:\s*([^,]+),\s*Version:\s*([^,]+),\s*Size:\s*(\d+)\s*KiB,\s*Build:\s*([^,\r\n]+)"#

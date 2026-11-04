@@ -12,6 +12,41 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
 }
 
 final class CoreTests {
+    func testAppleCatalog() throws {
+        let catalog: [String: Any] = ["Products": [
+            "142-50055": ["Packages": [["URL": "https://swcdn.apple.com/x/MajorOSInfo.pkg", "Size": 5],
+                                       ["URL": "https://swcdn.apple.com/x/InstallAssistant.pkg", "Size": 17807147403, "Digest": "33D474B5F2819530C7C730F881CD1089B027B913"]],
+                          "Distributions": ["English": "https://swdist.apple.com/x/142-50055.English.dist"]],
+            "evil": ["Packages": [["URL": "https://example.com/InstallAssistant.pkg", "Size": 1]],
+                     "Distributions": ["English": "https://swdist.apple.com/x.dist"]],
+            "update": ["Packages": [["URL": "https://swcdn.apple.com/x/Update.pkg", "Size": 1]],
+                       "Distributions": ["English": "https://swdist.apple.com/y.dist"]]]]
+        let data = try PropertyListSerialization.data(fromPropertyList: catalog, format: .xml, options: 0)
+        let products = AppleCatalog.products(fromCatalog: data)
+        XCTAssertEqual(products.map(\.id), ["142-50055"])
+        XCTAssertEqual(products[0].bytes, 17807147403)
+        let dist = "<title>macOS 27 Golden Gate</title><auxinfo><dict>\n<key>BUILD</key>\n<string>26B123</string>\n<key>VERSION</key>\n<string>27.2</string></dict></auxinfo>"
+        let info = try XCTUnwrap(AppleCatalog.describe(distribution: dist))
+        XCTAssertEqual(info.title, "macOS 27 Golden Gate"); XCTAssertEqual(info.version, "27.2"); XCTAssertEqual(info.build, "26B123")
+        XCTAssertNil(AppleCatalog.describe(distribution: "<key>VERSION</key><string>27; rm</string><key>BUILD</key><string>X</string>"))
+        let offered = [Installer(title: "macOS Sequoia", version: "15.7", build: "A", bytes: 1)]
+        let fromCatalog = [Installer(title: "macOS Sequoia", version: "15.7", build: "A", bytes: 1, packageURL: products[0].package, offeredForThisMac: false),
+                           Installer(title: "macOS 27 Golden Gate", version: "27.2", build: "26B123", bytes: 2, packageURL: products[0].package, offeredForThisMac: false)]
+        let merged = AppleCatalog.merge(offered: offered, catalog: fromCatalog)
+        XCTAssertEqual(merged.map(\.version), ["27.2", "15.7"])
+        XCTAssertFalse(merged[0].offeredForThisMac)
+        XCTAssertTrue(merged[1].offeredForThisMac)
+        XCTAssertNotNil(merged[1].packageURL)
+        // gzip round trip using the system tool
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let plain = folder.appendingPathComponent("c.plist")
+        try data.write(to: plain)
+        let zip = Process(); zip.executableURL = URL(fileURLWithPath: "/usr/bin/gzip"); zip.arguments = ["-k", plain.path]
+        try zip.run(); zip.waitUntilExit()
+        XCTAssertEqual(try Gzip.decompress(Data(contentsOf: plain.appendingPathExtension("gz"))), data)
+    }
     func testCatalogSortAndUnits() {
         let text = "* Title: macOS Sonoma, Version: 14.7, Size: 1024KiB, Build: A\n* Title: macOS Sequoia, Version: 15.7.2, Size: 2048 KiB, Build: B, Deferred: NO"
         let items = Installer.parse(text)
@@ -208,10 +243,16 @@ extension CoreTests {
     }
 }
 
+final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock(); private var flag = false
+    func set() { lock.lock(); flag = true; lock.unlock() }
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
+}
 @main struct Checks {
     static func main() async throws {
         let tests = CoreTests()
         tests.testCatalogSortAndUnits()
+        try tests.testAppleCatalog()
         tests.testVersionValidation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
@@ -219,6 +260,26 @@ extension CoreTests {
         try tests.testLocalInstallerProtection()
         try tests.testTerminalJob()
         tests.testUSBProgress()
+        if ProcessInfo.processInfo.environment["STUDIO_LIVE"] == "1" {
+            let (data, _) = try await URLSession.shared.data(from: AppleCatalog.url)
+            let products = AppleCatalog.products(fromCatalog: try Gzip.decompress(data))
+            XCTAssertTrue(products.count > 5)
+            let (dist, _) = try await URLSession.shared.data(from: products.last!.distribution)
+            let info = try XCTUnwrap(AppleCatalog.describe(distribution: String(decoding: dist, as: UTF8.self)))
+            // Small signed Apple package from the same product: exercises download, size and signature check.
+            let plist = try PropertyListSerialization.propertyList(from: try Gzip.decompress(data), format: nil) as! [String: Any]
+            let product = (plist["Products"] as! [String: Any])[products.last!.id] as! [String: Any]
+            let small = (product["Packages"] as! [[String: Any]]).first { ($0["URL"] as! String).hasSuffix("MajorOSInfo.pkg") }!
+            let target = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pkg")
+            defer { try? FileManager.default.removeItem(at: target) }
+            let progressSeen = LockedFlag()
+            _ = try await PackageDownload().run(URL(string: small["URL"] as! String)!, to: target) { written, _ in if written > 0 { progressSeen.set() } }
+            XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: target.path)[.size] as! NSNumber).intValue, (small["Size"] as! NSNumber).intValue)
+            let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", target.path], timeout: 60)
+            XCTAssertTrue(signature.output.contains("signed Apple Software"))
+            XCTAssertTrue(progressSeen.value)
+            print("Live Apple catalog: \(products.count) full installers, e.g. \(info.title) \(info.version) (\(info.build))")
+        }
         try await tests.testUSBRootCommand()
         let normal = try await Command().run("/usr/bin/printf", ["Installing: 42.5%%\rInstalling: 100%%"], timeout: 5)
         XCTAssertEqual(normal.status, 0)
@@ -230,6 +291,6 @@ extension CoreTests {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("12 Swift test groups passed: local installers/trash, catalog, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("13 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }
