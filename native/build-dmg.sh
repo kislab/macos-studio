@@ -47,10 +47,11 @@ shasum -a 256 "$NAME.dmg" > "$NAME.dmg.sha256"
 # Combined checksum file for the GitHub release (DMG and, if prepared, the update ZIP).
 if [ -e "$NAME.zip" ]; then shasum -a 256 "$NAME.dmg" "$NAME.zip" > SHA256SUMS.txt
 else shasum -a 256 "$NAME.dmg" > SHA256SUMS.txt; fi
-# Keep only the three newest versions of build artifacts in dist/.
-# Before 1.2.23 the files were named macOS-Studio-*; both prefixes count toward the three versions.
-OLD="$( { ls OS-Studio-*-Universal.* macOS-Studio-*-Universal.* 2>/dev/null || true; } | sed -E 's/^(mac)?OS-Studio-(.+)-Universal\..*$/\2/' | sort -u -V | sed -e :a -e '$d;N;2,3ba' -e 'P;D')"
-for old in $OLD; do
+# Keep the three most recently built versions in dist/ (by file time, so a reset version
+# number like 1.0 after 1.2.x is still kept). Both name prefixes count toward the three.
+VERSIONS="$( { ls -t OS-Studio-*-Universal.* macOS-Studio-*-Universal.* 2>/dev/null || true; } | sed -E 's/^(mac)?OS-Studio-(.+)-Universal\..*$/\2/' | awk '!seen[$0]++')"
+printf '%s\n' "$VERSIONS" | tail -n +4 | while IFS= read -r old; do
+    [ -n "$old" ] || continue
     for prefix in OS-Studio macOS-Studio; do
         rm -f "$prefix-$old-Universal.dmg" "$prefix-$old-Universal.dmg.sha256" \
               "$prefix-$old-Universal.zip" "$prefix-$old-Universal.zip.sha256"

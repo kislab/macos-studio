@@ -7,15 +7,15 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <description>Signierte Updates für OS Studio</description>
     <language>de</language>
     <item>
-      <title>OS Studio 1.2.28</title>
+      <title>OS Studio 1.0</title>
       <description>Eine neue Version von OS Studio ist verfügbar. Das Update wird direkt in der App installiert.</description>
-      <sparkle:version>31</sparkle:version>
-      <sparkle:shortVersionString>1.2.28</sparkle:shortVersionString>
+      <sparkle:version>32</sparkle:version>
+      <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.2.28/OS-Studio-1.2.28-Universal.zip" sparkle:edSignature="PYtnDy7dLY6eAx7rJFMBOJ0kmYjDsq5ou5ni23eOrxNr5nGAo1q7yMnGILefHAq2qg0JI0czummfoyvcipK0BA==" length="4949234" type="application/octet-stream"></enclosure>
+      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.0.0/OS-Studio-1.0-Universal.zip" sparkle:edSignature="AyL7uMpgI66j/xVhdEsaq+ZXVJRKA4SU79E8KzP/7BfpZP5ciF9rKDjgYDTqGa2de0RSFGDVeD4ROitGb7JRAg==" length="4949419" type="application/octet-stream"></enclosure>
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: ckqukP5mTv1aotYwQX2cmDVD+83HR2x63cjP6LtezBkE6Cw6Kcr2B8z7hS/D0XDi+vw9a2UbwC6HAZx58NZMBw==
-length: 1262
+edSignature: Ed6EItk9VB9jJP8OnaHc9+5AjZlUVCvntL7CH1fTz0B1UbCe8LcVttqLby0IN+Ma7IfFpXDqHOLqSAhsyy/6Cg==
+length: 1252
 -->
