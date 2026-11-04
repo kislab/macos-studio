@@ -68,7 +68,7 @@ public enum FirmwareCatalog {
             guard !current.isEmpty else { return nil }
             return Firmware(url: url, version: entry.version, build: entry.build, sha1: entry.sha1,
                             devices: current.sorted { DeviceNames.order($0, $1) })
-        }.sorted { DeviceNames.ascending($0.devices.first ?? "", $1.devices.first ?? "") }
+        }.sorted { DeviceNames.newestFirst($0.devices.last ?? "", $1.devices.last ?? "") }
     }
 
     /// Apple hosts only, always over HTTPS (the list still contains some http:// links).

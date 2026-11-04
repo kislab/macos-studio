@@ -1,3 +1,9 @@
+Version 1.2.25
+
+• iPhone & iPad: Die neuesten Geräte stehen jetzt oben (iPhone 18 Pro, iPhone 17, iPhone 16 …).
+
+• iPhone & iPad: Neue Geräte haben jetzt ihren richtigen Namen: iPhone 18 Pro, iPhone 18 Pro Max, iPhone Duo, iPhone 17e, iPad Pro 11"/13" (M5) und iPad Air 11"/13" (M4).
+
 Version 1.2.24
 
 • iPhone & iPad: Jede Firmware hat jetzt ein eigenes Symbol – mit der passenden Bauform (Home-Taste, Notch oder Dynamic Island; iPad mit oder ohne Home-Taste) und der Systemversion.

@@ -35,10 +35,10 @@ public enum DeviceNames {
         }
     }
 
-    /// Chronological sort key: family, then model identifier ascending (iPhone12,1 = iPhone 11 before iPhone13,2 = iPhone 12).
-    public static func ascending(_ a: String, _ b: String) -> Bool {
+    /// List order: family (iPhone, iPad, iPod touch), then newest model first (iPhone13,2 = iPhone 12 before iPhone12,1 = iPhone 11).
+    public static func newestFirst(_ a: String, _ b: String) -> Bool {
         let fa = family(of: a), fb = family(of: b)
-        return fa == fb ? order(a, b) : fa.rawValue < fb.rawValue
+        return fa == fb ? order(b, a) : fa.rawValue < fb.rawValue
     }
 
     /// Sort by family, then by numeric generation (iPhone17,1 after iPhone9,1).
@@ -63,6 +63,8 @@ public enum DeviceNames {
         set("iPhone 15 Pro", "iPhone16,1"); set("iPhone 15 Pro Max", "iPhone16,2"); set("iPhone 16", "iPhone17,3"); set("iPhone 16 Plus", "iPhone17,4")
         set("iPhone 16 Pro", "iPhone17,1"); set("iPhone 16 Pro Max", "iPhone17,2"); set("iPhone 16e", "iPhone17,5")
         set("iPhone 17 Pro", "iPhone18,1"); set("iPhone 17 Pro Max", "iPhone18,2"); set("iPhone 17", "iPhone18,3"); set("iPhone Air", "iPhone18,4")
+        set("iPhone 17e", "iPhone18,5")
+        set("iPhone 18 Pro", "iPhone19,2"); set("iPhone 18 Pro Max", "iPhone19,3", "iPhone19,7"); set("iPhone Duo", "iPhone19,4")
         // iPod touch
         set("iPod touch (1. Generation)", "iPod1,1"); set("iPod touch (2. Generation)", "iPod2,1"); set("iPod touch (3. Generation)", "iPod3,1")
         set("iPod touch (4. Generation)", "iPod4,1"); set("iPod touch (5. Generation)", "iPod5,1"); set("iPod touch (6. Generation)", "iPod7,1"); set("iPod touch (7. Generation)", "iPod9,1")
@@ -84,6 +86,8 @@ public enum DeviceNames {
         set("iPad Air (11\", M2)", "iPad14,8", "iPad14,9"); set("iPad Air (13\", M2)", "iPad14,10", "iPad14,11")
         set("iPad Air (11\", M3)", "iPad15,3", "iPad15,4"); set("iPad Air (13\", M3)", "iPad15,5", "iPad15,6"); set("iPad (A16)", "iPad15,7", "iPad15,8")
         set("iPad mini (A17 Pro)", "iPad16,1", "iPad16,2"); set("iPad Pro (11\", M4)", "iPad16,3", "iPad16,4"); set("iPad Pro (13\", M4)", "iPad16,5", "iPad16,6")
+        set("iPad Air (11\", M4)", "iPad16,8", "iPad16,9"); set("iPad Air (13\", M4)", "iPad16,10", "iPad16,11")
+        set("iPad Pro (11\", M5)", "iPad17,1", "iPad17,2"); set("iPad Pro (13\", M5)", "iPad17,3", "iPad17,4")
         return names
     }()
 }
