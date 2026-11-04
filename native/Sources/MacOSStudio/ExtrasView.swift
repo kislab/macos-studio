@@ -10,10 +10,12 @@ import StudioCore
     @Published var dfuReached = false
     @Published var confirmMacDFU = false
     @Published var confirmMacReboot = false
+    @Published var macTab = false
+    @Published var showRestart = false
     var guideTask: Task<Void, Never>?
 }
 
-/// Extras: recovery mode by click and a guided DFU sequence for iPhone and iPad.
+/// Extras: connected devices with their mode, recovery mode by plug-in or click, guided DFU, Mac DFU over USB-C.
 struct ExtrasView: View {
     @ObservedObject var monitor: DeviceMonitor
     @ObservedObject var photos: DevicePhotoStore
@@ -26,16 +28,23 @@ struct ExtrasView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Extras").font(.system(size: 32, weight: .bold, design: .rounded))
-                Text("iPhone oder iPad per Kabel anschließen. Wiederherstellungsmodus per Klick, DFU-Modus mit Anleitung.")
+                Text("Geräte in den Wiederherstellungs- oder DFU-Modus bringen – und wieder heraus.")
                     .foregroundStyle(.secondary)
             }
+            Picker("Bereich", selection: $state.macTab) {
+                Label("iPhone & iPad", systemImage: "iphone").tag(false)
+                Label("Mac (USB-C)", systemImage: "laptopcomputer").tag(true)
+            }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 360)
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    connectedCard
-                    restartCard
-                    recoveryCard
-                    dfuCard
-                    macDFUCard
+                VStack(alignment: .leading, spacing: 16) {
+                    if state.macTab {
+                        macDFUCard
+                    } else {
+                        AutoRecoveryPanel(monitor: monitor, disabled: monitor.working)
+                        connectedCard
+                        dfuCard
+                        restartCard
+                    }
                 }
             }
         }
@@ -64,108 +73,95 @@ struct ExtrasView: View {
         .onDisappear { stopGuide() }
     }
 
-    // MARK: Connected devices
+    // MARK: Connected devices (normal, recovery, DFU in one list)
 
     private var connectedCard: some View {
         card("Angeschlossene Geräte", "cable.connector") {
             if !monitor.available {
                 Text("Apples Gerätedienst ist auf diesem Mac nicht verfügbar. Wiederherstellungs- und DFU-Modus werden trotzdem über USB erkannt.")
-                    .font(.callout).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(.secondary)
             }
             if monitor.devices.isEmpty && monitor.usbDevices.isEmpty {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text("Warte auf iPhone oder iPad … per USB-Kabel anschließen und entsperren.").foregroundStyle(.secondary)
+                    Text("Kein Gerät angeschlossen – iPhone oder iPad per USB-Kabel verbinden.").foregroundStyle(.secondary)
                 }
             }
             ForEach(monitor.devices) { device in
-                HStack(spacing: 14) {
-                    if let photo = photos.image(for: device.productType) {
-                        Image(nsImage: photo).resizable().interpolation(.high).scaledToFit()
-                            .frame(width: 86, height: 58).padding(4)
-                            .background(.white, in: RoundedRectangle(cornerRadius: 10))
-                    } else {
-                        Image(systemName: device.productType.hasPrefix("iPad") ? "ipad" : "iphone")
-                            .font(.system(size: 30)).frame(width: 86, height: 58).foregroundStyle(.blue)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(device.name).font(.headline)
-                        Text([device.modelName, device.version.isEmpty ? nil : "iOS \(device.version)"].compactMap { $0 }.joined(separator: " · "))
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        if !device.paired {
-                            Label("Gerät entsperren und „Vertrauen“ tippen", systemImage: "lock").font(.caption).foregroundStyle(.orange)
-                        }
-                    }
-                    Spacer()
+                deviceRow(photo: photos.image(for: device.productType), symbol: device.productType.hasPrefix("iPad") ? "ipad" : "iphone",
+                          title: device.name,
+                          detail: [device.modelName, device.version.isEmpty ? nil : "iOS \(device.version)"].compactMap { $0 }.joined(separator: " · "),
+                          badge: ("Normal", .green), note: device.paired ? nil : "Gesperrt oder nicht vertraut") {
                     Button("Wiederherstellungsmodus", systemImage: "arrow.uturn.down.circle") { state.confirm = device }
-                        .buttonStyle(.borderedProminent).disabled(monitor.working)
+                        .disabled(monitor.working)
                 }
             }
-        }
-    }
-
-    // MARK: Leave recovery / DFU
-
-    /// Highlighted when a device is in recovery or DFU, so a stuck device is easy to get back.
-    private var stuck: Bool { !monitor.usbDevices.isEmpty }
-    private var restartCard: some View {
-        card(stuck ? "Gerät aus dem Modus holen" : "Gerät neu starten", "power") {
-            if stuck {
-                Label("Ein Gerät ist im " + (inDFU.isEmpty ? "Wiederherstellungsmodus" : "DFU-Modus") + ". So kommt es wieder heraus:", systemImage: "exclamationmark.circle.fill")
-                    .font(.headline).foregroundStyle(.orange)
-            } else {
-                Text("Hängt ein Gerät im Wiederherstellungs- oder DFU-Modus, kommt es hiermit wieder heraus.")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            if !inRecovery.isEmpty {
-                HStack {
-                    Text("Wiederherstellungsmodus erkannt – ein Klick genügt.").foregroundStyle(.secondary)
-                    Spacer()
+            ForEach(inRecovery) { device in
+                deviceRow(photo: nil, symbol: "laptopcomputer.and.iphone", title: "Gerät im Wiederherstellungsmodus",
+                          detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("Wiederherstellung", .orange), note: nil) {
                     Button("Normal starten", systemImage: "power") { Task { await monitor.exitRecovery() } }
                         .buttonStyle(.borderedProminent).disabled(monitor.working || !monitor.available)
                 }
             }
-            Divider()
-            HStack(alignment: .firstTextBaseline) {
-                Text("Per Tasten (funktioniert immer, auch im DFU-Modus):").fontWeight(.medium)
-                Spacer()
-                Picker("", selection: $state.method) {
-                    ForEach(DFUGuide.Method.allCases) { Text($0.title).tag($0) }
-                }.labelsHidden().frame(width: 320)
-            }
-            Text(DFUGuide.forceRestart(for: state.method))
-                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-        }
-    }
-
-    // MARK: Recovery
-
-    private var recoveryCard: some View {
-        card("Wiederherstellungsmodus", "laptopcomputer.and.iphone") {
-            Text("Der Wiederherstellungsmodus zeigt auf dem Display Laptop und Kabel. Der Finder kann das Gerät dann aktualisieren oder wiederherstellen.")
-                .font(.callout).foregroundStyle(.secondary)
-            if inRecovery.isEmpty {
-                Text("Kein Gerät im Wiederherstellungsmodus.").font(.callout)
-            } else {
-                ForEach(inRecovery) { device in
-                    HStack {
-                        Label("Gerät im Wiederherstellungsmodus" + (device.cpid.map { " · CPID \($0)" } ?? ""), systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Spacer()
-                        Button("Normal starten", systemImage: "power") { Task { await monitor.exitRecovery() } }
-                            .disabled(monitor.working || !monitor.available)
-                    }
+            ForEach(inDFU) { device in
+                deviceRow(photo: nil, symbol: "bolt.horizontal.circle", title: "Gerät im DFU-Modus",
+                          detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("DFU", .purple), note: "Zum Verlassen per Tasten neu starten (unten)") {
+                    Button("Anleitung", systemImage: "hand.point.down") { state.showRestart = true }
                 }
             }
         }
+    }
+
+    private func deviceRow<Actions: View>(photo: NSImage?, symbol: String, title: String, detail: String,
+                                          badge: (String, Color), note: String?, @ViewBuilder actions: () -> Actions) -> some View {
+        HStack(spacing: 14) {
+            Group {
+                if let photo {
+                    Image(nsImage: photo).resizable().interpolation(.high).scaledToFit().padding(4)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: symbol).font(.system(size: 28)).foregroundStyle(.blue)
+                }
+            }.frame(width: 72, height: 50)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(title).font(.headline)
+                    Text(badge.0).font(.caption2.weight(.semibold)).foregroundStyle(badge.1)
+                        .padding(.horizontal, 7).padding(.vertical, 2).background(badge.1.opacity(0.15), in: Capsule())
+                }
+                if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(.secondary) }
+                if let note { Label(note, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary) }
+            }
+            Spacer()
+            actions()
+        }
+        .padding(10).background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    // MARK: Restart by buttons (collapsed)
+
+    private var restartCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DisclosureGroup(isExpanded: $state.showRestart) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Funktioniert immer, auch im DFU-Modus. Gerät: \(state.method.title)").font(.callout).foregroundStyle(.secondary)
+                    Text(DFUGuide.forceRestart(for: state.method))
+                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                }.padding(.top, 8)
+            } label: {
+                Label("Gerät per Tasten neu starten", systemImage: "power").font(.title3.bold())
+            }
+        }
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: DFU
 
     private var dfuCard: some View {
         card("DFU-Modus (geführt)", "bolt.horizontal.circle") {
-            Text("Den DFU-Modus kann nur das Gerät selbst über seine Tasten auslösen – Apple lässt das per Kabel nicht zu. Die App führt dich mit Countdown durch die Tasten und meldet, sobald es geklappt hat. Im DFU-Modus bleibt der Bildschirm schwarz.")
+            Text("DFU geht nur über die Tasten. Die App zählt die Schritte herunter und meldet, sobald es geklappt hat (Bildschirm bleibt schwarz).")
                 .font(.callout).foregroundStyle(.secondary)
             Picker("Gerät", selection: $state.method) {
                 ForEach(DFUGuide.Method.allCases) { Text($0.title).tag($0) }
@@ -199,7 +195,7 @@ struct ExtrasView: View {
                     Text("Gerät vorher per Kabel anschließen.").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Text("Apple-Logo erschienen? Zu lange gehalten – einfach neu starten. Laptop und Kabel zu sehen? Dann ist es der Wiederherstellungsmodus.")
+            Text("Apple-Logo? Zu lange gehalten – neu versuchen. Laptop und Kabel? Das ist der Wiederherstellungsmodus.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

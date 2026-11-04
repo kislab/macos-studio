@@ -1,3 +1,9 @@
+Version 1.3.1
+
+• Wiederherstellungsmodus per Anstecken: Auf „Aktivieren“ klicken – die App zeigt „Stecke jetzt ein iPhone oder iPad an …“. Jedes dann angesteckte Gerät wird ohne Tastendrücken in den Wiederherstellungsmodus versetzt. Das klappt meist auch ohne Entsperren. Zu finden im Flasher und in den Extras.
+
+• Extras aufgeräumt: Reiter „iPhone & iPad“ und „Mac (USB-C)“. Alle angeschlossenen Geräte stehen in einer Liste mit ihrem Modus (Normal, Wiederherstellung, DFU) und der passenden Aktion. „Per Tasten neu starten“ ist jetzt zum Aufklappen.
+
 Version 1.3.0
 
 • iPhone & iPad: Neuer „Flasher“. Unter „iPhone & iPad“ lässt sich jetzt zwischen „Firmware laden“ und „Flasher“ wechseln. Der Flasher installiert eine IPSW-Datei auf ein per USB verbundenes iPhone oder iPad – im normalen, im Wiederherstellungs- oder im DFU-Modus.

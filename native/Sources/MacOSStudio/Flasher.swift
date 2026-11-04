@@ -94,6 +94,7 @@ import StudioCore
 
     func cancel() { command?.cancel() }
 
+
     private func report(_ chunk: String) {
         guard running else { return }
         log += chunk
@@ -107,6 +108,7 @@ struct FlasherView: View {
     @ObservedObject var store: FlasherStore
     @ObservedObject var firmware: FirmwareStore
     @ObservedObject var studio: StudioModel
+    @ObservedObject var monitor = DeviceMonitor.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -115,6 +117,7 @@ struct FlasherView: View {
             if store.tool == nil { configuratorMissing } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        AutoRecoveryPanel(monitor: monitor, disabled: store.running)
                         deviceCard
                         ipswCard
                         if store.running || store.result != nil { progressCard }
@@ -128,7 +131,9 @@ struct FlasherView: View {
                 }
             }
         }
+        .onChange(of: monitor.auto) { state in if case .done = state { Task { try? await Task.sleep(nanoseconds: 4_000_000_000); await store.refresh() } } }
         .task {
+            monitor.start()
             await store.refresh()
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 4_000_000_000)

@@ -22,7 +22,7 @@ import StudioCore
     }
 
     static let shared = DeviceMonitor()
-    @Published private(set) var devices: [Device] = []
+    @Published private(set) var devices: [Device] = [] { didSet { autoCheck() } }
     @Published private(set) var usbDevices: [USBDevice] = []
     @Published private(set) var available = false
     @Published var message: String?
@@ -33,6 +33,46 @@ import StudioCore
     private var recoveryHandles: [UnsafeMutableRawPointer] = []          // AMRecoveryModeDeviceRef (retained)
     private var timer: Timer?
     private var started = false
+
+    // MARK: Auto recovery ("Aktivieren" → plug in → recovery mode, no buttons)
+
+    enum AutoState: Equatable {
+        case off
+        case waiting                    // "Stecke jetzt ein iPhone oder iPad an"
+        case sending(String)
+        case done(String)
+        case failed(String)
+    }
+    @Published private(set) var auto: AutoState = .off
+    private var autoHandled: Set<String> = []
+    private var autoTask: Task<Void, Never>?
+
+    func activateAuto() {
+        start()
+        autoHandled = []
+        auto = .waiting
+        autoCheck()
+    }
+    func deactivateAuto() { autoTask?.cancel(); autoTask = nil; auto = .off }
+
+    /// Each device plugged in while active is sent once; unplugging re-arms it.
+    private func autoCheck() {
+        autoHandled.formIntersection(devices.map(\.id))
+        guard auto != .off, autoTask == nil, let next = devices.first(where: { !autoHandled.contains($0.id) }) else { return }
+        autoHandled.insert(next.id)
+        auto = .sending(next.name == "iPhone/iPad" ? "Gerät" : next.name)
+        autoTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)        // let the attach read-out finish first
+            defer { autoTask = nil; autoCheck() }
+            guard !Task.isCancelled, auto != .off else { return }
+            while working { try? await Task.sleep(nanoseconds: 300_000_000) }
+            guard let current = devices.first(where: { $0.id == next.id }) else { auto = .waiting; return }
+            let ok = await enterRecovery(current, quiet: true)
+            let text = lastRecoveryText
+            guard auto != .off else { return }
+            auto = ok ? .done(current.name == "iPhone/iPad" ? current.modelName : current.name) : .failed(text)
+        }
+    }
 
     func start() {
         guard !started else { return }
@@ -93,13 +133,17 @@ import StudioCore
     }
 
     /// Restarts the device into recovery mode (laptop-and-cable screen). Needs a trusted (paired) device.
-    func enterRecovery(_ device: Device) async {
-        guard let md, let handle = handles[device.id], !working else { return }
+    /// Text of the last recovery attempt; with `quiet` it is not shown as an alert (the auto panel shows it).
+    private(set) var lastRecoveryText = ""
+    @discardableResult func enterRecovery(_ device: Device, quiet: Bool = false) async -> Bool {
+        guard let md, let handle = handles[device.id], !working else { return false }
+        let shown = message
+        defer { lastRecoveryText = message ?? ""; if quiet { message = shown } }
         working = true
         defer { working = false }
         message = nil
         var status = md.connect(handle)
-        guard status == 0 else { message = "Verbindung zu „\(device.name)“ fehlgeschlagen (\(hex(status)))."; return }
+        guard status == 0 else { message = "Verbindung zu „\(device.name)“ fehlgeschlagen (\(hex(status)))."; return false }
         status = md.enterRecovery(handle)
         if status != 0, md.validatePairing(handle) == 0, md.startSession(handle) == 0 {
             status = md.enterRecovery(handle)
@@ -113,6 +157,7 @@ import StudioCore
         } else {
             message = "Das Gerät hat den Wiederherstellungsmodus abgelehnt (\(hex(status))). Gerät entsperren und erneut versuchen."
         }
+        return status == 0
     }
 
     // MARK: Recovery / DFU
