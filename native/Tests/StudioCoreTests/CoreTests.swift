@@ -12,6 +12,43 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
 }
 
 final class CoreTests {
+    func testFirmwareCatalog() throws {
+        func restore(_ url: String, _ version: String, _ build: String, _ sha: String? = nil) -> [String: Any] {
+            var r: [String: Any] = ["FirmwareURL": url, "ProductVersion": version, "BuildVersion": build]
+            if let sha { r["FirmwareSHA1"] = sha }
+            return ["Restore": r]
+        }
+        let newURL = "https://updates.cdn-apple.com/x/iPhone17,1_27.2_24B119_Restore.ipsw"
+        let list: [String: Any] = ["MobileDeviceSoftwareVersionsByVersion": [
+            "16": ["MobileDeviceSoftwareVersions": [
+                "iPhone17,1": ["22A1": restore("https://updates.cdn-apple.com/x/old.ipsw", "18.0", "22A1")]]],
+            "17": ["MobileDeviceSoftwareVersions": [
+                "iPhone17,1": ["22A3351": restore(newURL, "27.2", "24B119", "9C07287009DE10D7FB47D1F60AA5D3B215CA99FC"), "22B83": ["SameAs": "22A3351"]],
+                "iPhone17,2": ["Unknown": ["Universal": restore(newURL, "27.2", "24B119")]],
+                "iPad8,1": ["X": restore("http://updates-http.cdn-apple.com/y/iPad_Pro_26.7_Restore.ipsw", "26.7", "23H1")],
+                "AppleTV5,3": ["X": restore("https://updates.cdn-apple.com/tv.ipsw", "26.0", "T1")],
+                "iPhone99,1": ["X": restore("https://evil-cdn-apple.com/a.ipsw", "27.2", "E1")]]]]]
+        let data = try PropertyListSerialization.data(fromPropertyList: list, format: .xml, options: 0)
+        let items = FirmwareCatalog.parse(data)
+        XCTAssertEqual(items.count, 2)
+        XCTAssertEqual(items.first?.devices.first, "iPhone17,1")
+        let phone = try XCTUnwrap(items.first { $0.version == "27.2" })
+        XCTAssertEqual(phone.devices, ["iPhone17,1", "iPhone17,2"])
+        XCTAssertEqual(phone.deviceNames, ["iPhone 16 Pro", "iPhone 16 Pro Max"])
+        XCTAssertEqual(phone.sha1, "9c07287009de10d7fb47d1f60aa5d3b215ca99fc")
+        XCTAssertEqual(phone.platform, "iOS")
+        XCTAssertTrue(phone.matches(query: "16 pro max"))
+        XCTAssertFalse(phone.matches(query: "iPad"))
+        let pad = try XCTUnwrap(items.first { $0.devices == ["iPad8,1"] })
+        XCTAssertEqual(pad.url.absoluteString, "https://updates.cdn-apple.com/y/iPad_Pro_26.7_Restore.ipsw")
+        XCTAssertEqual(pad.platform, "iPadOS")
+        XCTAssertEqual(DeviceNames.name(for: "iPhone12,8"), "iPhone SE (2. Generation)")
+        XCTAssertEqual(DeviceNames.name(for: "iPhone99,9"), "iPhone-Modell iPhone99,9")
+        XCTAssertTrue(DeviceNames.order("iPhone9,1", "iPhone17,1"))
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("abc".utf8).write(to: file); defer { try? FileManager.default.removeItem(at: file) }
+        XCTAssertEqual(try FirmwareCatalog.sha1(of: file), "a9993e364706816aba3e25717850c26c9cd0d89d")
+    }
     func testSerialLookup() throws {
         XCTAssertEqual(SerialLookup.configCode(for: " c02abc12hv2r "), "HV2R")
         XCTAssertEqual(SerialLookup.configCode(for: "W8812345DHJ"), "DHJ")
@@ -272,6 +309,7 @@ final class LockedFlag: @unchecked Sendable {
         tests.testCatalogSortAndUnits()
         try tests.testAppleCatalog()
         try tests.testSerialLookup()
+        try tests.testFirmwareCatalog()
         tests.testVersionValidation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
@@ -299,6 +337,12 @@ final class LockedFlag: @unchecked Sendable {
             XCTAssertTrue(progressSeen.value)
             let (answer, _) = try await URLSession.shared.data(from: SerialLookup.url(for: "HV2R")!)
             XCTAssertEqual(SerialLookup.modelName(fromResponse: String(decoding: answer, as: UTF8.self)), "MacBook Pro (13-inch, 2017, Four Thunderbolt 3 Ports)")
+            let (firmwareData, _) = try await URLSession.shared.data(from: FirmwareCatalog.url)
+            let firmware = FirmwareCatalog.parse((try? Gzip.decompress(firmwareData)) ?? firmwareData)
+            XCTAssertTrue(firmware.count > 30)
+            XCTAssertTrue(firmware.allSatisfy { $0.url.scheme == "https" })
+            let unnamed = Set(firmware.flatMap(\.devices).filter { DeviceNames.name(for: $0).contains("-Modell") })
+            print("Live firmware list: \(firmware.count) IPSWs, \(firmware.filter { $0.sha1 != nil }.count) with SHA-1, unnamed: \(unnamed.sorted())")
             print("Live Apple catalog: \(products.count) full installers, e.g. \(info.title) \(info.version) (\(info.build))")
         }
         try await tests.testUSBRootCommand()
@@ -312,6 +356,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("14 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("15 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

@@ -15,14 +15,14 @@ import StudioCore
     @StateObject private var updates = AppUpdates()
     @StateObject private var startup = StartupState()
     var body: some Scene {
-        WindowGroup("macOS Studio") {
+        WindowGroup("OS Studio") {
             Group {
                 if startup.starting {
                     VStack(spacing: 24) {
                         Image(nsImage: NSApplication.shared.applicationIconImage)
                             .resizable().scaledToFit().frame(width: 116, height: 116)
                             .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
-                        Text("macOS Studio").font(.system(size: 38, weight: .bold))
+                        Text("OS Studio").font(.system(size: 38, weight: .bold))
                         Text("Dein nächstes macOS wird vorbereitet.")
                             .font(.title3).foregroundStyle(.secondary)
                         ProgressView().controlSize(.large).padding(.top, 12)
@@ -37,7 +37,7 @@ import StudioCore
                 .frame(minWidth: 980, minHeight: 720)
                 .sheet(isPresented: $startup.showChanges) {
                     VStack(alignment: .leading, spacing: 18) {
-                        Label("Was ist neu in macOS Studio?", systemImage: "sparkles").font(.title2.bold())
+                        Label("Was ist neu in OS Studio?", systemImage: "sparkles").font(.title2.bold())
                         ScrollView {
                             Text((Bundle.module.url(forResource: "CHANGELOG", withExtension: "md").flatMap { try? String(contentsOf: $0, encoding: .utf8) }) ?? "Änderungsprotokoll nicht verfügbar.")
                                 .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
@@ -122,17 +122,19 @@ struct StudioView: View {
     @ObservedObject var updates: AppUpdates
     @ObservedObject var model: StudioModel
     @StateObject private var ui = ViewState()
+    @StateObject private var firmware = FirmwareStore()
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 24) {
-                Label("macOS Studio", systemImage: "square.stack.3d.up.fill")
+                Label("OS Studio", systemImage: "square.stack.3d.up.fill")
                     .font(.title3.bold()).padding(.top, 20)
-                Text("INSTALLER & BOOT MEDIA").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                Text("INSTALLER, BOOT MEDIA & FIRMWARE").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                 VStack(spacing: 6) {
                     navigation("download", "Installer laden", "arrow.down.circle")
                     navigation("local", "Installer lokal", "internaldrive")
                     navigation("compatibility", "Mac suchen", "laptopcomputer")
                     navigation("usb", "USB erstellen", "externaldrive")
+                    navigation("firmware", "iPhone & iPad", "iphone")
                 }
                 Spacer()
                 if let version = updates.availableVersion {
@@ -166,6 +168,7 @@ struct StudioView: View {
                 if model.section == "download" { downloader }
                 else if model.section == "local" { localLibrary }
                 else if model.section == "compatibility" { compatibility }
+                else if model.section == "firmware" { FirmwareView(store: firmware, studio: model) }
                 else { usb }
                 if !model.activeTitle.isEmpty { activity }
             }
@@ -228,7 +231,7 @@ struct StudioView: View {
         mail.path = "mail@seitzke.com"
         mail.queryItems = [
             URLQueryItem(name: "subject", value: "Feedback zu MacOSStudio"),
-            URLQueryItem(name: "body", value: "\n\n\n—\nmacOS Studio \(version) (Build \(build))\nmacOS \(os)")
+            URLQueryItem(name: "body", value: "\n\n\n—\nOS Studio \(version) (Build \(build))\nmacOS \(os)")
         ]
         guard let url = mail.url else { return }
         NSWorkspace.shared.open(url)

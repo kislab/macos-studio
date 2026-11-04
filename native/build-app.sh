@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 swift build -c release --arch arm64 --arch x86_64 --product MacOSStudio
 BIN_DIR="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
 mkdir -p ../dist
-APP="../dist/macOS Studio.app"
+APP="../dist/OS Studio.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN_DIR/MacOSStudio" "$APP/Contents/MacOS/MacOSStudio"
 for resource in "$BIN_DIR"/*.bundle; do
@@ -22,18 +22,18 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>MacOSStudio</string>
 <key>CFBundleIdentifier</key><string>com.appletools.macosstudio</string>
-<key>CFBundleName</key><string>macOS Studio</string>
-<key>CFBundleDisplayName</key><string>macOS Studio</string>
+<key>CFBundleName</key><string>OS Studio</string>
+<key>CFBundleDisplayName</key><string>OS Studio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.2.22</string>
-<key>CFBundleVersion</key><string>25</string>
+<key>CFBundleShortVersionString</key><string>1.2.23</string>
+<key>CFBundleVersion</key><string>26</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleDevelopmentRegion</key><string>de</string>
 <key>CFBundleLocalizations</key><array><string>de</string></array>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
-<key>NSRemovableVolumesUsageDescription</key><string>macOS Studio benötigt Zugriff auf Wechselmedien, um mit Apples createinstallmedia einen bootfähigen USB-Stick zu erstellen.</string>
-<key>NSAppleEventsUsageDescription</key><string>macOS Studio bittet den Finder, root-eigene Installer wiederherstellbar in den Papierkorb zu legen.</string>
+<key>NSRemovableVolumesUsageDescription</key><string>OS Studio benötigt Zugriff auf Wechselmedien, um mit Apples createinstallmedia einen bootfähigen USB-Stick zu erstellen.</string>
+<key>NSAppleEventsUsageDescription</key><string>OS Studio bittet den Finder, root-eigene Installer wiederherstellbar in den Papierkorb zu legen.</string>
 <key>SUFeedURL</key><string>https://raw.githubusercontent.com/kislab/macos-studio/main/appcast.xml</string>
 <key>SUPublicEDKey</key><string>xcZo5IOnSiJkaaCe+YyZkukO1pfn0PNEfk50dTKXJNs=</string>
 <key>SUEnableAutomaticChecks</key><true/>

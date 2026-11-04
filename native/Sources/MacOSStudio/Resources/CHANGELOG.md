@@ -1,3 +1,9 @@
+Version 1.2.23
+
+• Neuer Name: Die App heißt jetzt „OS Studio“.
+
+• Neu: iPhone & iPad. Lade die aktuelle Firmware (IPSW) für iPhone, iPad und iPod touch direkt von Apple. Die App nutzt dieselbe Liste wie der Finder, prüft jede Datei mit Apples Prüfsumme und legt sie in den Download-Ordner. Es wird nur geladen – kein Gerät wird verändert.
+
 Version 1.2.22
 
 • Mac suchen: Seriennummern werden jetzt direkt in der App erkannt – ohne dass sich eine Website öffnet, auch nicht mit Enter. Ältere Seriennummern (11–12 Zeichen, bis 2021) löst die App über Apples Modellabfrage auf und zeigt das passende Modell.

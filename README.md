@@ -1,6 +1,6 @@
-<p align="center"><img src="assets/icons/macos_studio_icon.png" width="112" alt="macOS Studio"></p>
+<p align="center"><img src="assets/icons/macos_studio_icon.png" width="112" alt="OS Studio"></p>
 
-# macOS Studio
+# OS Studio
 
 **macOS-Installer laden, lokale Installer verwalten und bootfähige USB-Sticks erstellen.** Eine native macOS-App mit SwiftUI, Gerätebildern und einer übersichtlichen Mac-Modellauswahl.
 
@@ -8,8 +8,8 @@
 
 ## Installation
 
-1. Die **macOS-Studio-1.2.22-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
-2. Die DMG öffnen und **macOS Studio** auf **Programme** ziehen.
+1. Die **OS-Studio-1.2.23-Universal.dmg** unter [Releases](https://github.com/kislab/macos-studio/releases) herunterladen.
+2. Die DMG öffnen und **OS Studio** auf **Programme** ziehen.
 3. Die DMG auswerfen und die App aus Programme starten.
 
 **Systemanforderungen:** macOS 13 Ventura oder neuer. Die DMG enthält Intel (`x86_64`) und Apple Silicon (`arm64`) in einer Universal-App. Python wird nicht benötigt.
@@ -18,7 +18,7 @@
 
 ## Updates direkt in der App
 
-Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Seit **1.2.2** sucht sie direkt bei jedem Start und danach alle sechs Stunden. Du bekommst einen Hinweis und kannst das Update direkt installieren lassen – ohne eine DMG zu öffnen. Sparkle lädt das Update, prüft dessen Signatur und startet die aktualisierte App neu. Manuell prüfen: **macOS Studio → Nach Updates suchen …**.
+Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Seit **1.2.2** sucht sie direkt bei jedem Start und danach alle sechs Stunden. Du bekommst einen Hinweis und kannst das Update direkt installieren lassen – ohne eine DMG zu öffnen. Sparkle lädt das Update, prüft dessen Signatur und startet die aktualisierte App neu. Manuell prüfen: **OS Studio → Nach Updates suchen …**.
 
 **Nutzer von 1.1 müssen 1.2 einmal normal installieren**, da die alte Version noch keinen Updater enthält. Neue Updates erfordern ein veröffentlichtes, signiertes Release; ein GitHub-Commit allein genügt nicht. [Anleitung zum Veröffentlichen](docs/UPDATES.md).
 

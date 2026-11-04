@@ -2,7 +2,7 @@
 # Build first. This script signs an update using the private key in login Keychain.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-APP="$PWD/dist/macOS Studio.app"
+APP="$PWD/dist/OS Studio.app"
 TOOLS="$PWD/native/.build/artifacts/sparkle/Sparkle/bin"
 ACCOUNT="macos-studio-kislab"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
@@ -11,7 +11,7 @@ PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$APP/Contents/I
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ && "$BUILD" =~ ^[0-9]+$ ]] || exit 1
 [[ "$("$TOOLS/generate_keys" --account "$ACCOUNT" -p)" == "$PUBLIC_KEY" ]] || { echo 'Signing key does not match app.' >&2; exit 1; }
 codesign --verify --deep --strict "$APP"
-ARCHIVE_NAME="macOS-Studio-$VERSION-Universal.zip"
+ARCHIVE_NAME="OS-Studio-$VERSION-Universal.zip"
 ARCHIVE="dist/$ARCHIVE_NAME"
 mkdir -p dist
 [ ! -e "$ARCHIVE" ] || { echo "Archive already exists: $ARCHIVE" >&2; exit 1; }
@@ -26,13 +26,13 @@ cat > appcast.xml <<XML
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
-    <title>macOS Studio Updates</title>
+    <title>OS Studio Updates</title>
     <link>https://github.com/kislab/macos-studio</link>
-    <description>Signierte Updates für macOS Studio</description>
+    <description>Signierte Updates für OS Studio</description>
     <language>de</language>
     <item>
-      <title>macOS Studio $VERSION</title>
-      <description>Eine neue Version von macOS Studio ist verfügbar. Das Update wird direkt in der App installiert.</description>
+      <title>OS Studio $VERSION</title>
+      <description>Eine neue Version von OS Studio ist verfügbar. Das Update wird direkt in der App installiert.</description>
       <sparkle:version>$BUILD</sparkle:version>
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>

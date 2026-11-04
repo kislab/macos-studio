@@ -245,10 +245,10 @@ import StudioCore
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
             if automationDenied {
                 privacyPane = "Privacy_Automation"
-                throw failure("macOS hat macOS Studio die Steuerung des Finders verweigert. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Automation bei „macOS Studio“ den Finder erlauben und erneut löschen.\n\nAlternativ den im Finder markierten Installer selbst in den Papierkorb ziehen.")
+                throw failure("macOS hat OS Studio die Steuerung des Finders verweigert. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Automation bei „OS Studio“ den Finder erlauben und erneut löschen.\n\nAlternativ den im Finder markierten Installer selbst in den Papierkorb ziehen.")
             }
             privacyPane = result.output.contains("Operation not permitted") ? "Privacy_AppBundles" : nil
-            throw failure("macOS schützt den Installer vor Änderungen durch andere Apps („App-Verwaltung“). Der Installer ist jetzt im Finder markiert: Einfach in den Papierkorb ziehen und mit dem Passwort bestätigen.\n\nAlternativ unter Systemeinstellungen → Datenschutz & Sicherheit → App-Verwaltung „macOS Studio“ aktivieren und erneut löschen.")
+            throw failure("macOS schützt den Installer vor Änderungen durch andere Apps („App-Verwaltung“). Der Installer ist jetzt im Finder markiert: Einfach in den Papierkorb ziehen und mit dem Passwort bestätigen.\n\nAlternativ unter Systemeinstellungen → Datenschutz & Sicherheit → App-Verwaltung „OS Studio“ aktivieren und erneut löschen.")
         }
         // Ownership changed; revalidate the same bundle and trash it as the user.
         try await Task.detached(priority: .utility) {
@@ -581,7 +581,7 @@ import StudioCore
             let shell = job.usbRootCommand(safety: safety, mount: target.mount,
                                            setup: preparation?.shellCommand(name: preparedName, mount: preparedMount),
                                            tool: tool, volume: volume)
-            try job.write(rootCommand: shell, headline: "macOS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht")
+            try job.write(rootCommand: shell, headline: "OS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht")
             let header = "Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster; Schritte und Fortschritt erscheinen hier live.\n\n"
             appendLog(header)
             let config = NSWorkspace.OpenConfiguration(); config.activates = true
