@@ -1,3 +1,15 @@
+Version 1.0
+
+Erste offizielle Version von OS Studio. Die bisherigen Vorabversionen sind damit abgeschlossen.
+
+OS Studio vereint:
+• macOS-Installer von Apple laden – auch Versionen für andere Macs – und bootfähige USB-Sticks erstellen.
+• Installer lokal verwalten und sicher in den Papierkorb legen.
+• Mac anhand von Modell oder Seriennummer bestimmen.
+• iPhone & iPad: aktuelle Firmware (IPSW) direkt von Apple laden, mit Gerätefotos und wählbarem Speicherort.
+• Extras: Wiederherstellungsmodus per Klick, geführter DFU-Modus, Gerät aus dem Modus holen.
+• Einstellungen und automatische, signierte Updates.
+
 Version 1.2.28
 
 • Extras: Neue Karte „Gerät aus dem Modus holen“. Hängt ein iPhone oder iPad im Wiederherstellungs- oder DFU-Modus, holt „Normal starten“ es per Klick wieder heraus. Zusätzlich gibt es für jedes Gerät die Tastenfolge, die immer funktioniert – auch im DFU-Modus und ohne „Vertrauen“.
