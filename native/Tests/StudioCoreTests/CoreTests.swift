@@ -12,6 +12,24 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
 }
 
 final class CoreTests {
+    func testSerialLookup() throws {
+        XCTAssertEqual(SerialLookup.configCode(for: " c02abc12hv2r "), "HV2R")
+        XCTAssertEqual(SerialLookup.configCode(for: "W8812345DHJ"), "DHJ")
+        XCTAssertNil(SerialLookup.configCode(for: "LWV6G7C61M"))
+        XCTAssertTrue(SerialLookup.isRandomized("lwv6g7c61m"))
+        XCTAssertNil(SerialLookup.url(for: "A&B"))
+        XCTAssertEqual(SerialLookup.modelName(fromResponse: "<root><name>CPU Name</name><configCode>MacBook Air (M1, 2020)</configCode></root>"), "MacBook Air (M1, 2020)")
+        XCTAssertNil(SerialLookup.modelName(fromResponse: "<root><error>0009</error></root>"))
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Sources/MacOSStudio/Resources/models.json")
+        let models = try JSONDecoder().decode([MacModel].self, from: Data(contentsOf: url))
+        func names(_ apple: String) -> [String] { SerialLookup.matches(for: apple, in: models).map(\.name) }
+        XCTAssertEqual(names("MacBook Air (M1, 2020)"), ["MacBook Air (13\", 2020, M1)"])
+        XCTAssertEqual(names("MacBook Pro (13-inch, 2017, Four Thunderbolt 3 Ports)"), ["MacBook Pro (13\" & 15\", 2017)"])
+        XCTAssertEqual(names("iMac (27-inch, Mid 2011)"), ["iMac (21.5\" & 27\", Late 2009 – Mid 2011)"])
+        XCTAssertEqual(names("MacBook Pro (13-inch, 2020, Four Thunderbolt 3 ports)"), ["MacBook Pro (13\", 2020, Intel, 2 & 4 Thunderbolt 3)"])
+        XCTAssertEqual(names("Mac mini (Late 2014)"), ["Mac mini (Late 2014)"])
+        XCTAssertTrue(names("Apple Watch").isEmpty)
+    }
     func testAppleCatalog() throws {
         let catalog: [String: Any] = ["Products": [
             "142-50055": ["Packages": [["URL": "https://swcdn.apple.com/x/MajorOSInfo.pkg", "Size": 5],
@@ -253,6 +271,7 @@ final class LockedFlag: @unchecked Sendable {
         let tests = CoreTests()
         tests.testCatalogSortAndUnits()
         try tests.testAppleCatalog()
+        try tests.testSerialLookup()
         tests.testVersionValidation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
@@ -278,6 +297,8 @@ final class LockedFlag: @unchecked Sendable {
             let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", target.path], timeout: 60)
             XCTAssertTrue(signature.output.contains("signed Apple Software"))
             XCTAssertTrue(progressSeen.value)
+            let (answer, _) = try await URLSession.shared.data(from: SerialLookup.url(for: "HV2R")!)
+            XCTAssertEqual(SerialLookup.modelName(fromResponse: String(decoding: answer, as: UTF8.self)), "MacBook Pro (13-inch, 2017, Four Thunderbolt 3 Ports)")
             print("Live Apple catalog: \(products.count) full installers, e.g. \(info.title) \(info.version) (\(info.build))")
         }
         try await tests.testUSBRootCommand()
@@ -291,6 +312,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("13 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("14 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

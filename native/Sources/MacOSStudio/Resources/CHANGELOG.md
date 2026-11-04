@@ -1,3 +1,9 @@
+Version 1.2.22
+
+• Mac suchen: Seriennummern werden jetzt direkt in der App erkannt – ohne dass sich eine Website öffnet, auch nicht mit Enter. Ältere Seriennummern (11–12 Zeichen, bis 2021) löst die App über Apples Modellabfrage auf und zeigt das passende Modell.
+
+• Neuere Seriennummern (10 Zeichen, seit 2021) vergibt Apple zufällig; sie enthalten kein Modell. Die App erklärt das und nennt Alternativen: Modellnummer (z. B. A2337), Modellkennung oder „Meinen Mac erkennen“.
+
 Version 1.2.21
 
 • Installer für andere Macs: Die Liste zeigt jetzt alle vollständigen Installer aus Apples Katalog – auch Versionen, die dieser Mac selbst nicht installieren kann (z. B. macOS 27 oder 26 auf Intel-Macs). Solche Einträge sind markiert; die App lädt Apples Installationspaket, prüft Größe und Apple-Signatur und erstellt daraus die Installer-App für den USB-Stick (Administratorpasswort nötig).

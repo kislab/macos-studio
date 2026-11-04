@@ -356,6 +356,29 @@ struct StudioView: View {
                 .font(.caption).foregroundStyle(.secondary)
         }.task { await model.scanLocal() }
     }
+    @ViewBuilder private var serialInfo: some View {
+        switch model.serialState {
+        case .searching:
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Seriennummer wird bei Apple nachgeschlagen …") }
+                .font(.caption).foregroundStyle(.secondary)
+        case .found(_, let name, _):
+            Label("Seriennummer erkannt: \(name)", systemImage: "checkmark.seal").font(.caption).foregroundStyle(.green)
+        case .unmatched(_, let name):
+            Label("Apple meldet „\(name)“. Dieses Modell fehlt in der Datenbank – bitte über Modell oder Baujahr auswählen.", systemImage: "questionmark.circle")
+                .font(.caption).foregroundStyle(.orange)
+        case .randomized:
+            Label("Diese Seriennummer enthält kein Modell: Seit 2021 vergibt Apple zufällige 10-stellige Seriennummern. Suche stattdessen nach der Modellnummer (z. B. A2337, klein auf der Unterseite) oder der Modellkennung (Systeminformationen, z. B. Mac14,2). Sitzt du an dem Mac, genügt „Meinen Mac erkennen“.", systemImage: "info.circle")
+                .font(.caption).foregroundStyle(.orange).lineLimit(4)
+        case .unknown:
+            Label("Apple kennt diese Seriennummer nicht. Bitte Eingabe prüfen oder nach Modellnummer suchen.", systemImage: "exclamationmark.triangle")
+                .font(.caption).foregroundStyle(.orange)
+        case .failed:
+            Label("Apple ist gerade nicht erreichbar. Bitte später erneut versuchen oder nach Modellnummer suchen.", systemImage: "wifi.exclamationmark")
+                .font(.caption).foregroundStyle(.orange)
+        case .idle:
+            EmptyView()
+        }
+    }
     private var visibleMacs: [MacModel] {
         model.filteredModels.filter {
             (ui.macCategory == "Alle" || $0.category == ui.macCategory) &&
@@ -384,12 +407,13 @@ struct StudioView: View {
                     TextField("Modell, Modellnummer oder Seriennummer suchen", text: $model.modelQuery)
                         .textFieldStyle(.roundedBorder)
                         .task(id: model.modelQuery) {
-                            do { try await Task.sleep(nanoseconds: 1_000_000_000) }
+                            model.resetSerialStateIfStale()
+                            do { try await Task.sleep(nanoseconds: 600_000_000) }
                             catch { return }
                             if model.serialSearchAvailable {
                                 ui.macCategory = "Alle"; ui.macYear = 0
                                 await model.searchSerial()
-                            }
+                            } else { model.serialState = .idle }
                         }
                         .onSubmit {
                             if model.serialSearchAvailable {
@@ -406,10 +430,7 @@ struct StudioView: View {
                         ForEach(Array(Set(model.models.map(\.year))).sorted(by: >), id: \.self) { Text(String($0)).tag($0) }
                     }.frame(width: 135)
                 }
-                if model.serialSearchAvailable {
-                    Text("Apples Seriennummernsuche öffnet sich nach der Eingabe automatisch. Die Nummer wird zum Einfügen kopiert.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                serialInfo
                 HStack {
                     Text("\(visibleMacs.count) Modelle").font(.caption).foregroundStyle(.secondary)
                     Spacer()

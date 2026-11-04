@@ -78,20 +78,57 @@ import StudioCore
         }
     }
     var filteredModels: [MacModel] {
-        models.filter { $0.matches(query: modelQuery) }
+        if case .found(let serial, _, let ids) = serialState, serial == SerialLookup.normalized(modelQuery) {
+            return models.filter { ids.contains($0.id) }
+        }
+        return models.filter { $0.matches(query: modelQuery) }
     }
-    var serialSearchAvailable: Bool { MacModel.isSerialQuery(modelQuery) && filteredModels.isEmpty }
-    private var lastSerialLookup = ""
+    enum SerialState: Equatable {
+        case idle, searching
+        case found(serial: String, appleName: String, ids: [String])
+        case unmatched(serial: String, appleName: String)
+        case randomized(serial: String)
+        case unknown(serial: String)
+        case failed(serial: String)
+    }
+    @Published var serialState: SerialState = .idle
+    var serialSearchAvailable: Bool {
+        MacModel.isSerialQuery(modelQuery) && models.allSatisfy { !$0.matches(query: modelQuery) }
+    }
+    func resetSerialStateIfStale() {
+        let serial = SerialLookup.normalized(modelQuery)
+        switch serialState {
+        case .found(let s, _, _) where s == serial, .unmatched(let s, _) where s == serial,
+             .randomized(let s) where s == serial, .unknown(let s) where s == serial, .failed(let s) where s == serial: return
+        case .idle: return
+        default: serialState = .idle
+        }
+    }
+    /// Resolves the serial in the app via Apple's product lookup; never opens a browser.
     func searchSerial() async {
-        guard serialSearchAvailable && !detectingMac else { return }
-        let serial = modelQuery.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard serial != lastSerialLookup else { return }
-        lastSerialLookup = serial
-        guard !Task.isCancelled, modelQuery.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == serial else { lastSerialLookup = ""; return }
-        // Apple provides the public serial lookup; do not guess randomized serials.
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(serial, forType: .string)
-        NSWorkspace.shared.open(URL(string: "https://checkcoverage.apple.com/")!)
+        let serial = SerialLookup.normalized(modelQuery)
+        guard serialSearchAvailable else { serialState = .idle; return }
+        switch serialState {
+        case .found(let s, _, _) where s == serial, .unmatched(let s, _) where s == serial,
+             .randomized(let s) where s == serial, .unknown(let s) where s == serial: return
+        default: break
+        }
+        if SerialLookup.isRandomized(serial) { serialState = .randomized(serial: serial); return }
+        guard let code = SerialLookup.configCode(for: serial), let url = SerialLookup.url(for: code) else {
+            serialState = .unknown(serial: serial); return
+        }
+        serialState = .searching
+        do {
+            let (data, _) = try await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 15))
+            guard SerialLookup.normalized(modelQuery) == serial else { return }
+            guard let name = SerialLookup.modelName(fromResponse: String(decoding: data, as: UTF8.self)) else {
+                serialState = .unknown(serial: serial); return
+            }
+            let found = SerialLookup.matches(for: name, in: models)
+            serialState = found.isEmpty ? .unmatched(serial: serial, appleName: name) : .found(serial: serial, appleName: name, ids: found.map(\.id))
+        } catch {
+            if SerialLookup.normalized(modelQuery) == serial { serialState = .failed(serial: serial) }
+        }
     }
 
     var disk: ExternalDisk? { disks.first { $0.id == selectedDisk } }
