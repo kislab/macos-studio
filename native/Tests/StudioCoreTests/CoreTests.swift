@@ -12,6 +12,49 @@ func XCTUnwrap<T>(_ value: T?) throws -> T {
 }
 
 final class CoreTests {
+    func testIPSWFlash() throws {
+        let restore: [String: Any] = ["ProductVersion": "18.1", "ProductBuildVersion": "22B83",
+                                      "SupportedProductTypes": ["iPhone17,1", "iPhone17,2", "Watch7,1"]]
+        let data = try PropertyListSerialization.data(fromPropertyList: restore, format: .binary, options: 0)
+        let info = try XCTUnwrap(IPSWInfo.parse(data))
+        XCTAssertEqual(info.productTypes, ["iPhone17,1", "iPhone17,2"])
+        XCTAssertTrue(info.supports("iPhone17,2")); XCTAssertFalse(info.supports("iPhone16,1"))
+        XCTAssertEqual(info.platform, "iOS")
+        XCTAssertEqual(IPSWInfo(version: "17.0", build: "x", productTypes: ["iPad14,1"]).platform, "iPadOS")
+        let mac = try PropertyListSerialization.data(fromPropertyList: ["ProductVersion": "15.0", "SupportedProductTypes": ["Mac14,2"]], format: .xml, options: 0)
+        XCTAssertNil(IPSWInfo.parse(mac))
+        XCTAssertNil(IPSWInfo.parse(Data("kein plist".utf8)))
+
+        XCTAssertTrue(CfgUtil.validECID("0x1A2B3C4D5E6F")); XCTAssertTrue(CfgUtil.validECID("123456"))
+        XCTAssertFalse(CfgUtil.validECID("0x1; rm -rf /")); XCTAssertFalse(CfgUtil.validECID(""))
+        let file = URL(fileURLWithPath: "/tmp/a b/iPhone.ipsw")
+        XCTAssertEqual(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: file) ?? [], ["-e", "0xABC", "--progress", "restore", "-I", "/tmp/a b/iPhone.ipsw"])
+        XCTAssertNil(CfgUtil.restoreArguments(ecid: "bad", ipsw: file))
+        XCTAssertNil(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: URL(fileURLWithPath: "/tmp/x.dmg")))
+
+        let list = #"{"Command":"list","Output":{"0x1A":{"ECID":"0x1A","deviceType":"iPhone15,2","name":"Kevins iPhone","UDID":"abc"},"0x2B":{"ECID":"0x2B","deviceType":"iPad8,1","name":""},"bad":{"ECID":"x y"}},"Type":"CommandOutput","Devices":["0x1A","0x2B"]}"#
+        let devices = CfgUtil.devices(fromList: Data(list.utf8))
+        XCTAssertEqual(devices.map(\.ecid), ["0x2B", "0x1A"])
+        XCTAssertEqual(devices[1].modelName, "iPhone 14 Pro"); XCTAssertEqual(devices[1].udid, "abc")
+        XCTAssertTrue(CfgUtil.devices(fromList: Data(#"{"Command":"list","Output":{},"Devices":[]}"#.utf8)).isEmpty)
+        XCTAssertTrue(CfgUtil.devices(fromList: Data("Fehler".utf8)).isEmpty)
+
+        XCTAssertEqual(CfgUtil.percent(in: "Restoring 12%\nRestoring 47.5 %"), 47.5)
+        XCTAssertNil(CfgUtil.percent(in: "Waiting for device")); XCTAssertNil(CfgUtil.percent(in: "250%"))
+        XCTAssertEqual(CfgUtil.lastLine(in: "a\r\nVerifying restore\n\n"), "Verifying restore")
+        XCTAssertTrue(CfgUtil.locate { $0.hasPrefix("/usr/local") } == "/usr/local/bin/cfgutil")
+        XCTAssertNil(CfgUtil.locate { _ in false })
+    }
+    func testFileVerify() {
+        XCTAssertTrue(FileVerify.result(actualSize: 100, expectedSize: 100, actualSHA1: "ab", expectedSHA1: "AB") == .ok)
+        XCTAssertTrue(FileVerify.result(actualSize: 90, expectedSize: 100, actualSHA1: nil, expectedSHA1: nil) == .wrongSize(expected: 100, actual: 90))
+        XCTAssertTrue(FileVerify.result(actualSize: 100, expectedSize: 100, actualSHA1: "cd", expectedSHA1: "ab") == .wrongChecksum)
+        XCTAssertTrue(FileVerify.result(actualSize: nil, expectedSize: 100, actualSHA1: nil, expectedSHA1: nil) == .missing)
+        XCTAssertTrue(FileVerify.result(actualSize: 100, expectedSize: 100, actualSHA1: nil, expectedSHA1: "ab") == .noReference)
+        XCTAssertTrue(FileVerify.result(actualSize: 100, expectedSize: nil, actualSHA1: nil, expectedSHA1: nil) == .noReference)
+        XCTAssertTrue(Disk.hasSpace(forPath: NSTemporaryDirectory(), need: 0))
+        XCTAssertFalse(Disk.hasSpace(forPath: NSTemporaryDirectory(), need: Int64.max - 1))
+    }
     func testVDM() {
         XCTAssertEqual(VDM.fourCC("VDMs"), 0x56444D73)
         XCTAssertEqual(VDM.fourCC("DBMa"), 0x44424D61)
@@ -376,6 +419,8 @@ final class LockedFlag: @unchecked Sendable {
         try tests.testDevicePhotos()
         tests.testDFUGuide()
         tests.testVDM()
+        tests.testFileVerify()
+        try tests.testIPSWFlash()
         tests.testVersionValidation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
@@ -431,6 +476,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("18 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, DFU guide, VDM, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("20 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

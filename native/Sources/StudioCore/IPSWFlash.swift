@@ -1,0 +1,112 @@
+import Foundation
+
+/// What an IPSW file says about itself (read from its Restore.plist / BuildManifest.plist).
+public struct IPSWInfo: Equatable, Sendable {
+    public let version: String
+    public let build: String
+    public let productTypes: [String]
+
+    public init(version: String, build: String, productTypes: [String]) {
+        self.version = version; self.build = build; self.productTypes = productTypes
+    }
+
+    /// Parses Restore.plist or BuildManifest.plist. Only iPhone/iPad/iPod restore images are accepted.
+    public static func parse(_ data: Data) -> IPSWInfo? {
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { return nil }
+        let version = plist["ProductVersion"] as? String ?? ""
+        let build = (plist["ProductBuildVersion"] as? String) ?? (plist["BuildVersion"] as? String) ?? ""
+        let types = (plist["SupportedProductTypes"] as? [String] ?? [])
+            .filter { ["iPhone", "iPad", "iPod"].contains(where: $0.hasPrefix) }
+        guard !version.isEmpty, !types.isEmpty else { return nil }
+        return IPSWInfo(version: version, build: build, productTypes: types)
+    }
+
+    public func supports(_ productType: String) -> Bool { productTypes.contains(productType) }
+    public var platform: String {
+        productTypes.allSatisfy { $0.hasPrefix("iPad") } && (Int(version.split(separator: ".").first ?? "") ?? 0) >= 13 ? "iPadOS" : "iOS"
+    }
+}
+
+/// A device as Apple Configurator's `cfgutil list` reports it – in normal, recovery or DFU mode.
+public struct FlashDevice: Identifiable, Equatable, Sendable {
+    public var id: String { ecid }
+    public let ecid: String
+    public let productType: String
+    public let name: String
+    public let udid: String?
+    public var modelName: String { productType.isEmpty ? "Unbekanntes Gerät" : DeviceNames.name(for: productType) }
+
+    public init(ecid: String, productType: String, name: String, udid: String?) {
+        self.ecid = ecid; self.productType = productType; self.name = name; self.udid = udid
+    }
+}
+
+/// Restores iPhone/iPad from an IPSW through Apple Configurator's command line tool.
+public enum CfgUtil {
+    public static let candidates = [
+        "/Applications/Apple Configurator.app/Contents/MacOS/cfgutil",
+        "/Applications/Apple Configurator 2.app/Contents/MacOS/cfgutil",
+        "/usr/local/bin/cfgutil"
+    ]
+    public static let appStore = URL(string: "macappstore://apps.apple.com/app/id1037126344")!
+
+    public static func locate(_ exists: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }) -> String? {
+        candidates.first(where: exists)
+    }
+
+    /// ECIDs come from cfgutil itself; only hex (0x…) or decimal numbers are passed back to it.
+    public static func validECID(_ value: String) -> Bool {
+        value.range(of: "^(0x[0-9A-Fa-f]{1,16}|[0-9]{1,20})$", options: .regularExpression) != nil
+    }
+
+    public static let listArguments = ["--format", "JSON", "list"]
+
+    /// `cfgutil -e <ECID> --progress restore -I <ipsw>` – erases the device and installs exactly this IPSW.
+    public static func restoreArguments(ecid: String, ipsw: URL) -> [String]? {
+        guard validECID(ecid), ipsw.isFileURL, ipsw.pathExtension.lowercased() == "ipsw" else { return nil }
+        return ["-e", ecid, "--progress", "restore", "-I", ipsw.path]
+    }
+
+    /// Parses `cfgutil --format JSON list`. Unknown shapes yield an empty list rather than a guess.
+    public static func devices(fromList data: Data) -> [FlashDevice] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        var entries: [[String: Any]] = []
+        if let output = json["Output"] as? [String: Any] {
+            entries = output.values.compactMap { $0 as? [String: Any] }
+        } else if let output = json["Output"] as? [[String: Any]] {
+            entries = output
+        }
+        func value(_ entry: [String: Any], _ keys: String...) -> String? {
+            for (key, raw) in entry where keys.contains(where: { $0.caseInsensitiveCompare(key) == .orderedSame }) {
+                if let text = raw as? String, !text.isEmpty { return text }
+                if let number = raw as? NSNumber { return "0x" + String(number.uint64Value, radix: 16, uppercase: true) }
+            }
+            return nil
+        }
+        var seen = Set<String>()
+        return entries.compactMap { entry -> FlashDevice? in
+            guard let ecid = value(entry, "ECID"), validECID(ecid), seen.insert(ecid.lowercased()).inserted else { return nil }
+            let type = value(entry, "deviceType", "productType", "Type") ?? ""
+            return FlashDevice(ecid: ecid, productType: type, name: value(entry, "name", "deviceName") ?? "", udid: value(entry, "UDID"))
+        }
+        .sorted { ($0.productType, $0.ecid) < ($1.productType, $1.ecid) }
+    }
+
+    /// Last percentage in a chunk of cfgutil output (0…100), if any.
+    public static func percent(in text: String) -> Double? {
+        let pattern = try! NSRegularExpression(pattern: #"(\d{1,3}(?:[.,]\d+)?)\s?%"#)
+        let range = NSRange(text.startIndex..., in: text)
+        guard let match = pattern.matches(in: text, range: range).last,
+              let r = Range(match.range(at: 1), in: text),
+              let value = Double(text[r].replacingOccurrences(of: ",", with: ".")), value <= 100 else { return nil }
+        return value
+    }
+
+    /// Last non-empty, readable line of output, for the status text.
+    public static func lastLine(in text: String) -> String? {
+        text.components(separatedBy: CharacterSet(charactersIn: "\r\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .last { !$0.isEmpty && !$0.hasPrefix("{") }
+            .map { String($0.prefix(160)) }
+    }
+}

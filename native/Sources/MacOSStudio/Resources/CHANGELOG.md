@@ -1,3 +1,13 @@
+Version 1.3.0
+
+• iPhone & iPad: Neuer „Flasher“. Unter „iPhone & iPad“ lässt sich jetzt zwischen „Firmware laden“ und „Flasher“ wechseln. Der Flasher installiert eine IPSW-Datei auf ein per USB verbundenes iPhone oder iPad – im normalen, im Wiederherstellungs- oder im DFU-Modus.
+
+• Flasher: Die App liest Version und unterstützte Modelle direkt aus der IPSW und lässt nur passende Dateien zu. Bereits geladene, passende Firmware wird per Klick vorgeschlagen.
+
+• Flasher: Vor dem Flashen fragt die App ausdrücklich nach, da alle Daten auf dem Gerät gelöscht werden. Fortschritt erscheint im Fenster und am Dock-Symbol.
+
+• Der Flasher nutzt Apples kostenloses „Apple Configurator“ (cfgutil). Fehlt es, bietet die App den Link zum App Store an.
+
 Version 1.2.0
 
 • iPhone & iPad: „Prüfen“ gleicht eine geladene Firmware mit Apples SHA-1-Prüfsumme ab und markiert beschädigte oder unvollständige Dateien.

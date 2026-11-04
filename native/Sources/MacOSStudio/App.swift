@@ -125,6 +125,7 @@ struct StudioView: View {
     @ObservedObject var model: StudioModel
     @StateObject private var ui = ViewState()
     @StateObject private var firmware = FirmwareStore()
+    @StateObject private var flasher = FlasherStore()
     @StateObject private var photos = DevicePhotoStore()
     @StateObject private var monitor = DeviceMonitor.shared
     var body: some View {
@@ -174,7 +175,7 @@ struct StudioView: View {
                 if model.section == "download" { downloader }
                 else if model.section == "local" { localLibrary }
                 else if model.section == "compatibility" { compatibility }
-                else if model.section == "firmware" { FirmwareView(store: firmware, studio: model, photos: photos) }
+                else if model.section == "firmware" { FirmwareView(store: firmware, flasher: flasher, studio: model, photos: photos) }
                 else if model.section == "extras" { ExtrasView(monitor: monitor, photos: photos) }
                 else if model.section == "settings" { SettingsView(updates: updates, model: model, firmware: firmware, photos: photos) }
                 else { usb }

@@ -24,6 +24,8 @@ import StudioCore
     @Published var verifying: String?
     @Published var verifyResults: [String: VerifyResult] = [:]
     @Published var confirmCleanup = false
+    /// false = download list, true = flasher.
+    @Published var showFlasher = false
 
     var visible: [Firmware] { query.isEmpty ? items : items.filter { $0.matches(query: query) } }
     var downloading: Bool { active != nil && finished == nil }
@@ -191,6 +193,7 @@ import StudioCore
 
 struct FirmwareView: View {
     @ObservedObject var store: FirmwareStore
+    @ObservedObject var flasher: FlasherStore
     @ObservedObject var studio: StudioModel
     @ObservedObject var photos: DevicePhotoStore
 
@@ -198,9 +201,30 @@ struct FirmwareView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("iPhone & iPad").font(.system(size: 32, weight: .bold, design: .rounded))
-                Text("Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert.")
+                Text(store.showFlasher
+                     ? "IPSW-Firmware auf ein per USB verbundenes iPhone oder iPad flashen (Wiederherstellen über Apple Configurator)."
+                     : "Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert.")
                     .foregroundStyle(.secondary)
             }
+            Picker("Bereich", selection: $store.showFlasher) {
+                Label("Firmware laden", systemImage: "arrow.down.circle").tag(false)
+                Label("Flasher", systemImage: "bolt.fill").tag(true)
+            }
+            .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 360)
+            .disabled(store.downloading || flasher.running)
+            if store.showFlasher {
+                FlasherView(store: flasher, firmware: store, studio: studio)
+            } else {
+                downloadList
+            }
+        }
+        .task { if store.items.isEmpty { await store.load() } }
+        .alert("Hinweis", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
+            Button("OK") { store.error = nil }
+        } message: { Text(store.error ?? "") }
+    }
+
+    @ViewBuilder private var downloadList: some View {
             HStack(spacing: 10) {
                 Label {
                     Text("Speicherort: ").foregroundColor(.secondary) + Text(store.usesDownloads ? "Downloads" : store.folder.path)
@@ -250,11 +274,6 @@ struct FirmwareView: View {
             cleanupBar
             Text(store.status + " · Ältere Versionen führt Apple nicht mehr auf und signiert sie meist nicht mehr.")
                 .font(.caption).foregroundStyle(.secondary)
-        }
-        .task { if store.items.isEmpty { await store.load() } }
-        .alert("Hinweis", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
-            Button("OK") { store.error = nil }
-        } message: { Text(store.error ?? "") }
     }
 
     @ViewBuilder private var cleanupBar: some View {
