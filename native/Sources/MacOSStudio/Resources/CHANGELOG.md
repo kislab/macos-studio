@@ -1,3 +1,7 @@
+Version 1.5.1
+
+• Firmware-Download: Während des Ladens steht jetzt „IPSW wird geladen …“ statt dauerhaft „Speicherplatz wird geprüft …“.
+
 Version 1.5.0
 
 • iPhone & iPad: Neuer Reiter „Gerät“ (jetzt der erste). Ein angestecktes iPhone oder iPad wird sofort erkannt – auch im DFU- und im Wiederherstellungsmodus – mit Modell, Foto und Modus.

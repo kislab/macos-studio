@@ -144,7 +144,7 @@ import StudioCore
         let resumeData = try? Data(contentsOf: resume)
         let downloader = PackageDownload(); download = downloader
         sample = (ProcessInfo.processInfo.systemUptime, 0)
-        if resumeData != nil { phase = "Download wird fortgesetzt …" }
+        phase = resumeData != nil ? "Download wird fortgesetzt …" : "IPSW wird geladen …"
         do {
             _ = try await downloader.run(item.url, to: partial, resumeFrom: resumeData) { [weak self] written, expected in
                 Task { @MainActor in self?.report(written: written, expected: expected) }
