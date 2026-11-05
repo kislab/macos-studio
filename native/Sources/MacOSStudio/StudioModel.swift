@@ -499,6 +499,9 @@ import StudioCore
         status = sample.phase == "downloading" ? "Installer wird geladen" : "Installer laden und vorbereiten"
         DockProgress.show(progress.map { $0 / 100 })
     }
+    /// Only a macOS download started here can be cancelled from the activity panel (not IPSW downloads,
+    /// iPhone restores or trashing, which also set `busy`).
+    var canCancelDownload: Bool { !flashing && (command != nil || packageDownload != nil) }
     func cancel() { guard !flashing else { return }; status = "Download wird abgebrochen …"; command?.cancel(); packageDownload?.cancel() }
     func detectMac() async {
         guard !detectingMac else { return }
@@ -620,6 +623,12 @@ import StudioCore
                 // Cancel requested but no reaction: Terminal is most likely still asking for the password.
                 if let asked = cancelRequestedAt, Date().timeIntervalSince(asked) > 20, job.output().isEmpty {
                     throw failure("Abgebrochen. Im Terminal-Fenster ist vermutlich noch die Passwortabfrage offen – bitte das Fenster schließen. Auch nach einer Passworteingabe bricht der Vorgang sofort ab; der USB-Stick wurde nicht verändert.")
+                }
+                // The root command stops within seconds of a cancel request. No status after a minute means the
+                // Terminal window was closed and nobody will ever write one – don't wait forever.
+                if let asked = cancelRequestedAt, Date().timeIntervalSince(asked) > 60, job.exitStatus() == nil {
+                    log = header + USBProgress.clean(job.output())
+                    throw failure("Abgebrochen. Das Terminal-Fenster antwortet nicht mehr (vermutlich geschlossen). Der USB-Stick ist möglicherweise unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden.")
                 }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 exit = job.exitStatus()

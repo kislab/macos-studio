@@ -1,3 +1,13 @@
+Version 1.3.2
+
+• USB-Erstellung: Wird das Terminal-Fenster nach „Abbrechen“ geschlossen, hängt die App nicht mehr endlos, sondern meldet den Abbruch nach spätestens einer Minute.
+
+• iPhone & iPad: Lässt sich ein abgebrochener Download nicht mehr fortsetzen, startet „Laden“ beim nächsten Mal neu, statt immer wieder zu scheitern.
+
+• Der „Abbrechen“-Knopf im Fortschrittsbereich erscheint nur noch, wenn er tatsächlich etwas abbricht.
+
+• Letzte Ausgabezeilen von Apple-Werkzeugen (z. B. Fehlermeldungen) gehen nicht mehr verloren; robusteres Lesen des Apple-Katalogs.
+
 Version 1.3.1
 
 • Wiederherstellungsmodus per Anstecken: Auf „Aktivieren“ klicken – die App zeigt „Stecke jetzt ein iPhone oder iPad an …“. Jedes dann angesteckte Gerät wird ohne Tastendrücken in den Wiederherstellungsmodus versetzt. Das klappt meist auch ohne Entsperren. Zu finden im Flasher und in den Extras.

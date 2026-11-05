@@ -57,6 +57,15 @@ public final class Command: @unchecked Sendable {
                         if count <= 0 { Thread.sleep(forTimeInterval: 0.05) }
                     }
                     process.waitUntilExit()
+                    // Output written right before exit may still sit in the pipe; drain it (bounded).
+                    var buffer = [UInt8](repeating: 0, count: 8192)
+                    for _ in 0..<1024 {
+                        let count = read(fd, &buffer, buffer.count)
+                        guard count > 0 else { break }
+                        let data = Data(buffer.prefix(count))
+                        output.append(data)
+                        onOutput(String(decoding: data, as: UTF8.self))
+                    }
                     try? pipe.fileHandleForReading.close()
                     continuation.resume(returning: CommandResult(status: process.terminationStatus,
                         output: String(decoding: output, as: UTF8.self), timedOut: expired, cancelled: self.isCancelled))

@@ -74,7 +74,7 @@ public enum Gzip {
         guard bytes.count > 18, bytes[0] == 0x1f, bytes[1] == 0x8b, bytes[2] == 8 else { return data }
         let flags = bytes[3]
         var offset = 10
-        if flags & 0x04 != 0 { guard offset + 2 <= bytes.count else { throw invalid }; offset += 2 + Int(bytes[offset]) | Int(bytes[offset + 1]) << 8 }
+        if flags & 0x04 != 0 { guard offset + 2 <= bytes.count else { throw invalid }; offset += 2 + (Int(bytes[offset]) | Int(bytes[offset + 1]) << 8) }
         if flags & 0x08 != 0 { while offset < bytes.count && bytes[offset] != 0 { offset += 1 }; offset += 1 }
         if flags & 0x10 != 0 { while offset < bytes.count && bytes[offset] != 0 { offset += 1 }; offset += 1 }
         if flags & 0x02 != 0 { offset += 2 }

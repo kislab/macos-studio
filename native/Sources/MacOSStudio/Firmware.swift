@@ -167,6 +167,10 @@ import StudioCore
             try? FileManager.default.removeItem(at: partial)
             // Keep resume data so the user can continue instead of restarting the multi-GB download (#4).
             if let data = downloader.resumeData { try? data.write(to: resume, options: .atomic) }
+            else if !cancelled && (error as? URLError)?.code != .cancelled {
+                // Stale or rejected resume data would make every "Fortsetzen" fail again; start fresh next time.
+                try? FileManager.default.removeItem(at: resume)
+            }
             active = nil; progress = nil
             if cancelled || (error as? URLError)?.code == .cancelled {
                 phase = downloader.resumeData != nil ? "Abgebrochen · kann fortgesetzt werden" : ""

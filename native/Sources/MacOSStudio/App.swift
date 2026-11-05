@@ -517,7 +517,7 @@ struct StudioView: View {
             HStack {
                 Label(model.activeTitle, systemImage: model.flashing ? "externaldrive" : "arrow.down.circle.fill").font(.headline)
                 Spacer()
-                if model.busy && !model.flashing { Button("Abbrechen", role: .destructive) { model.cancel() } }
+                if model.busy && model.canCancelDownload { Button("Abbrechen", role: .destructive) { model.cancel() } }
                 if model.waitingForTerminal {
                     Button("Abbrechen", role: .destructive) { ui.confirmCancelUSB = true }
                         .disabled(model.cancelRequestedAt != nil)

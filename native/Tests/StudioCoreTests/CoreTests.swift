@@ -206,7 +206,13 @@ final class CoreTests {
         try data.write(to: plain)
         let zip = Process(); zip.executableURL = URL(fileURLWithPath: "/usr/bin/gzip"); zip.arguments = ["-k", plain.path]
         try zip.run(); zip.waitUntilExit()
-        XCTAssertEqual(try Gzip.decompress(Data(contentsOf: plain.appendingPathExtension("gz"))), data)
+        let gz = try Data(contentsOf: plain.appendingPathExtension("gz"))
+        XCTAssertEqual(try Gzip.decompress(gz), data)
+        // FEXTRA header with XLEN 0x01FE: length must be read as one 16-bit value.
+        var extra = [UInt8](gz)
+        extra[3] |= 0x04
+        extra.insert(contentsOf: [0xFE, 0x01] + [UInt8](repeating: 0x41, count: 0x01FE), at: 10)
+        XCTAssertEqual(try Gzip.decompress(Data(extra)), data)
     }
     func testCatalogSortAndUnits() {
         let text = "* Title: macOS Sonoma, Version: 14.7, Size: 1024KiB, Build: A\n* Title: macOS Sequoia, Version: 15.7.2, Size: 2048 KiB, Build: B, Deferred: NO"
