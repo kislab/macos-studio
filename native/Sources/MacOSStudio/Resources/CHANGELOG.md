@@ -1,3 +1,13 @@
+Version 1.6.0
+
+• Ältere Installer: macOS High Sierra, Mojave und Catalina (10.13–10.15) lassen sich jetzt direkt aus Apples Katalog laden – auch auf Macs, denen Apple diese Versionen nicht mehr anbietet. Die App lädt die Installationsdateien, prüft jede gegen Apples Prüfsumme und setzt daraus „macOS … installieren.app“ zusammen. Ein Administratorpasswort ist dafür nicht nötig.
+
+• Prüfsummen bei Apple-Paketen: Auch InstallAssistant.pkg (macOS 11 und neuer) wird nach dem Download Block für Block mit Apples SHA-256-Prüfdaten verglichen.
+
+• Flashen nur mit intakter Firmware: Vor dem Flashen vergleicht die App die IPSW-Datei mit Apples SHA-1-Prüfsumme – auch bei selbst gewählten Dateien und älteren Versionen. Stimmt sie nicht, wird das Gerät nicht angefasst. Bereits geprüfte, unveränderte Dateien werden nicht erneut gerechnet.
+
+• USB-Stick: Ältere Installer enthalten nur ein Intel-Programm. Fehlt auf einem Mac mit Apple-Chip Rosetta, sagt die App das vor dem Löschen des Sticks.
+
 Version 1.5.5
 
 • Ein iPhone/iPad im Restore-System (während des Flashens oder nach einem Abbruch) wurde fälschlich als „gesperrt“ angezeigt. Jetzt steht es als „Gerät im Restore-System“ mit Knopf „Zum Gerät …“ da.

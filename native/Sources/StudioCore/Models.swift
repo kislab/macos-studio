@@ -8,12 +8,16 @@ public struct Installer: Identifiable, Equatable {
     public let bytes: Double
     /// InstallAssistant.pkg from Apple's public catalog; used when softwareupdate does not offer this version for the current Mac.
     public var packageURL: URL?
+    /// All catalog files for this installer (one InstallAssistant.pkg, or the 10.13–10.15 set).
+    public var packageParts: [CatalogPart] = []
+    /// macOS 10.13–10.15 from the catalog: assembled without the macOS installer, no administrator password.
+    public var assembledFromParts: Bool { packageParts.count > 1 }
     /// True when `softwareupdate --list-full-installers` offers this installer on the current Mac.
     public var offeredForThisMac: Bool
     public init(title: String, version: String, build: String = "Manuell", bytes: Double = 0,
-                packageURL: URL? = nil, offeredForThisMac: Bool = true) {
+                packageURL: URL? = nil, packageParts: [CatalogPart] = [], offeredForThisMac: Bool = true) {
         self.title = title; self.version = version; self.build = build; self.bytes = bytes
-        self.packageURL = packageURL; self.offeredForThisMac = offeredForThisMac
+        self.packageURL = packageURL; self.packageParts = packageParts; self.offeredForThisMac = offeredForThisMac
     }
     public static func parse(_ text: String) -> [Installer] {
         let pattern = #"Title:\s*([^,]+),\s*Version:\s*([^,]+),\s*Size:\s*(\d+)\s*KiB,\s*Build:\s*([^,\r\n]+)"#

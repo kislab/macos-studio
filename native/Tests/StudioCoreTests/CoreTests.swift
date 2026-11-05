@@ -1,11 +1,14 @@
+import CryptoKit
 import Foundation
 import StudioCore
 
-func XCTAssertTrue(_ value: Bool) { precondition(value) }
-func XCTAssertFalse(_ value: Bool) { precondition(!value) }
+func XCTAssertTrue(_ value: Bool, line: UInt = #line) { precondition(value, "line \(line)") }
+func XCTAssertFalse(_ value: Bool, line: UInt = #line) { precondition(!value, "line \(line)") }
 func XCTAssertNil<T>(_ value: T?) { precondition(value == nil) }
 func XCTAssertNotNil<T>(_ value: T?) { precondition(value != nil) }
 func XCTAssertEqual<T: Equatable>(_ a: T, _ b: T) { precondition(a == b, "Expected \(b), got \(a)") }
+func XCTAssertThrows(_ body: () throws -> Void) { do { try body(); preconditionFailure("Expected an error") } catch {} }
+enum SHA256Hex { static func digest(_ data: Data) -> [UInt8] { Array(CryptoKit.SHA256.hash(data: data)) } }
 func XCTUnwrap<T>(_ value: T?) throws -> T {
     guard let value else { throw NSError(domain: "Check", code: 1) }
     return value
@@ -198,6 +201,94 @@ final class CoreTests {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try Data("abc".utf8).write(to: file); defer { try? FileManager.default.removeItem(at: file) }
         XCTAssertEqual(try FirmwareCatalog.sha1(of: file), "a9993e364706816aba3e25717850c26c9cd0d89d")
+        var seen = 0.0
+        _ = try FirmwareCatalog.sha1(of: file, progress: { seen = $0 })
+        XCTAssertEqual(seen, 1)
+        // Checksums cover every listed file, also older versions that parse() hides; none for the untrusted host.
+        let sums = FirmwareCatalog.checksums(data)
+        XCTAssertEqual(sums["iPhone17,1_27.2_24B119_Restore.ipsw"], "9c07287009de10d7fb47d1f60aa5d3b215ca99fc")
+        XCTAssertNil(sums["old.ipsw"])                       // listed without SHA-1
+        XCTAssertNil(sums["a.ipsw"])
+    }
+    func testIntegrityAndLegacyInstaller() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        // Chunk list in Apple's CNKL layout: 36-byte header, then (UInt32 size + SHA-256) per chunk.
+        func chunklist(_ pieces: [Data]) -> Data {
+            func le<T: FixedWidthInteger>(_ v: T) -> [UInt8] { withUnsafeBytes(of: v.littleEndian, Array.init) }
+            var out: [UInt8] = Array("CNKL".utf8) + le(UInt32(36)) + [1, 1, 2, 0] + le(UInt64(pieces.count)) + le(UInt64(36)) + le(UInt64(36 + 36 * pieces.count))
+            for piece in pieces { out += le(UInt32(piece.count)) + Array(SHA256Hex.digest(piece)) }
+            return Data(out)
+        }
+        let a = Data(repeating: 0x41, count: 1000), b = Data("Ende".utf8)
+        let file = folder.appendingPathComponent("x.dmg")
+        try (a + b).write(to: file)
+        let list = try XCTUnwrap(Chunklist.parse(chunklist([a, b])))
+        XCTAssertEqual(list.chunks.count, 2); XCTAssertEqual(list.totalBytes, 1004)
+        var last = 0.0
+        XCTAssertEqual(try list.verify(file, progress: { last = $0 }), .ok)
+        XCTAssertEqual(last, 1)
+        try (a + Data("ENDE".utf8)).write(to: file)
+        XCTAssertEqual(try list.verify(file), .mismatch(chunk: 1))
+        try a.write(to: file)
+        XCTAssertEqual(try list.verify(file), .wrongSize(expected: 1004, actual: 1000))
+        XCTAssertNil(Chunklist.parse(Data("CNKL kaputt".utf8)))
+        XCTAssertNil(Chunklist.parse(Data(repeating: 0, count: 64)))
+        var truncated = chunklist([a, b]); truncated.removeLast(40)
+        XCTAssertNil(Chunklist.parse(truncated))
+        try (a + b).write(to: file)
+        do { _ = try list.verify(file, isCancelled: { true }); XCTAssertTrue(false) } catch { XCTAssertTrue(error is CancellationError) }
+
+        // Assembling an installer app from the 10.13–10.15 parts.
+        XCTAssertEqual(LegacyInstaller.sharedSupportName(for: "InstallESDDmg.pkg"), "InstallESD.dmg")
+        XCTAssertEqual(LegacyInstaller.sharedSupportName(for: "BaseSystem.chunklist"), "BaseSystem.chunklist")
+        XCTAssertNil(LegacyInstaller.sharedSupportName(for: "InstallAssistantAuto.pkg"))
+        let expanded = folder.appendingPathComponent("expanded")
+        let app = expanded.appendingPathComponent("Payload/Install macOS Catalina.app")
+        let resources = app.appendingPathComponent("Contents/Resources"), support = app.appendingPathComponent("Contents/SharedSupport")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        XCTAssertNil(LegacyInstaller.stubApp(inExpanded: expanded))                 // no createinstallmedia yet
+        let tool = resources.appendingPathComponent("createinstallmedia")
+        try Data("#!/bin/sh\n".utf8).write(to: tool)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path)
+        XCTAssertEqual(LegacyInstaller.stubApp(inExpanded: expanded)?.lastPathComponent, "Install macOS Catalina.app")
+        let parts = ["InstallESDDmg.pkg", "BaseSystem.dmg", "BaseSystem.chunklist", "InstallAssistantAuto.pkg"]
+        var files: [String: URL] = [:]
+        for name in parts { let url = folder.appendingPathComponent(name); try Data(name.utf8).write(to: url); files[name] = url }
+        // Unknown InstallInfo.plist layout → refused.
+        let oldInfo: [String: Any] = ["Payload Image Info": ["URL": "InstallESDDmg.pkg", "id": "com.apple.pkg.InstallESDDmg"]]
+        try PropertyListSerialization.data(fromPropertyList: oldInfo, format: .xml, options: 0).write(to: support.appendingPathComponent("InstallInfo.plist"))
+        XCTAssertThrows { try LegacyInstaller.assemble(app: app, files: files) }
+        let info: [String: Any] = ["Payload Image Info": ["URL": "InstallESD.dmg", "id": "com.apple.dmg.InstallESD", "version": "10.15.7"],
+                                   "System Image Info": ["URL": "BaseSystem.dmg", "id": "com.apple.dmg.BaseSystem", "version": "10.15.7"]]
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: support.appendingPathComponent("InstallInfo.plist"))
+        XCTAssertThrows { try LegacyInstaller.assemble(app: app, files: ["InstallESDDmg.pkg": files["InstallESDDmg.pkg"]!]) }
+        try LegacyInstaller.assemble(app: app, files: files)
+        XCTAssertEqual(try String(contentsOf: support.appendingPathComponent("InstallESD.dmg"), encoding: .utf8), "InstallESDDmg.pkg")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: support.appendingPathComponent("BaseSystem.chunklist").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: support.appendingPathComponent("InstallAssistantAuto.pkg").path))
+        let local = try XCTUnwrap(LocalInstaller.inspect(app.path))
+        XCTAssertNil(local.preparationIssue)
+        // These apps record only the version; any build of that version matches.
+        XCTAssertTrue(local.matches(Installer(title: "macOS Catalina", version: "10.15.7", build: "19H15")))
+        XCTAssertFalse(local.matches(Installer(title: "macOS Catalina", version: "10.15.6", build: "19G2021")))
+
+        // Mach-O architectures and the Rosetta hint.
+        func be(_ v: UInt32) -> [UInt8] { withUnsafeBytes(of: v.bigEndian, Array.init) }
+        func le(_ v: UInt32) -> [UInt8] { withUnsafeBytes(of: v.littleEndian, Array.init) }
+        let thinIntel = Data(le(0xFEEDFACF) + le(0x0100_0007) + [UInt8](repeating: 0, count: 24))
+        let fat = Data(be(0xCAFEBABE) + be(2) + be(0x0100_0007) + [UInt8](repeating: 0, count: 16) + be(0x0100_000C) + [UInt8](repeating: 0, count: 16))
+        XCTAssertEqual(MachO.architectures(header: thinIntel), ["x86_64"])
+        XCTAssertEqual(MachO.architectures(header: fat), ["x86_64", "arm64"])
+        XCTAssertEqual(MachO.architectures(header: Data("#!/bin/sh".utf8)), [])
+        let intelTool = folder.appendingPathComponent("intel"); try thinIntel.write(to: intelTool)
+        let fatTool = folder.appendingPathComponent("fat"); try fat.write(to: fatTool)
+        XCTAssertNotNil(MachO.rosettaIssue(executable: intelTool, hostIsARM: true, rosettaInstalled: false))
+        XCTAssertNil(MachO.rosettaIssue(executable: intelTool, hostIsARM: true, rosettaInstalled: true))
+        XCTAssertNil(MachO.rosettaIssue(executable: intelTool, hostIsARM: false, rosettaInstalled: false))
+        XCTAssertNil(MachO.rosettaIssue(executable: fatTool, hostIsARM: true, rosettaInstalled: false))
     }
     func testSerialLookup() throws {
         XCTAssertEqual(SerialLookup.configCode(for: " c02abc12hv2r "), "HV2R")
@@ -224,24 +315,51 @@ final class CoreTests {
                           "Distributions": ["English": "https://swdist.apple.com/x/142-50055.English.dist"]],
             "evil": ["Packages": [["URL": "https://example.com/InstallAssistant.pkg", "Size": 1]],
                      "Distributions": ["English": "https://swdist.apple.com/x.dist"]],
+            "061-legacy": ["Packages": [["URL": "https://swcdn.apple.com/l/BaseSystem.dmg", "Size": 500, "IntegrityDataURL": "https://swcdn.apple.com/l/BaseSystem.dmg.integrityDataV1"],
+                                        ["URL": "https://swcdn.apple.com/l/InstallESDDmg.pkg", "Size": 7000, "IntegrityDataURL": "https://swcdn.apple.com/l/InstallESDDmg.pkg.integrityDataV1"],
+                                        ["URL": "https://swcdn.apple.com/l/OSInstall.mpkg", "Size": 9],
+                                        ["URL": "https://swcdn.apple.com/l/BaseSystem.chunklist", "Size": 2],
+                                        ["URL": "https://swcdn.apple.com/l/InstallAssistantAuto.pkg", "Size": 10]],
+                           "Distributions": ["English": "https://swdist.apple.com/l.dist"]],
+            "061-noBase": ["Packages": [["URL": "https://swcdn.apple.com/n/InstallESDDmg.pkg", "Size": 7000],
+                                        ["URL": "https://swcdn.apple.com/n/InstallAssistantAuto.pkg", "Size": 10]],
+                           "Distributions": ["English": "https://swdist.apple.com/n.dist"]],
             "update": ["Packages": [["URL": "https://swcdn.apple.com/x/Update.pkg", "Size": 1]],
                        "Distributions": ["English": "https://swdist.apple.com/y.dist"]]]]
         let data = try PropertyListSerialization.data(fromPropertyList: catalog, format: .xml, options: 0)
         let products = AppleCatalog.products(fromCatalog: data)
-        XCTAssertEqual(products.map(\.id), ["142-50055"])
-        XCTAssertEqual(products[0].bytes, 17807147403)
+        XCTAssertEqual(products.map(\.id), ["061-legacy", "142-50055"])
+        let legacy = products[0]
+        XCTAssertTrue(legacy.legacy)
+        XCTAssertEqual(legacy.parts.map(\.name), ["InstallAssistantAuto.pkg", "InstallESDDmg.pkg", "BaseSystem.dmg", "BaseSystem.chunklist"])
+        XCTAssertEqual(legacy.bytes, 7512)
+        XCTAssertEqual(legacy.package.lastPathComponent, "InstallAssistantAuto.pkg")
+        XCTAssertEqual(legacy.parts[1].integrity?.lastPathComponent, "InstallESDDmg.pkg.integrityDataV1")
+        XCTAssertNil(legacy.parts[0].integrity)
+        let modern = products[1]
+        XCTAssertFalse(modern.legacy)
+        XCTAssertEqual(modern.bytes, 17807147403)
+        let catalina = try XCTUnwrap(AppleCatalog.describe(distribution: "<title>SU_TITLE</title><key>BUILD</key><string>19H15</string><key>VERSION</key><string>10.15.7</string>"))
+        XCTAssertEqual(catalina.title, "macOS Catalina")
+        XCTAssertEqual(AppleCatalog.marketingName(version: "10.13.6"), "macOS High Sierra")
+        XCTAssertEqual(AppleCatalog.marketingName(version: "26.1"), "macOS Tahoe")
+        XCTAssertNil(AppleCatalog.marketingName(version: "99.0"))
         let dist = "<title>macOS 27 Golden Gate</title><auxinfo><dict>\n<key>BUILD</key>\n<string>26B123</string>\n<key>VERSION</key>\n<string>27.2</string></dict></auxinfo>"
         let info = try XCTUnwrap(AppleCatalog.describe(distribution: dist))
         XCTAssertEqual(info.title, "macOS 27 Golden Gate"); XCTAssertEqual(info.version, "27.2"); XCTAssertEqual(info.build, "26B123")
         XCTAssertNil(AppleCatalog.describe(distribution: "<key>VERSION</key><string>27; rm</string><key>BUILD</key><string>X</string>"))
         let offered = [Installer(title: "macOS Sequoia", version: "15.7", build: "A", bytes: 1)]
-        let fromCatalog = [Installer(title: "macOS Sequoia", version: "15.7", build: "A", bytes: 1, packageURL: products[0].package, offeredForThisMac: false),
-                           Installer(title: "macOS 27 Golden Gate", version: "27.2", build: "26B123", bytes: 2, packageURL: products[0].package, offeredForThisMac: false)]
+        let fromCatalog = [Installer(title: "macOS Sequoia", version: "15.7", build: "A", bytes: 1, packageURL: modern.package, packageParts: modern.parts, offeredForThisMac: false),
+                           Installer(title: "macOS 27 Golden Gate", version: "27.2", build: "26B123", bytes: 2, packageURL: modern.package, offeredForThisMac: false),
+                           Installer(title: "macOS Catalina", version: "10.15.7", build: "19H15", bytes: 3, packageURL: legacy.package, packageParts: legacy.parts, offeredForThisMac: false)]
         let merged = AppleCatalog.merge(offered: offered, catalog: fromCatalog)
-        XCTAssertEqual(merged.map(\.version), ["27.2", "15.7"])
+        XCTAssertEqual(merged.map(\.version), ["27.2", "15.7", "10.15.7"])
         XCTAssertFalse(merged[0].offeredForThisMac)
         XCTAssertTrue(merged[1].offeredForThisMac)
         XCTAssertNotNil(merged[1].packageURL)
+        XCTAssertEqual(merged[1].packageParts, modern.parts)
+        XCTAssertFalse(merged[1].assembledFromParts)
+        XCTAssertTrue(merged[2].assembledFromParts)
         // gzip round trip using the system tool
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -466,6 +584,7 @@ final class LockedFlag: @unchecked Sendable {
         try tests.testAppleCatalog()
         try tests.testSerialLookup()
         try tests.testFirmwareCatalog()
+        try tests.testIntegrityAndLegacyInstaller()
         try tests.testDevicePhotos()
         tests.testDFUGuide()
         tests.testVDM()
@@ -496,6 +615,22 @@ final class LockedFlag: @unchecked Sendable {
             let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", target.path], timeout: 60)
             XCTAssertTrue(signature.output.contains("signed Apple Software"))
             XCTAssertTrue(progressSeen.value)
+            // Real 10.13–10.15 product: Apple's integrity data verifies the stub package, which expands to an installer app.
+            if let old = products.first(where: { $0.legacy && $0.parts[0].integrity != nil }) {
+                let stub = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pkg")
+                let expanded = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                defer { try? FileManager.default.removeItem(at: stub); try? FileManager.default.removeItem(at: expanded) }
+                _ = try await PackageDownload().run(old.parts[0].url, to: stub) { _, _ in }
+                let (integrity, _) = try await URLSession.shared.data(from: old.parts[0].integrity!)
+                XCTAssertEqual(try XCTUnwrap(Chunklist.parse(integrity)).verify(stub), .ok)
+                let expand = try await Command().run("/usr/sbin/pkgutil", ["--expand-full", stub.path, expanded.path], timeout: 120)
+                XCTAssertEqual(expand.status, 0)
+                let app = try XCTUnwrap(LegacyInstaller.stubApp(inExpanded: expanded))
+                let infoData = try Data(contentsOf: app.appendingPathComponent("Contents/SharedSupport/InstallInfo.plist"))
+                let info = try PropertyListSerialization.propertyList(from: infoData, format: nil) as! [String: Any]
+                XCTAssertEqual((info["Payload Image Info"] as? [String: Any])?["URL"] as? String, "InstallESD.dmg")
+                print("Live legacy installer: \(old.id) → \(app.lastPathComponent), \(products.filter(\.legacy).count) older installers in catalog")
+            }
             let (answer, _) = try await URLSession.shared.data(from: SerialLookup.url(for: "HV2R")!)
             XCTAssertEqual(SerialLookup.modelName(fromResponse: String(decoding: answer, as: UTF8.self)), "MacBook Pro (13-inch, 2017, Four Thunderbolt 3 Ports)")
             let (firmwareData, _) = try await URLSession.shared.data(from: FirmwareCatalog.url)
@@ -526,6 +661,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("20 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("21 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

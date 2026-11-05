@@ -290,7 +290,9 @@ struct StudioView: View {
                                 if !item.offeredForThisMac {
                                     Label("Nicht für diesen Mac · für andere Macs als Apple-Paket", systemImage: "shippingbox")
                                         .font(.caption).foregroundStyle(.orange)
-                                        .help("Apple bietet diese Version für diesen Mac nicht an. Sie wird direkt aus Apples Katalog geladen, geprüft und als Installer-App für USB-Sticks anderer Macs erstellt. Dafür ist das Administratorpasswort nötig.")
+                                        .help(item.assembledFromParts
+                                              ? "Apple bietet diese ältere Version für diesen Mac nicht an. Die Installationsdateien werden direkt aus Apples Katalog geladen, jede gegen Apples Prüfsumme geprüft und zu einer Installer-App für USB-Sticks anderer Macs zusammengesetzt. Kein Administratorpasswort nötig."
+                                              : "Apple bietet diese Version für diesen Mac nicht an. Sie wird direkt aus Apples Katalog geladen, geprüft und als Installer-App für USB-Sticks anderer Macs erstellt. Dafür ist das Administratorpasswort nötig.")
                                 }
                             }
                             Spacer()

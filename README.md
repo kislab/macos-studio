@@ -26,14 +26,14 @@ Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Seit **1.2.2**
 
 | Bereich | Funktionen |
 | --- | --- |
-| **Installer laden** | Live-Angebot von Apple, Versionssuche, Ziel-Mac-Filter, manuelle Versionsanforderung und passende Installer-Symbole. |
+| **Installer laden** | Live-Angebot von Apple plus Apples vollständiger Katalog (auch Versionen für andere Macs, ab macOS 10.13), Prüfsummen-Kontrolle, Versionssuche, Ziel-Mac-Filter, manuelle Versionsanforderung und passende Installer-Symbole. |
 | **Installer lokal** | Vorhandene Installer mit Größe und Pfad anzeigen, im Finder öffnen, für USB auswählen oder nach Bestätigung in den Papierkorb verschieben. |
 | **Mac prüfen** | Automatische Modellkennung, Gerätebilder, Modell- und Baujahrfilter, Kompatibilitätsübersicht und aufklappbare Details. |
 | **USB erstellen** | Externe USB-Volumes erkennen und mit Apples `createinstallmedia` ein bootfähiges Installationsmedium erstellen. |
 
 ### Downloads
 
-Die App verwendet Apples `softwareupdate`. Es werden nur die für den ausführenden Mac angebotenen Installer angezeigt. Ein Ziel-Mac-Filter erweitert dieses Angebot nicht. Manuell eingegebene Versionen sind nicht vorab auf Verfügbarkeit geprüft.
+Die App verwendet Apples `softwareupdate` und zusätzlich Apples öffentlichen Softwarekatalog. Versionen, die Apple dem ausführenden Mac nicht anbietet, werden direkt von Apple geladen: ab macOS 11 als `InstallAssistant.pkg` (Installation mit Administratorpasswort), für macOS 10.13–10.15 als Einzeldateien, aus denen die App ohne Administratorpasswort die Installer-App zusammensetzt. Jede Datei wird gegen Apples SHA-256-Prüfdaten geprüft, sofern Apple welche veröffentlicht (bei 10.13 nur Größe und Paketsignatur). Ältere Installer enthalten nur ein Intel-`createinstallmedia`; auf Macs mit Apple-Chip ist dafür Rosetta nötig. Manuell eingegebene Versionen sind nicht vorab auf Verfügbarkeit geprüft.
 
 Der Balken übernimmt Apples Prozentangaben. Die GB-Anzeige ist mit `≈` als Schätzung aus Paketgröße und Fortschritt gekennzeichnet: Die Vorbereitungsphase kann auch Entpacken enthalten. Die App zeigt keine Mbit/s an. Speicherprüfung, Zeitlimits, Downloadabbruch und Protokoll sind enthalten.
 

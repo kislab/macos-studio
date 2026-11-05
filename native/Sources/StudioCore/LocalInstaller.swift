@@ -42,7 +42,8 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
             for record in records {
                 let version = record["OSVersion"] as? String ?? record["version"] as? String
                 let build = record["Build"] as? String ?? record["build"] as? String
-                if version == installer.version && (installer.build == "Manuell" || build == installer.build) { return true }
+                // 10.13–10.15 installer apps record only the version, not the build.
+                if version == installer.version && (installer.build == "Manuell" || build == nil || build == installer.build) { return true }
             }
         }
         return false

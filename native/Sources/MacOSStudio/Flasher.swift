@@ -100,14 +100,46 @@ import StudioCore
         error = "„\(url.lastPathComponent)“ ist keine lesbare iPhone-/iPad-Firmware (IPSW)."
     }
 
-    func flash(studio: StudioModel) async {
+    func flash(studio: StudioModel, firmware: FirmwareStore) async {
         guard let device, let ipsw, compatible,
               let args = CfgUtil.restoreArguments(ecid: device.ecid, ipsw: ipsw) else { return }
         lastWasRepair = false
         await execute(args, studio: studio, ecid: device.ecid, start: "Wiederherstellung wird gestartet …",
                       done: "Fertig · \(device.modelName) mit \(info?.platform ?? "iOS") \(info?.version ?? "") wiederhergestellt",
-                      failure: "Die Wiederherstellung ist fehlgeschlagen.")
+                      failure: "Die Wiederherstellung ist fehlgeschlagen.",
+                      preflight: { [weak self] in try await self?.checkIPSW(ipsw, firmware: firmware) })
     }
+
+    /// Before anything is written: the IPSW must match Apple's published SHA-1 (when Apple lists one).
+    private func checkIPSW(_ file: URL, firmware: FirmwareStore) async throws {
+        phase = "Prüfsumme wird vor dem Flashen geprüft …"; progress = 0
+        checkingChecksum = true
+        defer { checkingChecksum = false }
+        let cancelled = checkCancelled
+        let outcome = try await firmware.checkBeforeFlash(file, isCancelled: { cancelled.value }) { [weak self] fraction in
+            Task { @MainActor in
+                guard let self, self.checkingChecksum else { return }
+                self.progress = fraction * 100
+                self.stepInfo = String(format: "Prüfsumme (SHA-1) · %.0f %%", fraction * 100)
+            }
+        }
+        if cancelled.value { throw CancellationError() }
+        switch outcome {
+        case .confirmed, .alreadyConfirmed:
+            log += "Prüfsumme von „\(file.lastPathComponent)“ stimmt mit Apples Angabe überein.\n"
+        case .noReference:
+            log += "Für „\(file.lastPathComponent)“ veröffentlicht Apple keine Prüfsumme – Prüfung übersprungen.\n"
+        case .mismatch:
+            throw NSError(domain: "Flasher", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                "„\(file.lastPathComponent)“ stimmt nicht mit Apples Prüfsumme überein. Die Datei ist beschädigt oder verändert.\n\nDas Gerät wurde nicht verändert. Bitte die Datei löschen und die Firmware neu laden."])
+        }
+        self.preflightNote = outcome
+        progress = nil; stepInfo = ""
+    }
+    private let checkCancelled = CancelFlag()
+    private var checkingChecksum = false
+    /// Result of the last checksum check before flashing (shown in the progress card).
+    @Published var preflightNote: FirmwareStore.Preflight?
 
     /// Device tab: ECID whose firmware is downloading right now. Downloading never flashes by itself.
     @Published var pendingFlash: String?
@@ -135,7 +167,7 @@ import StudioCore
             return
         }
         firmware.dismiss()
-        await flash(studio: studio)
+        await flash(studio: studio, firmware: firmware)
         lastWasRepair = true            // result belongs to the "Gerät" tab
     }
 
@@ -164,7 +196,8 @@ import StudioCore
         }
     }
 
-    private func execute(_ args: [String], studio: StudioModel, ecid: String, start: String, done: String, failure: String) async {
+    private func execute(_ args: [String], studio: StudioModel, ecid: String, start: String, done: String, failure: String,
+                         preflight: (() async throws -> Void)? = nil) async {
         guard let tool, !running, !studio.busy, !studio.loading else { return }
         studio.busy = true; running = true; result = nil; progress = nil; log = ""; activeECID = ecid; lastLogFile = nil
         publishRestoreECIDs()
@@ -175,8 +208,12 @@ import StudioCore
         let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "iPhone/iPad wird wiederhergestellt")
         defer { studio.busy = false; running = false; command = nil; activeECID = nil; DockProgress.clear(); ProcessInfo.processInfo.endActivity(activity) }
         let attempts = 3
-        userCancelled = false
+        userCancelled = false; checkCancelled.reset(); preflightNote = nil
         do {
+            if let preflight {
+                try await preflight()
+                phase = start
+            }
             var attempt = 1
             var out: CommandResult
             while true {
@@ -207,7 +244,12 @@ import StudioCore
                     + (lastLogFile.map { "\n\nVollständiges Protokoll: \($0.path)" } ?? "")
             }
         } catch {
-            result = false; phase = "Fehlgeschlagen"; self.error = error.localizedDescription
+            result = false
+            if error is CancellationError || userCancelled {
+                phase = "Abgebrochen – das Gerät wurde nicht verändert."; progress = nil; stepInfo = ""
+            } else {
+                phase = "Fehlgeschlagen"; self.error = error.localizedDescription
+            }
         }
         // `running` is still true here (reset by the defer), so list directly instead of refresh().
         if let list = await listDevices() { devices = list }
@@ -216,7 +258,7 @@ import StudioCore
     }
 
     private var userCancelled = false
-    func cancel() { userCancelled = true; command?.cancel() }
+    func cancel() { userCancelled = true; checkCancelled.set(); command?.cancel() }
 
     private func saveLog(_ output: String, args: [String]) -> URL? {
         let folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/OS Studio", isDirectory: true)
@@ -287,7 +329,7 @@ struct FlasherView: View {
         }
         .confirmationDialog("Gerät wirklich flashen?", isPresented: $store.confirm, titleVisibility: .visible) {
             Button("Löschen und \(store.info?.platform ?? "iOS") \(store.info?.version ?? "") installieren", role: .destructive) {
-                Task { await store.flash(studio: studio) }
+                Task { await store.flash(studio: studio, firmware: firmware) }
             }
             Button("Abbrechen", role: .cancel) {}
         } message: {
@@ -432,6 +474,13 @@ struct FlashProgressCard: View {
             }
             if let file = store.activeFile {
                 IPSWLocation(file: file)
+            }
+            switch store.preflightNote {
+            case .confirmed?, .alreadyConfirmed?:
+                Label("Prüfsumme stimmt mit Apples Angabe überein", systemImage: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
+            case .noReference?:
+                Label("Apple veröffentlicht für diese Datei keine Prüfsumme – nicht geprüft", systemImage: "questionmark.circle").font(.caption).foregroundStyle(.secondary)
+            default: EmptyView()
             }
             if store.running { Text("Kabel nicht trennen und den Mac nicht in den Ruhezustand versetzen.").font(.caption).foregroundStyle(.orange) }
         }.padding(16).background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))

@@ -39,7 +39,51 @@ import StudioCore
         defer { verifying = nil }
         let size = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? NSNumber)?.int64Value
         let sha = item.sha1 == nil ? nil : try? await Task.detached(priority: .userInitiated) { try? FirmwareCatalog.sha1(of: file) }.value
-        verifyResults[item.id] = FileVerify.result(actualSize: size, expectedSize: nil, actualSHA1: sha ?? nil, expectedSHA1: item.sha1)
+        let result = FileVerify.result(actualSize: size, expectedSize: nil, actualSHA1: sha ?? nil, expectedSHA1: item.sha1)
+        verifyResults[item.id] = result
+        if result == .ok { markConfirmed(file) }
+    }
+
+    // MARK: Checksum before flashing
+
+    /// SHA-1 per IPSW file name from Apple's list, including older versions not shown in the list.
+    private(set) var checksums: [String: String] = [:]
+    func expectedSHA1(for file: URL) -> String? {
+        items.first { $0.fileName == file.lastPathComponent }?.sha1 ?? checksums[file.lastPathComponent]
+    }
+    /// Files already confirmed against Apple's SHA-1, keyed by path, as "size:modification time".
+    /// An unchanged file is not hashed again; any change to size or date forces a new check.
+    private static let confirmedKey = "confirmedIPSW"
+    private static func stamp(_ file: URL) -> String? {
+        guard let values = try? file.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
+              let size = values.fileSize, let date = values.contentModificationDate else { return nil }
+        return "\(size):\(date.timeIntervalSinceReferenceDate)"
+    }
+    func markConfirmed(_ file: URL) {
+        guard let stamp = Self.stamp(file) else { return }
+        var saved = UserDefaults.standard.dictionary(forKey: Self.confirmedKey) as? [String: String] ?? [:]
+        saved = saved.filter { FileManager.default.fileExists(atPath: $0.key) }
+        saved[file.standardizedFileURL.path] = stamp
+        UserDefaults.standard.set(saved, forKey: Self.confirmedKey)
+    }
+    private func isConfirmed(_ file: URL) -> Bool {
+        guard let stamp = Self.stamp(file) else { return false }
+        return (UserDefaults.standard.dictionary(forKey: Self.confirmedKey) as? [String: String])?[file.standardizedFileURL.path] == stamp
+    }
+
+    enum Preflight: Equatable { case confirmed, alreadyConfirmed, noReference, mismatch }
+    /// Compares an IPSW with Apple's published SHA-1 right before it is flashed – also files chosen by hand.
+    func checkBeforeFlash(_ file: URL, isCancelled: @escaping @Sendable () -> Bool,
+                          progress: @escaping @Sendable (Double) -> Void) async throws -> Preflight {
+        if items.isEmpty && checksums.isEmpty { await load(quiet: true) }
+        guard let expected = expectedSHA1(for: file) else { return .noReference }
+        if isConfirmed(file) { return .alreadyConfirmed }
+        let actual = try await Task.detached(priority: .userInitiated) {
+            try FirmwareCatalog.sha1(of: file, isCancelled: isCancelled, progress: progress)
+        }.value
+        guard actual == expected else { return .mismatch }
+        markConfirmed(file)
+        return .confirmed
     }
 
     /// Apple's IPSW size via a HEAD request (the list omits it), for the free-space check (#5).
@@ -99,7 +143,7 @@ import StudioCore
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    func load() async {
+    func load(quiet: Bool = false) async {
         guard !loading else { return }
         loading = true; status = "Apple-Liste wird geladen …"
         defer { loading = false }
@@ -108,12 +152,14 @@ import StudioCore
             request.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw failure("Apple-Liste nicht erreichbar.") }
-            let parsed = await Task.detached(priority: .userInitiated) { FirmwareCatalog.parse((try? Gzip.decompress(data)) ?? data) }.value
+            let plain = (try? Gzip.decompress(data)) ?? data
+            let (parsed, sums) = await Task.detached(priority: .userInitiated) { (FirmwareCatalog.parse(plain), FirmwareCatalog.checksums(plain)) }.value
             guard !parsed.isEmpty else { throw failure("Apple-Liste enthält keine Firmware.") }
-            items = parsed
+            items = parsed; checksums = sums
             status = "\(parsed.count) aktuelle Firmware-Dateien · direkt von Apple (updates.cdn-apple.com)"
         } catch {
-            status = "Liste konnte nicht geladen werden"; self.error = error.localizedDescription
+            status = "Liste konnte nicht geladen werden"
+            if !quiet { self.error = error.localizedDescription }
         }
     }
 
@@ -161,6 +207,7 @@ import StudioCore
             }
             try FileManager.default.moveItem(at: partial, to: target)
             finished = target; progress = 100; verifyResults[item.id] = nil
+            if item.sha1 != nil { markConfirmed(target) }
             let place = destination.lastPathComponent
             phase = item.sha1 == nil ? "Fertig · gespeichert in „\(place)“" : "Fertig · Prüfsumme bestätigt · gespeichert in „\(place)“"
         } catch {

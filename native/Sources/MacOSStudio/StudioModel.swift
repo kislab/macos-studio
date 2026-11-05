@@ -323,7 +323,7 @@ import StudioCore
                         guard let (text, _) = try? await URLSession.shared.data(for: URLRequest(url: product.distribution, timeoutInterval: 30)),
                               let info = AppleCatalog.describe(distribution: String(decoding: text, as: UTF8.self)) else { return nil }
                         return Installer(title: info.title, version: info.version, build: info.build, bytes: product.bytes,
-                                         packageURL: product.package, offeredForThisMac: false)
+                                         packageURL: product.package, packageParts: product.parts, offeredForThisMac: false)
                     }
                 }
                 var collected: [Installer] = []
@@ -420,6 +420,8 @@ import StudioCore
     /// create "Install macOS ….app" in /Applications. Works on Macs that cannot run this macOS themselves.
     private func downloadPackage(_ item: Installer) async {
         guard let url = item.packageURL else { return }
+        if item.assembledFromParts { await downloadParts(item); return }
+        packageCancelled.reset()
         busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version
         total = item.bytes; amount = nil; mbits = nil; progress = 0
         status = "Apple-Paket wird geladen …"
@@ -440,6 +442,9 @@ import StudioCore
             let size = ((try? FileManager.default.attributesOfItem(atPath: package.path)[.size]) as? NSNumber)?.doubleValue ?? 0
             guard item.bytes <= 0 || size == item.bytes else {
                 throw failure("Das geladene Paket ist unvollständig (\(Int64(size)) statt \(Int64(item.bytes)) Bytes). Bitte erneut laden.")
+            }
+            if let part = item.packageParts.first, part.integrity != nil {
+                try await verifyPart(part, file: package, from: 95, to: 96.5)
             }
             status = "Apple-Signatur wird geprüft …"
             let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", package.path], timeout: 600)
@@ -465,12 +470,141 @@ import StudioCore
             completedPath = installed.path; selectedInstaller = installed.path; progress = 100; amount = total
             status = "Installer geladen und geprüft"
         } catch {
-            if (error as? URLError)?.code == .cancelled { status = "Download abgebrochen"; return }
+            if (error as? URLError)?.code == .cancelled || error is CancellationError { status = "Download abgebrochen"; return }
             status = "Download fehlgeschlagen"; self.error = error.localizedDescription
         }
     }
+
+    /// macOS 10.13–10.15 from Apple's catalog: downloads the installer parts, checks each against Apple's
+    /// integrity data, and assembles "Install macOS ….app" from the signed InstallAssistantAuto.pkg
+    /// without running the macOS installer (works on any Mac, no administrator password).
+    private func downloadParts(_ item: Installer) async {
+        busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version
+        total = item.bytes; amount = 0; mbits = nil; progress = 0
+        packageCancelled.reset()
+        let fileManager = FileManager.default
+        let folder = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.appletools.macosstudio/Packages/\(item.build)-parts", isDirectory: true)
+        defer { packageDownload = nil; busy = false; mbits = nil; try? fileManager.removeItem(at: folder) }
+        do {
+            try? fileManager.removeItem(at: folder)
+            try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+            let parts = item.packageParts
+            let totalBytes = parts.reduce(Int64(0)) { $0 + $1.bytes }
+            var files: [String: URL] = [:]
+            var offset: Int64 = 0
+            for (index, part) in parts.enumerated() {
+                let label = "Apple-Pakete werden geladen (\(index + 1) von \(parts.count))"
+                status = label + " …"
+                appendLog("Quelle: \(part.url.absoluteString)\n")
+                let target = folder.appendingPathComponent(part.name)
+                let downloader = PackageDownload(); packageDownload = downloader
+                packageSample = (ProcessInfo.processInfo.systemUptime, offset)
+                let start = offset
+                _ = try await downloader.run(part.url, to: target) { [weak self] written, _ in
+                    Task { @MainActor in self?.packageProgress(written: start + written, expected: totalBytes, label: label) }
+                }
+                if packageCancelled.value { throw CancellationError() }
+                let size = ((try? fileManager.attributesOfItem(atPath: target.path)[.size]) as? NSNumber)?.int64Value ?? -1
+                guard part.bytes <= 0 || size == part.bytes else {
+                    throw failure("\(part.name) ist unvollständig (\(size) statt \(part.bytes) Bytes). Bitte erneut laden.")
+                }
+                files[part.name] = target
+                offset += part.bytes
+            }
+            mbits = nil; progress = 95
+            // Apple's chunked SHA-256 data per file; BaseSystem/AppleDiagnostics also come with their own chunk list.
+            for part in parts where part.name.hasSuffix(".pkg") || part.name.hasSuffix(".dmg") {
+                guard let file = files[part.name] else { continue }
+                if part.integrity != nil {
+                    try await verifyPart(part, file: file, from: 95, to: 98)
+                } else if let list = files[part.name.replacingOccurrences(of: ".dmg", with: ".chunklist")], part.name.hasSuffix(".dmg") {
+                    try await verifyPart(part, file: file, from: 95, to: 98, localList: list)
+                } else {
+                    appendLog("\(part.name): Apple veröffentlicht keine Prüfdaten – nur Größe geprüft.\n")
+                }
+            }
+            status = "Apple-Signatur wird geprüft …"
+            guard let stubPackage = files[AppleCatalog.legacyParts[0]] else { throw failure("InstallAssistantAuto.pkg fehlt.") }
+            let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", stubPackage.path], timeout: 600)
+            appendLog(signature.output)
+            guard signature.status == 0, signature.output.contains("signed Apple Software") else {
+                throw failure("Das Paket ist nicht von Apple signiert und wird nicht verwendet.\n\n" + signature.output)
+            }
+            status = "Installer-App wird zusammengesetzt …"; progress = 98.5
+            let expanded = folder.appendingPathComponent("expanded")
+            let expand = try await Command().run("/usr/sbin/pkgutil", ["--expand-full", stubPackage.path, expanded.path], timeout: 600)
+            guard expand.status == 0, let app = LegacyInstaller.stubApp(inExpanded: expanded) else {
+                throw failure("Das Apple-Paket konnte nicht entpackt werden.\n\n" + String(expand.output.suffix(1200)))
+            }
+            try LegacyInstaller.assemble(app: app, files: files)
+            let destination = try installDestination(for: app.lastPathComponent)
+            try fileManager.moveItem(at: app, to: destination)
+            appendLog("Installer-App: \(destination.path)\n")
+            guard let installed = LocalInstaller.inspect(destination.path), installed.preparationIssue == nil else {
+                throw failure("Die Installer-App wurde erstellt, ist aber unvollständig:\n\(destination.path)")
+            }
+            extraLocalPaths.insert(installed.path)
+            refreshLocal()
+            localItems = (localItems.filter { $0.path != installed.path } + [installed])
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            completedPath = installed.path; selectedInstaller = installed.path; progress = 100; amount = total
+            status = "Installer geladen und geprüft"
+        } catch {
+            if (error as? URLError)?.code == .cancelled || error is CancellationError { status = "Download abgebrochen"; return }
+            status = "Download fehlgeschlagen"; self.error = error.localizedDescription
+        }
+    }
+
+    /// /Applications when writable, otherwise ~/Applications. Never replaces an existing app.
+    private func installDestination(for name: String) throws -> URL {
+        let fileManager = FileManager.default
+        let home = fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Applications", isDirectory: true)
+        for folder in [URL(fileURLWithPath: "/Applications", isDirectory: true), home] {
+            let target = folder.appendingPathComponent(name)
+            if fileManager.fileExists(atPath: target.path) {
+                throw failure("„\(name)“ ist bereits vorhanden:\n\(target.path)\n\nBitte unter „Installer lokal“ prüfen oder vorher in den Papierkorb legen.")
+            }
+            if folder == home { try? fileManager.createDirectory(at: home, withIntermediateDirectories: true) }
+            if fileManager.isWritableFile(atPath: folder.path) { return target }
+        }
+        throw failure("Weder /Applications noch ~/Applications sind beschreibbar.")
+    }
+
+    /// Checks a downloaded file against Apple's chunked SHA-256 list (remote integrity data or a local .chunklist).
+    private func verifyPart(_ part: CatalogPart, file: URL, from start: Double, to end: Double, localList: URL? = nil) async throws {
+        status = "Apple-Prüfsumme wird geprüft: \(part.name) …"
+        let data: Data
+        if let localList {
+            data = try Data(contentsOf: localList)
+        } else if let source = part.integrity {
+            let (loaded, response) = try await URLSession.shared.data(for: URLRequest(url: source, timeoutInterval: 60))
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                throw failure("Apples Prüfdaten für \(part.name) sind nicht erreichbar. Bitte später erneut versuchen.")
+            }
+            data = loaded
+        } else { return }
+        guard let list = Chunklist.parse(data) else { throw failure("Apples Prüfdaten für \(part.name) sind unlesbar.") }
+        let cancelled = packageCancelled
+        let outcome = try await Task.detached(priority: .userInitiated) { [weak self] in
+            try list.verify(file, isCancelled: { cancelled.value }) { fraction in
+                Task { @MainActor in
+                    guard let self, self.busy else { return }
+                    self.progress = start + (end - start) * fraction
+                }
+            }
+        }.value
+        switch outcome {
+        case .ok: appendLog("\(part.name): Prüfsumme bestätigt (\(list.chunks.count) Blöcke, SHA-256).\n")
+        case .wrongSize(let expected, let actual):
+            throw failure("\(part.name) hat die falsche Größe (\(actual) statt \(expected) Bytes). Bitte erneut laden.")
+        case .mismatch(let chunk):
+            throw failure("\(part.name) stimmt nicht mit Apples Prüfsumme überein (Block \(chunk + 1)). Die Datei wurde verworfen; bitte erneut laden.")
+        }
+    }
+    private let packageCancelled = CancelFlag()
     private var packageSample: (time: TimeInterval, bytes: Int64) = (0, 0)
-    private func packageProgress(written: Int64, expected: Int64) {
+    private func packageProgress(written: Int64, expected: Int64, label: String = "Apple-Paket wird geladen") {
         guard busy else { return }
         let now = ProcessInfo.processInfo.systemUptime
         guard now - packageSample.time >= 1 else { return }
@@ -478,7 +612,7 @@ import StudioCore
         packageSample = (now, written)
         let size = expected > 0 ? Double(expected) : total
         if size > 0 { total = size; progress = min(95, Double(written) / size * 95) }
-        amount = Double(written); status = "Apple-Paket wird geladen"
+        amount = Double(written); status = label
     }
     private func modification(_ path: String) -> Date {
         (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate]) as? Date ?? .distantPast
@@ -502,7 +636,10 @@ import StudioCore
     /// Only a macOS download started here can be cancelled from the activity panel (not IPSW downloads,
     /// iPhone restores or trashing, which also set `busy`).
     var canCancelDownload: Bool { !flashing && (command != nil || packageDownload != nil) }
-    func cancel() { guard !flashing else { return }; status = "Download wird abgebrochen …"; command?.cancel(); packageDownload?.cancel() }
+    func cancel() {
+        guard !flashing else { return }
+        status = "Download wird abgebrochen …"; packageCancelled.set(); command?.cancel(); packageDownload?.cancel()
+    }
     func detectMac() async {
         guard !detectingMac else { return }
         detectingMac = true
@@ -565,6 +702,10 @@ import StudioCore
             guard checked == target else { throw failure("Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.") }
             let tool = selectedInstaller + "/Contents/Resources/createinstallmedia"
             if let issue = LocalInstaller.preparationIssue(at: selectedInstaller) { throw failure(issue) }
+            if let issue = MachO.rosettaIssue(executable: URL(fileURLWithPath: tool), hostIsARM: Self.hostIsARM,
+                                              rosettaInstalled: FileManager.default.fileExists(atPath: "/Library/Apple/usr/share/rosetta/rosetta")) {
+                throw failure(issue)
+            }
             // The stick must hold the whole installer; check before anything is erased.
             status = "Speicherplatz auf dem USB-Stick prüfen …"
             let installerPath = selectedInstaller
@@ -705,4 +846,21 @@ import StudioCore
         if !NSWorkspace.shared.open(pane) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security")!) }
     }
     private func failure(_ message: String) -> NSError { NSError(domain: "MacOSStudio", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
+}
+
+extension StudioModel {
+    /// True on Apple silicon, also when this process itself runs translated.
+    nonisolated static var hostIsARM: Bool {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        return sysctlbyname("hw.optional.arm64", &value, &size, nil, 0) == 0 && value == 1
+    }
+}
+
+/// Thread-safe cancel flag shared with detached checksum work.
+final class CancelFlag: @unchecked Sendable {
+    private let lock = NSLock(); private var flag = false
+    func set() { lock.lock(); flag = true; lock.unlock() }
+    func reset() { lock.lock(); flag = false; lock.unlock() }
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
 }
