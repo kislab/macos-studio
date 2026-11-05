@@ -19,6 +19,8 @@ import StudioCore
 struct ExtrasView: View {
     @ObservedObject var monitor: DeviceMonitor
     @ObservedObject var photos: DevicePhotoStore
+    /// Jumps to iPhone & iPad → Gerät (flash or repair the device that is now in DFU/recovery).
+    var openDevice: () -> Void = {}
     @StateObject private var state = ExtrasState()
 
     private var inRecovery: [DeviceMonitor.USBDevice] { monitor.usbDevices.filter { $0.mode == .recovery } }
@@ -108,14 +110,16 @@ struct ExtrasView: View {
             ForEach(inRecovery) { device in
                 deviceRow(photo: nil, symbol: "laptopcomputer.and.iphone", title: "Gerät im Wiederherstellungsmodus",
                           detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("Wiederherstellung", .orange), note: nil) {
+                    Button("Flashen …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
                     Button("Normal starten", systemImage: "power") { Task { await monitor.exitRecovery() } }
-                        .buttonStyle(.borderedProminent).disabled(monitor.working || !monitor.available)
+                        .disabled(monitor.working || !monitor.available)
                 }
             }
             ForEach(inDFU) { device in
                 deviceRow(photo: nil, symbol: "bolt.horizontal.circle", title: "Gerät im DFU-Modus",
                           detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("DFU", .purple), note: "Zum Verlassen per Tasten neu starten (unten)") {
-                    Button("Anleitung", systemImage: "hand.point.down") { state.showRestart = true }
+                    Button("Flashen …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
+                    Button("Verlassen", systemImage: "hand.point.down") { state.showRestart = true }
                 }
             }
         }
@@ -181,9 +185,13 @@ struct ExtrasView: View {
                 ForEach(DFUGuide.Method.allCases) { Text($0.title).tag($0) }
             }.disabled(state.guiding)
             if !inDFU.isEmpty || state.dfuReached {
-                Label("Gerät ist im DFU-Modus" + (inDFU.first?.cpid.map { " · CPID \($0)" } ?? "") + ". Tasten loslassen – der Finder bietet jetzt die Wiederherstellung an.",
-                      systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green).font(.headline)
+                HStack {
+                    Label("Gerät ist im DFU-Modus" + (inDFU.first?.cpid.map { " · CPID \($0)" } ?? "") + ". Tasten loslassen.",
+                          systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.green).font(.headline)
+                    Spacer()
+                    Button("Jetzt flashen …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
+                }
             }
             if state.guiding {
                 let steps = DFUGuide.steps(for: state.method)

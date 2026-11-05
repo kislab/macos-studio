@@ -24,8 +24,8 @@ import StudioCore
     @Published var verifying: String?
     @Published var verifyResults: [String: VerifyResult] = [:]
     @Published var confirmCleanup = false
-    enum Section: Hashable { case download, repair, flasher }
-    @Published var section: Section = .download
+    enum Section: Hashable { case device, download, flasher }
+    @Published var section: Section = .device
 
     var visible: [Firmware] { query.isEmpty ? items : items.filter { $0.matches(query: query) } }
     var downloading: Bool { active != nil && finished == nil }
@@ -209,15 +209,15 @@ struct FirmwareView: View {
                     .foregroundStyle(.secondary)
             }
             Picker("Bereich", selection: $store.section) {
+                Label("Gerät", systemImage: "iphone.gen3").tag(FirmwareStore.Section.device)
                 Label("Firmware laden", systemImage: "arrow.down.circle").tag(FirmwareStore.Section.download)
-                Label("Wiederherstellen", systemImage: "wrench.and.screwdriver").tag(FirmwareStore.Section.repair)
-                Label("Flasher", systemImage: "bolt.fill").tag(FirmwareStore.Section.flasher)
+                Label("Flasher (IPSW)", systemImage: "bolt.fill").tag(FirmwareStore.Section.flasher)
             }
             .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 520)
-            .disabled(store.downloading || flasher.running)
+            .disabled(store.downloading || flasher.running || flasher.pendingFlash != nil)
             switch store.section {
             case .download: downloadList
-            case .repair: RepairView(store: flasher, studio: studio, photos: photos)
+            case .device: DeviceView(store: flasher, firmware: store, studio: studio, photos: photos)
             case .flasher: FlasherView(store: flasher, firmware: store, studio: studio)
             }
         }
@@ -230,7 +230,7 @@ struct FirmwareView: View {
     private var subtitle: String {
         switch store.section {
         case .download: "Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert."
-        case .repair: "Geräte im Wiederherstellungs- oder DFU-Modus reparieren oder mit der neuesten Software wiederherstellen – wie Apple Configurator."
+        case .device: "Angestecktes iPhone oder iPad erkennen – auch im DFU- oder Wiederherstellungsmodus – und mit der passenden neuesten Firmware direkt flashen oder reparieren."
         case .flasher: "IPSW-Firmware auf ein per USB verbundenes iPhone oder iPad flashen (Wiederherstellen über Apple Configurator)."
         }
     }

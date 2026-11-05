@@ -176,7 +176,7 @@ struct StudioView: View {
                 else if model.section == "local" { localLibrary }
                 else if model.section == "compatibility" { compatibility }
                 else if model.section == "firmware" { FirmwareView(store: firmware, flasher: flasher, studio: model, photos: photos) }
-                else if model.section == "extras" { ExtrasView(monitor: monitor, photos: photos) }
+                else if model.section == "extras" { ExtrasView(monitor: monitor, photos: photos, openDevice: { firmware.section = .device; model.section = "firmware" }) }
                 else if model.section == "settings" { SettingsView(updates: updates, model: model, firmware: firmware, photos: photos) }
                 else { usb }
                 if !model.activeTitle.isEmpty { activity }

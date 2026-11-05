@@ -1,3 +1,13 @@
+Version 1.5.0
+
+• iPhone & iPad: Neuer Reiter „Gerät“ (jetzt der erste). Ein angestecktes iPhone oder iPad wird sofort erkannt – auch im DFU- und im Wiederherstellungsmodus – mit Modell, Foto und Modus.
+
+• Die App zeigt direkt die neueste von Apple freigegebene Firmware für genau dieses Modell. „Laden & flashen“ lädt sie, prüft die Prüfsumme und flasht danach automatisch – in einem Schritt. Ist sie schon geladen, startet das Flashen sofort.
+
+• „Reparieren“ (Daten bleiben) ist in den neuen Reiter gewandert. Eine bestimmte Version wählt man über „Andere Version …“ im Flasher.
+
+• Extras: Ist ein Gerät im DFU- oder Wiederherstellungsmodus, führt „Flashen …“ direkt dorthin.
+
 Version 1.4.0
 
 • iPhone & iPad: Neuer Reiter „Wiederherstellen“ – wie in Apple Configurator. Geräte im Wiederherstellungs- oder DFU-Modus erscheinen mit ihrem Modus in einer Liste.

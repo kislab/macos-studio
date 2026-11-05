@@ -75,6 +75,37 @@ import StudioCore
                       failure: "Die Wiederherstellung ist fehlgeschlagen.")
     }
 
+    /// Device tab: ECID whose firmware is downloading right now, to be flashed right after.
+    @Published var pendingFlash: String?
+    @Published var confirmLoadAndFlash: (device: FlashDevice, item: Firmware)?
+
+    /// "Laden & flashen": takes the downloaded IPSW for this device or downloads it first (SHA-1 checked),
+    /// then erases the device and installs it. Stops on any failure without touching the device.
+    func loadAndFlash(_ target: FlashDevice, _ item: Firmware, firmware: FirmwareStore, studio: StudioModel) async {
+        guard !running, pendingFlash == nil, item.devices.contains(target.productType) else { return }
+        var file = firmware.existing(item)
+        if file == nil {
+            pendingFlash = target.ecid
+            await firmware.start(item, studio: studio)
+            pendingFlash = nil
+            guard let done = firmware.finished, done.lastPathComponent == item.fileName else { return }   // cancelled or failed
+            file = done
+        }
+        guard let file else { return }
+        selected = target.ecid
+        await select(file)
+        guard compatible else {
+            error = "„\(file.lastPathComponent)“ passt nicht zu \(target.modelName). Es wurde nichts verändert."; return
+        }
+        guard device != nil else {
+            error = "\(target.modelName) ist nicht mehr verbunden. Gerät wieder anstecken (DFU- oder Wiederherstellungsmodus) und erneut „Flashen“ wählen – die Firmware ist schon geladen."
+            return
+        }
+        firmware.dismiss()
+        await flash(studio: studio)
+        lastWasRepair = true            // result belongs to the "Gerät" tab
+    }
+
     /// ECID of the device a cfgutil job is running for (flash, revive or restore).
     @Published var activeECID: String?
     @Published var activeRepair: CfgUtil.Repair?

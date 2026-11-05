@@ -25,8 +25,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>OS Studio</string>
 <key>CFBundleDisplayName</key><string>OS Studio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.4.0</string>
-<key>CFBundleVersion</key><string>40</string>
+<key>CFBundleShortVersionString</key><string>1.5.0</string>
+<key>CFBundleVersion</key><string>41</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleDevelopmentRegion</key><string>de</string>
 <key>CFBundleLocalizations</key><array><string>de</string></array>

@@ -35,6 +35,13 @@ final class CoreTests {
         XCTAssertNil(CfgUtil.repairArguments(ecid: "0x1; reboot", .revive))
         XCTAssertTrue(CfgUtil.sameECID(cfgutil: "0x1A2B3C4D5E6F70", usbHex: "001A2B3C4D5E6F70"))
         XCTAssertTrue(CfgUtil.sameECID(cfgutil: "4096", usbHex: "1000"))
+        // Real iPad Air (M1) in DFU: cfgutil list vs. iBoot USB serial
+        let dfuList = #"{"Command":"list","Output":{"0x1511103C0B401E":{"locationID":1179648,"UDID":null,"ECID":"0x1511103C0B401E","name":null,"deviceType":"iPad13,17"}},"Type":"CommandOutput","Devices":["0x1511103C0B401E"]}"#
+        let dfu = CfgUtil.devices(fromList: Data(dfuList.utf8))
+        XCTAssertEqual(dfu.first?.productType, "iPad13,17"); XCTAssertNil(dfu.first?.udid)
+        let usbSerial = "SDOM:01 CPID:8103 CPRV:11 CPFM:03 SCEP:01 BDID:12 ECID:001511103C0B401E IBFL:3C SRTG:[iBoot-5540.0.0.400.2]"
+        XCTAssertTrue(CfgUtil.sameECID(cfgutil: dfu.first?.ecid ?? "", usbHex: DFUGuide.field("ECID", in: usbSerial) ?? ""))
+        XCTAssertTrue(DFUGuide.usbMode(productID: 4647) == .dfu)
         XCTAssertFalse(CfgUtil.sameECID(cfgutil: "0x1A2B", usbHex: "1A2C"))
         XCTAssertFalse(CfgUtil.sameECID(cfgutil: "bad", usbHex: "1A2B"))
         XCTAssertNil(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: URL(fileURLWithPath: "/tmp/x.dmg")))
