@@ -81,10 +81,19 @@ struct ExtrasView: View {
                 Text("Apples Gerätedienst ist auf diesem Mac nicht verfügbar. Wiederherstellungs- und DFU-Modus werden trotzdem über USB erkannt.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            if monitor.devices.isEmpty && monitor.usbDevices.isEmpty {
+            if monitor.devices.isEmpty && inRecovery.isEmpty && inDFU.isEmpty && monitor.blockedCount == 0 {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     Text("Kein Gerät angeschlossen – iPhone oder iPad per USB-Kabel verbinden.").foregroundStyle(.secondary)
+                }
+                Text("Angesteckt, aber nichts erscheint? Ein länger gesperrtes Gerät gibt per USB keine Daten frei. Entsperren – oder per Tasten in den Wiederherstellungsmodus (unten).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if monitor.blockedCount > 0 {
+                deviceRow(photo: nil, symbol: "lock.iphone", title: "iPhone/iPad gesperrt",
+                          detail: "Angesteckt, aber das Gerät gibt per USB keine Daten frei.", badge: ("Gesperrt", .orange),
+                          note: "Entsperren (ggf. „Erlauben“ bzw. „Vertrauen“ tippen) – dann geht es automatisch weiter. Ohne Code: per Tasten.") {
+                    Button("Tasten-Anleitung", systemImage: "hand.point.down") { state.showRestart = true }
                 }
             }
             ForEach(monitor.devices) { device in
@@ -144,13 +153,18 @@ struct ExtrasView: View {
         VStack(alignment: .leading, spacing: 10) {
             DisclosureGroup(isExpanded: $state.showRestart) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Funktioniert immer, auch im DFU-Modus. Gerät: \(state.method.title)").font(.callout).foregroundStyle(.secondary)
+                    Text("Funktioniert immer – auch gesperrt, ohne „Vertrauen“ und im DFU-Modus. Gerät: \(state.method.title)").font(.callout).foregroundStyle(.secondary)
+                    Text("Normal neu starten").font(.headline)
                     Text(DFUGuide.forceRestart(for: state.method))
+                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    Text("In den Wiederherstellungsmodus").font(.headline)
+                    Text(DFUGuide.recoveryButtons(for: state.method))
                         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
                 }.padding(.top, 8)
             } label: {
-                Label("Gerät per Tasten neu starten", systemImage: "power").font(.title3.bold())
+                Label("Per Tasten: neu starten oder Wiederherstellungsmodus", systemImage: "power").font(.title3.bold())
             }
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)

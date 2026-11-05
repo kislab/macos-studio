@@ -27,6 +27,11 @@ import StudioCore
     @Published private(set) var available = false
     @Published var message: String?
     @Published private(set) var working = false
+    /// Devices seen on USB in normal mode that Apple's device service never reports – typically locked
+    /// devices whose USB data is blocked (iOS "USB accessories" protection). Only buttons or unlocking help.
+    @Published private(set) var blockedCount = 0
+    private var normalSeen: [String: Date] = [:]
+    private var readingOut: Set<String> = []
 
     private var md: MobileDevice?
     private var handles: [String: UnsafeMutableRawPointer] = [:]        // UDID → AMDeviceRef (retained)
@@ -56,21 +61,30 @@ import StudioCore
     func deactivateAuto() { autoTask?.cancel(); autoTask = nil; auto = .off }
 
     /// Each device plugged in while active is sent once; unplugging re-arms it.
+    /// A refused attempt (locked or not yet trusted) is retried every few seconds while the device stays
+    /// plugged in, so it goes through as soon as the device is unlocked or "Vertrauen" is tapped.
     private func autoCheck() {
         autoHandled.formIntersection(devices.map(\.id))
-        guard auto != .off, autoTask == nil, let next = devices.first(where: { !autoHandled.contains($0.id) }) else { return }
+        guard auto != .off, autoTask == nil else { return }
+        guard let next = devices.first(where: { !autoHandled.contains($0.id) && !readingOut.contains($0.id) }) else {
+            if auto == .waiting, !readingOut.isEmpty { auto = .sending("Gerät") }
+            return
+        }
         autoHandled.insert(next.id)
-        auto = .sending(next.name == "iPhone/iPad" ? "Gerät" : next.name)
+        if case .failed = auto {} else { auto = .sending(next.name == "iPhone/iPad" ? "Gerät" : next.name) }
         autoTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_000_000_000)        // let the attach read-out finish first
             defer { autoTask = nil; autoCheck() }
+            while working && !Task.isCancelled { try? await Task.sleep(nanoseconds: 300_000_000) }
             guard !Task.isCancelled, auto != .off else { return }
-            while working { try? await Task.sleep(nanoseconds: 300_000_000) }
             guard let current = devices.first(where: { $0.id == next.id }) else { auto = .waiting; return }
             let ok = await enterRecovery(current, quiet: true)
             let text = lastRecoveryText
-            guard auto != .off else { return }
-            auto = ok ? .done(current.name == "iPhone/iPad" ? current.modelName : current.name) : .failed(text)
+            guard !Task.isCancelled, auto != .off else { return }
+            if ok { auto = .done(current.name == "iPhone/iPad" ? current.modelName : current.name); return }
+            auto = .failed(text)
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled, auto != .off else { return }
+            if devices.contains(where: { $0.id == next.id }) { autoHandled.remove(next.id) } else { auto = .waiting }
         }
     }
 
@@ -100,6 +114,8 @@ import StudioCore
             devices.append(Device(id: udid, name: "iPhone/iPad", productType: "", version: "", paired: false))
         }
         // lockdownd I/O (connect/pair/session) can block for a while on a locked device → off the main thread.
+        // Auto recovery waits for this read-out so the two never talk to the device at the same time.
+        readingOut.insert(udid)
         md.retainDevice(device)
         Task.detached { [md] in
             defer { md.releaseDevice(device) }
@@ -120,7 +136,8 @@ import StudioCore
             }
             let result = entry
             await MainActor.run {
-                guard DeviceMonitor.shared.handles[udid] != nil else { return }   // unplugged meanwhile
+                DeviceMonitor.shared.readingOut.remove(udid)
+                guard DeviceMonitor.shared.handles[udid] != nil else { DeviceMonitor.shared.autoCheck(); return }   // unplugged meanwhile
                 DeviceMonitor.shared.devices.removeAll { $0.id == udid }
                 DeviceMonitor.shared.devices.append(result)
             }
@@ -128,6 +145,7 @@ import StudioCore
     }
     fileprivate func detached(_ device: UnsafeMutableRawPointer) {
         guard let md, let udid = md.copyIdentifier(device)?.takeRetainedValue() as String? else { return }
+        readingOut.remove(udid)
         devices.removeAll { $0.id == udid }
         if let handle = handles.removeValue(forKey: udid) { md.releaseDevice(handle) }
     }
@@ -142,15 +160,23 @@ import StudioCore
         working = true
         defer { working = false }
         message = nil
-        var status = md.connect(handle)
-        guard status == 0 else { message = "Verbindung zu „\(device.name)“ fehlgeschlagen (\(hex(status)))."; return false }
-        status = md.enterRecovery(handle)
-        if status != 0, md.validatePairing(handle) == 0, md.startSession(handle) == 0 {
-            status = md.enterRecovery(handle)
-            _ = md.stopSession(handle)
-        }
-        _ = md.disconnect(handle)
-        if status == 0 {
+        // Blocking lockdownd calls (slow on a locked device) run off the main thread.
+        md.retainDevice(handle)
+        let (connected, status) = await Task.detached { [md] () -> (Bool, Int32) in
+            defer { md.releaseDevice(handle) }
+            let connect = md.connect(handle)
+            guard connect == 0 else { return (false, connect) }
+            var status = md.enterRecovery(handle)
+            if status != 0, md.validatePairing(handle) == 0, md.startSession(handle) == 0 {
+                status = md.enterRecovery(handle)
+                _ = md.stopSession(handle)
+            }
+            _ = md.disconnect(handle)
+            return (true, status)
+        }.value
+        if !connected {
+            message = "Verbindung zu „\(device.name)“ fehlgeschlagen (\(hex(status))). Gerät entsperren und erneut versuchen."
+        } else if status == 0 {
             message = "„\(device.name)“ startet jetzt im Wiederherstellungsmodus neu. Auf dem Display erscheint gleich Laptop und Kabel."
         } else if !device.paired {
             message = "„\(device.name)“ vertraut diesem Mac noch nicht. Gerät entsperren, auf „Vertrauen“ tippen und erneut versuchen (\(hex(status)))."
@@ -226,6 +252,14 @@ import StudioCore
             IORegistryEntryGetRegistryEntryID(service, &entryID)
             found.append(USBDevice(id: String(entryID), mode: mode, serial: serial))
         }
+        // Normal-mode devices on USB that the device service has not reported for a few seconds are blocked.
+        let now = Date()
+        let normalIDs = Set(found.filter { $0.mode == .normal }.map(\.id))
+        normalSeen = normalSeen.filter { normalIDs.contains($0.key) }
+        for id in normalIDs where normalSeen[id] == nil { normalSeen[id] = now }
+        let settled = normalSeen.values.filter { now.timeIntervalSince($0) > 4 }.count
+        let blocked = available ? max(0, settled - devices.count) : 0
+        if blocked != blockedCount { blockedCount = blocked }
         if !found.contains(where: { $0.mode == .recovery }) && !recoveryHandles.isEmpty {
             recoveryHandles.forEach { Unmanaged<AnyObject>.fromOpaque($0).release() }
             recoveryHandles.removeAll()

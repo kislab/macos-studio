@@ -12,7 +12,7 @@ struct AutoRecoveryPanel: View {
                 Image(systemName: "arrow.uturn.down.circle.fill").font(.system(size: 26)).foregroundStyle(.blue)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Wiederherstellungsmodus per Anstecken").font(.headline)
-                    Text("Ohne Tasten. Es wird nichts gelöscht. Klappt meist auch ohne Entsperren – sonst entsperren und „Vertrauen“ tippen.")
+                    Text("Ohne Tasten. Es wird nichts gelöscht. Ist das Gerät gesperrt oder fragt es nach „Vertrauen“, einfach entsperren bzw. tippen – es wird automatisch erneut versucht.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -43,6 +43,10 @@ struct AutoRecoveryPanel: View {
                 ProgressView().controlSize(.small)
                 Text("Stecke jetzt ein iPhone oder iPad an …").font(.title3.weight(.semibold))
             }
+            if monitor.blockedCount > 0 {
+                Label("Gerät erkannt, aber gesperrt – es gibt per USB keine Daten frei. Bitte entsperren, dann geht es automatisch weiter. Ohne Code: Wiederherstellungsmodus per Tasten (Extras).",
+                      systemImage: "lock.fill").font(.callout).foregroundStyle(.orange)
+            }
         case .sending(let name):
             banner {
                 ProgressView().controlSize(.small)
@@ -61,7 +65,10 @@ struct AutoRecoveryPanel: View {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(text.isEmpty ? "Das Gerät hat abgelehnt." : text).font(.callout)
-                    Text("Danach Kabel kurz abziehen und wieder anstecken.").font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.mini)
+                        Text("Gerät entsperren – es wird automatisch alle paar Sekunden erneut versucht.").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
         }

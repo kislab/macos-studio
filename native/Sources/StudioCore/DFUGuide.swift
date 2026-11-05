@@ -65,12 +65,25 @@ public enum DFUGuide {
         }
     }
 
-    /// USB product IDs Apple devices report in the boot ROM / iBoot.
-    public enum USBMode: Equatable, Sendable { case dfu, recovery }
+    /// Recovery mode with the buttons only – works on a locked device, needs no trust and no USB data.
+    public static func recoveryButtons(for method: Method) -> String {
+        switch method {
+        case .faceIDiPhone, .faceIDiPad:
+            return "Gerät per Kabel anstecken. Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann die Seitentaste (beim iPad die obere Taste) gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen."
+        case .iPhone7:
+            return "Gerät per Kabel anstecken. Seitentaste und Leiser gleichzeitig gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen."
+        case .homeButtoniPhone, .homeButtoniPad:
+            return "Gerät per Kabel anstecken. Home-Taste und die obere bzw. seitliche Taste gleichzeitig gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen."
+        }
+    }
+
+    /// USB product IDs Apple devices report in the boot ROM / iBoot, and in normal iOS (0x129x/0x12Ax).
+    public enum USBMode: Equatable, Sendable { case dfu, recovery, normal }
     public static func usbMode(productID: Int) -> USBMode? {
         switch productID {
         case 0x1227: .dfu
         case 0x1280...0x1283: .recovery
+        case 0x1290...0x12AF: .normal
         default: nil
         }
     }

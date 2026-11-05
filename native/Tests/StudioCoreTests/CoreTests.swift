@@ -79,13 +79,16 @@ final class CoreTests {
         XCTAssertTrue(DFUGuide.Method.allCases.allSatisfy { !DFUGuide.steps(for: $0).isEmpty })
         XCTAssertTrue(DFUGuide.usbMode(productID: 0x1227) == .dfu)
         XCTAssertTrue(DFUGuide.usbMode(productID: 0x1281) == .recovery)
-        XCTAssertNil(DFUGuide.usbMode(productID: 0x12a8))                      // normal iPhone
+        XCTAssertTrue(DFUGuide.usbMode(productID: 0x12a8) == .normal)          // normal iPhone
+        XCTAssertTrue(DFUGuide.usbMode(productID: 0x12ab) == .normal)          // normal iPad
+        XCTAssertNil(DFUGuide.usbMode(productID: 0x8600))                      // other Apple USB device
         let serial = "CPID:8030 CPRV:11 CPFM:03 SCEP:01 BDID:0C ECID:001A2B3C4D5E6F70 IBFL:3C SRTG:[iBoot-7429.61.2]"
         XCTAssertEqual(DFUGuide.field("CPID", in: serial), "8030")
         XCTAssertEqual(DFUGuide.field("ECID", in: serial), "001A2B3C4D5E6F70")
         XCTAssertEqual(DFUGuide.field("SRTG", in: serial), "iBoot-7429.61.2")
         XCTAssertNil(DFUGuide.field("SRNM", in: serial))
         XCTAssertTrue(DFUGuide.Method.allCases.allSatisfy { DFUGuide.forceRestart(for: $0).count > 20 })
+        XCTAssertTrue(DFUGuide.Method.allCases.allSatisfy { DFUGuide.recoveryButtons(for: $0).contains("Laptop und Kabel") })
     }
     func testDevicePhotos() throws {
         let html = #"<h2 class="gb-header">Find the model number</h2><p>Intro</p><h2 class="gb-header">iPad&nbsp;Air 13\#u{2011}inch (M4)</h2> <img class="gb-image" alt="x" src="https://cdsassets.apple.com/live/a/ipad-air-13.png" height="1"/><h2 class="gb-header">Evil</h2> <img class="gb-image" src="https://evil.example.com/x.png"/>"#

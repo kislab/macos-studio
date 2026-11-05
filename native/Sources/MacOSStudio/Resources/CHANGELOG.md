@@ -1,3 +1,13 @@
+Version 1.3.3
+
+• Wiederherstellungsmodus per Anstecken bei gesperrten Geräten: Lehnt ein gesperrtes oder noch nicht vertrautes iPhone/iPad ab, versucht die App es jetzt automatisch alle paar Sekunden erneut – sobald das Gerät entsperrt bzw. „Vertrauen“ getippt ist, geht es durch. Kein Abziehen und neu Anstecken mehr nötig.
+
+• Gesperrte Geräte, die per USB keine Daten freigeben (iOS-Schutz nach längerer Sperre), werden jetzt als „Gesperrt“ angezeigt statt „Kein Gerät angeschlossen“ – mit Hinweis, was zu tun ist.
+
+• Neu: Anleitung, um ein Gerät per Tasten in den Wiederherstellungsmodus zu bringen – funktioniert auch gesperrt und ohne Code.
+
+• Der Befehl wird erst gesendet, wenn die App das Gerät fertig ausgelesen hat; die Oberfläche bleibt dabei bedienbar.
+
 Version 1.3.2
 
 • USB-Erstellung: Wird das Terminal-Fenster nach „Abbrechen“ geschlossen, hängt die App nicht mehr endlos, sondern meldet den Abbruch nach spätestens einer Minute.
