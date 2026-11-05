@@ -27,6 +27,8 @@ import StudioCore
     @Published var stepInfo = ""
     /// IPSW file being installed right now (nil for revive / online restore).
     @Published var activeFile: URL?
+    /// Full cfgutil output of the last failed job, saved under ~/Library/Logs/OS Studio.
+    @Published var lastLogFile: URL?
 
     var device: FlashDevice? { devices.first { $0.ecid == selected } }
     var compatible: Bool { guard let device, let info else { return false }; return info.supports(device.productType) }
@@ -34,14 +36,33 @@ import StudioCore
 
     func refresh() async {
         tool = CfgUtil.locate()
-        guard let tool, !scanning, !running else { return }
+        guard tool != nil, !scanning, !running else { return }
         scanning = true; defer { scanning = false }
+        guard let list = await listDevices() else { return }
+        devices = list
+        if device == nil { selected = devices.count == 1 ? devices[0].ecid : nil }
+    }
+
+    private func listDevices() async -> [FlashDevice]? {
+        guard let tool else { return nil }
         let result = try? await Command().run(tool, CfgUtil.listArguments, timeout: 30)
-        guard let result, result.status == 0, !result.cancelled, !result.timedOut else { return }
+        guard let result, result.status == 0, !result.cancelled, !result.timedOut else { return nil }
         // cfgutil may print log lines before the JSON object.
         let json = result.output.firstIndex(of: "{").map { String(result.output[$0...]) } ?? result.output
-        devices = CfgUtil.devices(fromList: Data(json.utf8))
-        if device == nil { selected = devices.count == 1 ? devices[0].ecid : nil }
+        return CfgUtil.devices(fromList: Data(json.utf8))
+    }
+
+    /// After a dropped connection: wait until the device shows up again (any mode), up to `seconds`.
+    private func waitForDevice(_ ecid: String, seconds: Int) async -> Bool {
+        let deadline = Date().addingTimeInterval(TimeInterval(seconds))
+        while Date() < deadline, !userCancelled {
+            if let list = await listDevices() {
+                devices = list
+                if list.contains(where: { $0.ecid == ecid }) { return true }
+            }
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+        }
+        return false
     }
 
     func chooseIPSW(startingIn folder: URL) {
@@ -137,23 +158,44 @@ import StudioCore
 
     private func execute(_ args: [String], studio: StudioModel, ecid: String, start: String, done: String, failure: String) async {
         guard let tool, !running, !studio.busy, !studio.loading else { return }
-        studio.busy = true; running = true; result = nil; progress = nil; log = ""; activeECID = ecid
+        studio.busy = true; running = true; result = nil; progress = nil; log = ""; activeECID = ecid; lastLogFile = nil
         steps = CfgUtil.StepProgress(); stepInfo = ""
         activeFile = args.firstIndex(of: "-I").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
         phase = start
-        let runner = Command(); command = runner
-        defer { studio.busy = false; running = false; command = nil; activeECID = nil; DockProgress.clear() }
+        // Keep the Mac (and its USB ports) awake for the whole restore.
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "iPhone/iPad wird wiederhergestellt")
+        defer { studio.busy = false; running = false; command = nil; activeECID = nil; DockProgress.clear(); ProcessInfo.processInfo.endActivity(activity) }
+        let attempts = 3
+        userCancelled = false
         do {
-            let out = try await runner.run(tool, args, timeout: 3 * 3600) { [weak self] chunk in
-                Task { @MainActor in self?.report(chunk) }
+            var attempt = 1
+            var out: CommandResult
+            while true {
+                let runner = Command(); command = runner
+                out = try await runner.run(tool, args, timeout: 3 * 3600) { [weak self] chunk in
+                    Task { @MainActor in self?.report(chunk) }
+                }
+                if out.cancelled || out.timedOut || out.status == 0 || attempt >= attempts || !CfgUtil.isRetryable(out.output) { break }
+                // Dropped connection (typical with docks/hubs): wait for the device and try again by itself.
+                lastLogFile = saveLog(out.output, args: args)
+                attempt += 1
+                steps = CfgUtil.StepProgress(); stepInfo = ""; progress = nil
+                phase = "Verbindung unterbrochen – warte auf das Gerät, dann Versuch \(attempt) von \(attempts) …"
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                guard !userCancelled, await waitForDevice(ecid, seconds: 180) else { break }
+                phase = "Versuch \(attempt) von \(attempts) läuft …"
             }
-            if out.cancelled { phase = "Abgebrochen – das Gerät startet ggf. im Wiederherstellungsmodus."; result = false; return }
+            if out.cancelled || userCancelled { phase = "Abgebrochen – das Gerät startet ggf. im Wiederherstellungsmodus."; result = false; return }
             if out.timedOut { phase = "Zeitüberschreitung"; result = false; error = "Der Vorgang hat zu lange gedauert."; return }
             if out.status == 0 {
-                progress = 100; result = true; phase = done
+                progress = 100; result = true; phase = attempt > 1 ? done + " (im \(attempt). Versuch)" : done
             } else {
                 result = false; phase = "Fehlgeschlagen (Code \(out.status))"
-                error = failure + "\n\n" + (CfgUtil.lastLine(in: out.output) ?? "Keine Details von cfgutil.")
+                let target = devices.first { $0.ecid == ecid }
+                let hub = DeviceMonitor.shared.usbDevices.first { $0.locationID != nil && $0.locationID == target?.locationID }?.viaHub ?? false
+                lastLogFile = saveLog(out.output, args: args)
+                error = failure + "\n\n" + CfgUtil.failureReport(out.output, viaHub: hub)
+                    + (lastLogFile.map { "\n\nVollständiges Protokoll: \($0.path)" } ?? "")
             }
         } catch {
             result = false; phase = "Fehlgeschlagen"; self.error = error.localizedDescription
@@ -161,7 +203,20 @@ import StudioCore
         await refresh()
     }
 
-    func cancel() { command?.cancel() }
+    private var userCancelled = false
+    func cancel() { userCancelled = true; command?.cancel() }
+
+    private func saveLog(_ output: String, args: [String]) -> URL? {
+        let folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/OS Studio", isDirectory: true)
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        let file = folder.appendingPathComponent("cfgutil-\(stamp).log")
+        let text = "cfgutil " + args.joined(separator: " ") + "\n\n" + output
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try text.write(to: file, atomically: true, encoding: .utf8)
+            return file
+        } catch { return nil }
+    }
 
 
     private func report(_ chunk: String) {
@@ -344,6 +399,9 @@ struct FlashProgressCard: View {
                 if store.running {
                     Button("Abbrechen", role: .cancel) { store.confirmCancel = true }
                 } else {
+                    if store.result == false, let log = store.lastLogFile {
+                        Button("Protokoll anzeigen") { NSWorkspace.shared.activateFileViewerSelecting([log]) }
+                    }
                     Button("Schließen") { store.result = nil; store.phase = ""; store.progress = nil }
                 }
             }

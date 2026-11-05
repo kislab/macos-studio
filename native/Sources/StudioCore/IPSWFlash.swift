@@ -34,10 +34,12 @@ public struct FlashDevice: Identifiable, Equatable, Sendable {
     public let productType: String
     public let name: String
     public let udid: String?
+    /// USB location (same value as IOKit's "locationID") – matches the device on USB in every mode.
+    public let locationID: Int?
     public var modelName: String { productType.isEmpty ? "Unbekanntes Gerät" : DeviceNames.name(for: productType) }
 
-    public init(ecid: String, productType: String, name: String, udid: String?) {
-        self.ecid = ecid; self.productType = productType; self.name = name; self.udid = udid
+    public init(ecid: String, productType: String, name: String, udid: String?, locationID: Int? = nil) {
+        self.ecid = ecid; self.productType = productType; self.name = name; self.udid = udid; self.locationID = locationID
     }
 }
 
@@ -60,11 +62,25 @@ public enum CfgUtil {
     }
 
     public static let listArguments = ["--format", "JSON", "list"]
+    /// Seconds cfgutil waits for the device to show up. Through docks and hubs the device needs longer
+    /// to re-appear after each restart during a restore, so wait generously.
+    public static let deviceTimeout = "180"
+
+    /// Worth an automatic new attempt: the connection dropped or the device was in the wrong state – typical
+    /// with docks/hubs. Not for signing, file or version problems, where a retry cannot help.
+    public static func isRetryable(_ output: String) -> Bool {
+        let codes = errorCodes(in: output)
+        let hopeless: Set<Int> = [3194, 3004, 3013, 3014, 3015, 3200, 17, 1638, 14, 1004, 1013, 1014, 1015, 10, 45, 1110]
+        if codes.contains(where: { hopeless.contains(abs($0)) }) { return false }
+        let lower = output.lowercased()
+        if lower.contains("not compatible") || lower.contains("no space") || lower.contains("nicht kompatibel") { return false }
+        return true
+    }
 
     /// `cfgutil -e <ECID> --progress restore -I <ipsw>` – erases the device and installs exactly this IPSW.
     public static func restoreArguments(ecid: String, ipsw: URL) -> [String]? {
         guard validECID(ecid), ipsw.isFileURL, ipsw.pathExtension.lowercased() == "ipsw" else { return nil }
-        return ["-e", ecid, "--progress", "restore", "-I", ipsw.path]
+        return ["-e", ecid, "--timeout", deviceTimeout, "--progress", "restore", "-I", ipsw.path]
     }
 
     /// Repair actions for a device in recovery or DFU mode, like Apple Configurator's "Revive" and "Restore".
@@ -75,7 +91,7 @@ public enum CfgUtil {
     /// `cfgutil -e <ECID> --progress revive` / `… restore` (no IPSW: cfgutil loads the newest signed version).
     public static func repairArguments(ecid: String, _ repair: Repair) -> [String]? {
         guard validECID(ecid) else { return nil }
-        return ["-e", ecid, "--progress", repair == .revive ? "revive" : "restore"]
+        return ["-e", ecid, "--timeout", deviceTimeout, "--progress", repair == .revive ? "revive" : "restore"]
     }
 
     /// cfgutil reports ECIDs as 0x-hex or decimal; iBoot's USB serial always as plain hex.
@@ -105,7 +121,8 @@ public enum CfgUtil {
         return entries.compactMap { entry -> FlashDevice? in
             guard let ecid = value(entry, "ECID"), validECID(ecid), seen.insert(ecid.lowercased()).inserted else { return nil }
             let type = value(entry, "deviceType", "productType", "Type") ?? ""
-            return FlashDevice(ecid: ecid, productType: type, name: value(entry, "name", "deviceName") ?? "", udid: value(entry, "UDID"))
+            let location = (entry["locationID"] as? NSNumber)?.intValue
+            return FlashDevice(ecid: ecid, productType: type, name: value(entry, "name", "deviceName") ?? "", udid: value(entry, "UDID"), locationID: location)
         }
         .sorted { ($0.productType, $0.ecid) < ($1.productType, $1.ecid) }
     }
@@ -152,6 +169,55 @@ public enum CfgUtil {
             if total > 0, step > 0 {
                 best = max(best, min(100, (Double(step - 1) + stepPercent / 100) / Double(total) * 100))
             }
+        }
+    }
+
+    /// Why a cfgutil job failed, in plain German: the meaningful last lines of its output plus an
+    /// explanation for the restore error codes Apple documents (support.apple.com/HT201444 / 118106).
+    public static func failureReport(_ output: String, viaHub: Bool) -> String {
+        let lines = output.components(separatedBy: CharacterSet(charactersIn: "\r\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("{") && CfgUtil.percent(in: $0) == nil || $0.lowercased().contains("error") }
+        var detail = Array(lines.suffix(6))
+        if detail.isEmpty { detail = ["Keine Details von cfgutil."] }
+        var text = detail.joined(separator: "\n")
+        let codes = errorCodes(in: output)
+        if let hint = codes.lazy.compactMap({ explain($0) }).first {
+            text = hint + "\n\n" + text
+        } else if output.lowercased().contains("timed out") || output.lowercased().contains("timeout") {
+            text = "Das Gerät hat zu lange nicht geantwortet – oft eine wackelige USB-Verbindung." + "\n\n" + text
+        }
+        if viaHub {
+            text += "\n\nDas Gerät hängt an einem USB-Hub/Dock. Die App hat bereits automatisch erneut versucht. Hilft das nicht: anderen Dock-Anschluss oder ein anderes Kabel nehmen – oder direkt am Mac anschließen."
+        }
+        return text
+    }
+
+    /// Numbers that look like restore error codes ("error 4013", "(AMRestoreErrorDomain 4013)", "Code=4013").
+    public static func errorCodes(in text: String) -> [Int] {
+        let pattern = try! NSRegularExpression(pattern: #"(?i)(?:error|fehler|code\s*[=:]?|domain)\s*[:=]?\s*\(?\s*(-?\d{1,5})\b|\(\s*[A-Za-z.]*(?:Domain|Error)[A-Za-z.]*\s+(-?\d{1,5})\s*\)"#)
+        return pattern.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match in
+            for group in [1, 2] {
+                if let r = Range(match.range(at: group), in: text), let value = Int(text[r]) { return value }
+            }
+            return nil
+        }
+    }
+
+    public static func explain(_ code: Int) -> String? {
+        switch abs(code) {
+        case 4005, 4013, 4014, 4000, 9, 4016:
+            return "Fehler \(code): Die Verbindung zum Gerät ist während der Wiederherstellung abgerissen. Gerät direkt an den Mac anschließen (kein Hub/Dock), anderes Kabel oder anderen Anschluss probieren, dann erneut flashen – bei Bedarf wieder im DFU-Modus."
+        case 3194, 3004, 3013, 3014, 3015, 3200, 17, 1638:
+            return "Fehler \(code): Apples Server hat die Freigabe (Signatur) nicht erteilt oder war nicht erreichbar. Internetverbindung prüfen; nur von Apple aktuell freigegebene Versionen lassen sich installieren."
+        case 1600, 1601, 1602, 1603, 1604, 1611, 1667, 1669:
+            return "Fehler \(code): Das Gerät war nicht im erwarteten Modus oder die USB-Verbindung war gestört. Gerät erneut in den DFU-Modus bringen und direkt am Mac flashen."
+        case 14, 1004, 1013, 1014, 1015:
+            return "Fehler \(code): Die Firmware-Datei oder die Übertragung war fehlerhaft. Datei unter „Firmware laden“ mit „Prüfen“ kontrollieren oder neu laden; anderes Kabel probieren."
+        case 10, 45, 1110:
+            return "Fehler \(code): Diese Version passt nicht zum Gerät oder ist zu alt. Die neueste freigegebene Version verwenden."
+        default:
+            return nil
         }
     }
 

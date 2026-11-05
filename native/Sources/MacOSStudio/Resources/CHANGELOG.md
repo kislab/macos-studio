@@ -1,3 +1,11 @@
+Version 1.5.4
+
+• Flashen über Dock oder Hub: Die App wartet jetzt bis zu drei Minuten, bis sich das Gerät nach jedem Neustart wieder meldet. Bricht die Verbindung ab, versucht sie es automatisch bis zu dreimal. Der Mac bleibt währenddessen wach.
+
+• Verständliche Fehler: Statt nur „Operation restore failed“ zeigt die App die letzten Meldungen von Apple Configurator und erklärt bekannte Fehlercodes (z. B. 4013 = Verbindung abgerissen, 3194 = Apple-Freigabe fehlt). Das vollständige Protokoll liegt unter ~/Library/Logs/OS Studio („Protokoll anzeigen“).
+
+• Gerät: Hängt ein iPhone/iPad nach einem Abbruch im Restore-System fest, steht das jetzt mit Hinweis dabei. Geräte am Dock/Hub werden erkannt und gekennzeichnet.
+
 Version 1.5.3
 
 • Flashen: Der Fortschrittsbalken zeigt jetzt den Gesamtfortschritt über alle Schritte. Vorher sprang er auf die Prozente des aktuellen Schritts (z. B. sofort 49 %). Darunter steht „Schritt 3 von 7 · Name · 49 % dieses Schritts“.

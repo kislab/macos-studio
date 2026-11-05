@@ -17,6 +17,9 @@ import StudioCore
         let id: String
         let mode: DFUGuide.USBMode
         let serial: String
+        var locationID: Int? = nil
+        /// Connected through a USB hub or dock instead of directly to a port of the Mac.
+        var viaHub = false
         var cpid: String? { DFUGuide.field("CPID", in: serial) }
         var ecid: String? { DFUGuide.field("ECID", in: serial) }
     }
@@ -250,7 +253,15 @@ import StudioCore
             let serial = IORegistryEntryCreateCFProperty(service, "USB Serial Number" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String ?? ""
             var entryID: UInt64 = 0
             IORegistryEntryGetRegistryEntryID(service, &entryID)
-            found.append(USBDevice(id: String(entryID), mode: mode, serial: serial))
+            let location = (IORegistryEntryCreateCFProperty(service, "locationID" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? NSNumber)?.intValue
+            // In the USB plane the parent is either the Mac's USB controller or a hub (itself a USB device).
+            var parent: io_registry_entry_t = 0
+            var hub = false
+            if IORegistryEntryGetParentEntry(service, kIOUSBPlane, &parent) == KERN_SUCCESS {
+                hub = IOObjectConformsTo(parent, "IOUSBHostDevice") != 0
+                IOObjectRelease(parent)
+            }
+            found.append(USBDevice(id: String(entryID), mode: mode, serial: serial, locationID: location, viaHub: hub))
         }
         // Normal-mode devices on USB that the device service has not reported for a few seconds are blocked.
         let now = Date()

@@ -74,10 +74,19 @@ struct DeviceView: View {
 
     // MARK: Devices
 
-    private enum Mode { case recovery, dfu, normal }
+    private enum Mode { case recovery, dfu, normal, restoring }
+    private func usb(for device: FlashDevice) -> DeviceMonitor.USBDevice? {
+        monitor.usbDevices.first { $0.locationID != nil && $0.locationID == device.locationID }
+            ?? monitor.usbDevices.first { $0.ecid.map { CfgUtil.sameECID(cfgutil: device.ecid, usbHex: $0) } ?? false }
+    }
     private func mode(of device: FlashDevice) -> Mode {
-        if let usb = monitor.usbDevices.first(where: { $0.ecid.map { CfgUtil.sameECID(cfgutil: device.ecid, usbHex: $0) } ?? false }) {
-            return usb.mode == .dfu ? .dfu : usb.mode == .recovery ? .recovery : .normal
+        if let usb = usb(for: device) {
+            switch usb.mode {
+            case .dfu: return .dfu
+            case .recovery: return .recovery
+            // Normal USB ID but no UDID: the restore system is running (or a failed restore got stuck there).
+            case .normal: return device.udid == nil ? .restoring : .normal
+            }
         }
         return device.udid == nil ? .recovery : .normal   // cfgutil has no UDID for recovery/DFU devices
     }
@@ -198,6 +207,14 @@ struct DeviceView: View {
                 .buttonStyle(.link).disabled(!idle)
                 .help("Eine bestimmte IPSW-Datei im Flasher wählen")
             }
+            if usb(for: device)?.viaHub == true {
+                Label("Über Hub/Dock angeschlossen. Flashen klappt, kann aber länger dauern: Die App wartet länger auf das Gerät und versucht es bei Verbindungsabbruch automatisch bis zu dreimal. Klappt es dann nicht, direkt am Mac anschließen.", systemImage: "info.circle")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if mode == .restoring && !store.running {
+                Label("Steckt im Wiederherstellungs-System fest (z. B. nach einem Abbruch). Gerät in den DFU-Modus bringen (Extras) – am besten direkt am Mac – und erneut flashen.", systemImage: "exclamationmark.triangle")
+                    .font(.caption).foregroundStyle(.orange)
+            }
             if mode == .normal {
                 Label("Läuft normal: Flashen geht nur, wenn das Gerät entsperrt ist und diesem Mac vertraut. Sonst unten „Aktivieren“ für den Wiederherstellungsmodus.", systemImage: "info.circle")
                     .font(.caption).foregroundStyle(.secondary)
@@ -211,6 +228,7 @@ struct DeviceView: View {
         case .recovery: ("Wiederherstellung", .orange)
         case .dfu: ("DFU", .purple)
         case .normal: ("Normal", .green)
+        case .restoring: ("Restore-System", .red)
         }
         return Text(text).font(.caption2.weight(.semibold)).foregroundStyle(color)
             .padding(.horizontal, 7).padding(.vertical, 2).background(color.opacity(0.15), in: Capsule())

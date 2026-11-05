@@ -28,10 +28,13 @@ final class CoreTests {
         XCTAssertTrue(CfgUtil.validECID("0x1A2B3C4D5E6F")); XCTAssertTrue(CfgUtil.validECID("123456"))
         XCTAssertFalse(CfgUtil.validECID("0x1; rm -rf /")); XCTAssertFalse(CfgUtil.validECID(""))
         let file = URL(fileURLWithPath: "/tmp/a b/iPhone.ipsw")
-        XCTAssertEqual(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: file) ?? [], ["-e", "0xABC", "--progress", "restore", "-I", "/tmp/a b/iPhone.ipsw"])
+        XCTAssertEqual(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: file) ?? [], ["-e", "0xABC", "--timeout", "180", "--progress", "restore", "-I", "/tmp/a b/iPhone.ipsw"])
         XCTAssertNil(CfgUtil.restoreArguments(ecid: "bad", ipsw: file))
-        XCTAssertEqual(CfgUtil.repairArguments(ecid: "0xABC", .revive) ?? [], ["-e", "0xABC", "--progress", "revive"])
-        XCTAssertEqual(CfgUtil.repairArguments(ecid: "0xABC", .restoreLatest) ?? [], ["-e", "0xABC", "--progress", "restore"])
+        XCTAssertEqual(CfgUtil.repairArguments(ecid: "0xABC", .revive) ?? [], ["-e", "0xABC", "--timeout", "180", "--progress", "revive"])
+        XCTAssertEqual(CfgUtil.repairArguments(ecid: "0xABC", .restoreLatest) ?? [], ["-e", "0xABC", "--timeout", "180", "--progress", "restore"])
+        XCTAssertTrue(CfgUtil.isRetryable("Error: lost (AMRestoreErrorDomain 4013)"))
+        XCTAssertTrue(CfgUtil.isRetryable("Operation \"restore\" failed on 1 devices."))
+        XCTAssertFalse(CfgUtil.isRetryable("restore failed: error 3194"))
         XCTAssertNil(CfgUtil.repairArguments(ecid: "0x1; reboot", .revive))
         XCTAssertTrue(CfgUtil.sameECID(cfgutil: "0x1A2B3C4D5E6F70", usbHex: "001A2B3C4D5E6F70"))
         XCTAssertTrue(CfgUtil.sameECID(cfgutil: "4096", usbHex: "1000"))
@@ -39,6 +42,14 @@ final class CoreTests {
         let dfuList = #"{"Command":"list","Output":{"0x1511103C0B401E":{"locationID":1179648,"UDID":null,"ECID":"0x1511103C0B401E","name":null,"deviceType":"iPad13,17"}},"Type":"CommandOutput","Devices":["0x1511103C0B401E"]}"#
         let dfu = CfgUtil.devices(fromList: Data(dfuList.utf8))
         XCTAssertEqual(dfu.first?.productType, "iPad13,17"); XCTAssertNil(dfu.first?.udid)
+        XCTAssertEqual(dfu.first?.locationID, 0x00120000)                    // ioreg "iPad@00120000"
+        // Failure reports
+        XCTAssertEqual(CfgUtil.errorCodes(in: "Error: The device could not be restored (AMRestoreErrorDomain 4013)"), [4013])
+        XCTAssertTrue(CfgUtil.errorCodes(in: "restore failed: error 3194").contains(3194))
+        let report = CfgUtil.failureReport("Step 5 of 7: Restoring\n 49%\n\"restore\" failed on iPad.\nError: lost (AMRestoreErrorDomain 4013)\nOperation \"restore\" failed on 1 devices.\n", viaHub: true)
+        XCTAssertTrue(report.contains("Fehler 4013")); XCTAssertTrue(report.contains("USB-Hub")); XCTAssertTrue(report.contains("failed on iPad"))
+        XCTAssertFalse(report.contains("49%"))
+        XCTAssertNil(CfgUtil.explain(12345))
         let usbSerial = "SDOM:01 CPID:8103 CPRV:11 CPFM:03 SCEP:01 BDID:12 ECID:001511103C0B401E IBFL:3C SRTG:[iBoot-5540.0.0.400.2]"
         XCTAssertTrue(CfgUtil.sameECID(cfgutil: dfu.first?.ecid ?? "", usbHex: DFUGuide.field("ECID", in: usbSerial) ?? ""))
         XCTAssertTrue(DFUGuide.usbMode(productID: 4647) == .dfu)
