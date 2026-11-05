@@ -21,7 +21,7 @@ import StudioCore
         /// Connected through a USB hub or dock instead of directly to a port of the Mac.
         var viaHub = false
         var cpid: String? { DFUGuide.field("CPID", in: serial) }
-        var ecid: String? { DFUGuide.field("ECID", in: serial) }
+        var ecid: String? { DFUGuide.field("ECID", in: serial) ?? DFUGuide.ecid(fromUDIDSerial: serial) }
     }
 
     static let shared = DeviceMonitor()
@@ -34,6 +34,10 @@ import StudioCore
     /// devices whose USB data is blocked (iOS "USB accessories" protection). Only buttons or unlocking help.
     @Published private(set) var blockedCount = 0
     private var normalSeen: [String: Date] = [:]
+    /// ECIDs cfgutil sees without UDID (restore system running or stuck) or that are being flashed right now.
+    /// They look like normal devices on USB but are not locked – kept out of `blockedCount`.
+    var restoreECIDs: Set<UInt64> = [] { didSet { if restoreECIDs != oldValue { scanUSB() } } }
+    @Published private(set) var restoringCount = 0
     private var readingOut: Set<String> = []
 
     private var md: MobileDevice?
@@ -71,6 +75,8 @@ import StudioCore
         guard auto != .off, autoTask == nil else { return }
         guard let next = devices.first(where: { !autoHandled.contains($0.id) && !readingOut.contains($0.id) }) else {
             if auto == .waiting, !readingOut.isEmpty { auto = .sending("Gerät") }
+            // Unplugged during the read-out: nothing left to send, back to waiting.
+            if case .sending = auto, readingOut.isEmpty { auto = .waiting }
             return
         }
         autoHandled.insert(next.id)
@@ -265,7 +271,9 @@ import StudioCore
         }
         // Normal-mode devices on USB that the device service has not reported for a few seconds are blocked.
         let now = Date()
-        let normalIDs = Set(found.filter { $0.mode == .normal }.map(\.id))
+        let restoring = found.filter { usb in usb.mode == .normal && (usb.ecid.flatMap { UInt64($0, radix: 16) }.map(restoreECIDs.contains) ?? false) }
+        if restoring.count != restoringCount { restoringCount = restoring.count }
+        let normalIDs = Set(found.filter { $0.mode == .normal }.map(\.id)).subtracting(restoring.map(\.id))
         normalSeen = normalSeen.filter { normalIDs.contains($0.key) }
         for id in normalIDs where normalSeen[id] == nil { normalSeen[id] = now }
         let settled = normalSeen.values.filter { now.timeIntervalSince($0) > 4 }.count

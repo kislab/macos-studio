@@ -53,6 +53,9 @@ final class CoreTests {
         let usbSerial = "SDOM:01 CPID:8103 CPRV:11 CPFM:03 SCEP:01 BDID:12 ECID:001511103C0B401E IBFL:3C SRTG:[iBoot-5540.0.0.400.2]"
         XCTAssertTrue(CfgUtil.sameECID(cfgutil: dfu.first?.ecid ?? "", usbHex: DFUGuide.field("ECID", in: usbSerial) ?? ""))
         XCTAssertTrue(DFUGuide.usbMode(productID: 4647) == .dfu)
+        XCTAssertEqual(DFUGuide.ecid(fromUDIDSerial: "00008103-001511103C0B401E"), "001511103C0B401E")   // restore OS / normal
+        XCTAssertNil(DFUGuide.ecid(fromUDIDSerial: "0123456789abcdef0123456789abcdef01234567"))         // old 40-hex UDID
+        XCTAssertTrue(CfgUtil.sameECID(cfgutil: "0x1511103C0B401E", usbHex: DFUGuide.ecid(fromUDIDSerial: "00008103-001511103C0B401E") ?? ""))
         XCTAssertFalse(CfgUtil.sameECID(cfgutil: "0x1A2B", usbHex: "1A2C"))
         XCTAssertFalse(CfgUtil.sameECID(cfgutil: "bad", usbHex: "1A2B"))
         XCTAssertNil(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: URL(fileURLWithPath: "/tmp/x.dmg")))

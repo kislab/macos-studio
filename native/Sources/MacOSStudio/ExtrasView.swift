@@ -21,6 +21,8 @@ struct ExtrasView: View {
     @ObservedObject var photos: DevicePhotoStore
     /// Jumps to iPhone & iPad → Gerät (flash or repair the device that is now in DFU/recovery).
     var openDevice: () -> Void = {}
+    /// Reads cfgutil's device list, so a device in the restore system is not shown as "locked".
+    var refreshDevices: () -> Void = {}
     @StateObject private var state = ExtrasState()
 
     private var inRecovery: [DeviceMonitor.USBDevice] { monitor.usbDevices.filter { $0.mode == .recovery } }
@@ -57,6 +59,7 @@ struct ExtrasView: View {
         .onChange(of: monitor.devices) { devices in
             if let type = devices.first?.productType, let found = DFUGuide.method(for: type), !state.guiding { state.method = found }
         }
+        .onChange(of: monitor.blockedCount) { count in if count > 0 { refreshDevices() } }
         .onChange(of: inDFU.count) { count in
             if count > 0 && state.guiding { state.dfuReached = true; stopGuide() }
         }
@@ -83,13 +86,20 @@ struct ExtrasView: View {
                 Text("Apples Gerätedienst ist auf diesem Mac nicht verfügbar. Wiederherstellungs- und DFU-Modus werden trotzdem über USB erkannt.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            if monitor.devices.isEmpty && inRecovery.isEmpty && inDFU.isEmpty && monitor.blockedCount == 0 {
+            if monitor.devices.isEmpty && inRecovery.isEmpty && inDFU.isEmpty && monitor.blockedCount == 0 && monitor.restoringCount == 0 {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     Text("Kein Gerät angeschlossen – iPhone oder iPad per USB-Kabel verbinden.").foregroundStyle(.secondary)
                 }
                 Text("Angesteckt, aber nichts erscheint? Ein länger gesperrtes Gerät gibt per USB keine Daten frei. Entsperren – oder per Tasten in den Wiederherstellungsmodus (unten).")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            if monitor.restoringCount > 0 {
+                deviceRow(photo: nil, symbol: "arrow.triangle.2.circlepath", title: "Gerät im Restore-System",
+                          detail: "Wird gerade wiederhergestellt – oder ist nach einem Abbruch dort hängen geblieben.", badge: ("Restore", .red),
+                          note: "Hängt es fest: in den DFU-Modus bringen und erneut flashen.") {
+                    Button("Zum Gerät …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
+                }
             }
             if monitor.blockedCount > 0 {
                 deviceRow(photo: nil, symbol: "lock.iphone", title: "iPhone/iPad gesperrt",

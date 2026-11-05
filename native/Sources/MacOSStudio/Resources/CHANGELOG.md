@@ -1,3 +1,11 @@
+Version 1.5.5
+
+• Ein iPhone/iPad im Restore-System (während des Flashens oder nach einem Abbruch) wurde fälschlich als „gesperrt“ angezeigt. Jetzt steht es als „Gerät im Restore-System“ mit Knopf „Zum Gerät …“ da.
+
+• „Wiederherstellungsmodus per Anstecken“ blieb auf „wird versetzt …“ hängen, wenn das Gerät während des Auslesens abgezogen wurde.
+
+• Nach dem Flashen wird die Geräteliste sofort aktualisiert.
+
 Version 1.5.4
 
 • Flashen über Dock oder Hub: Die App wartet jetzt bis zu drei Minuten, bis sich das Gerät nach jedem Neustart wieder meldet. Bricht die Verbindung ab, versucht sie es automatisch bis zu dreimal. Der Mac bleibt währenddessen wach.

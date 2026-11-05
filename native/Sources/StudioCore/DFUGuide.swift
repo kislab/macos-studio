@@ -87,6 +87,11 @@ public enum DFUGuide {
         default: nil
         }
     }
+    /// ECID from the USB serial of a normal-mode or restore-OS device ("00008103-001511103C0B401E").
+    public static func ecid(fromUDIDSerial serial: String) -> String? {
+        guard serial.range(of: "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}$", options: .regularExpression) != nil else { return nil }
+        return String(serial.suffix(16))
+    }
     /// Values from iBoot's USB serial string, e.g. "CPID:8030 CPRV:11 ... ECID:001A2B3C SRNM:[F2LXXXX]".
     public static func field(_ key: String, in serial: String) -> String? {
         guard let range = serial.range(of: key + ":") else { return nil }

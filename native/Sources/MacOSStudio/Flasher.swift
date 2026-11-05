@@ -40,7 +40,15 @@ import StudioCore
         scanning = true; defer { scanning = false }
         guard let list = await listDevices() else { return }
         devices = list
+        publishRestoreECIDs()
         if device == nil { selected = devices.count == 1 ? devices[0].ecid : nil }
+    }
+
+    /// Lets the device monitor tell "stuck in / running the restore system" apart from "locked".
+    private func publishRestoreECIDs() {
+        var ids = Set(devices.filter { $0.udid == nil }.compactMap { CfgUtil.ecidValue($0.ecid) })
+        if let active = activeECID.flatMap(CfgUtil.ecidValue) { ids.insert(active) }
+        DeviceMonitor.shared.restoreECIDs = ids
     }
 
     private func listDevices() async -> [FlashDevice]? {
@@ -159,6 +167,7 @@ import StudioCore
     private func execute(_ args: [String], studio: StudioModel, ecid: String, start: String, done: String, failure: String) async {
         guard let tool, !running, !studio.busy, !studio.loading else { return }
         studio.busy = true; running = true; result = nil; progress = nil; log = ""; activeECID = ecid; lastLogFile = nil
+        publishRestoreECIDs()
         steps = CfgUtil.StepProgress(); stepInfo = ""
         activeFile = args.firstIndex(of: "-I").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
         phase = start
@@ -200,7 +209,10 @@ import StudioCore
         } catch {
             result = false; phase = "Fehlgeschlagen"; self.error = error.localizedDescription
         }
-        await refresh()
+        // `running` is still true here (reset by the defer), so list directly instead of refresh().
+        if let list = await listDevices() { devices = list }
+        activeECID = nil
+        publishRestoreECIDs()
     }
 
     private var userCancelled = false

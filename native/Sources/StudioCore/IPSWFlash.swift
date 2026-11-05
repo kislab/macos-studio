@@ -94,6 +94,11 @@ public enum CfgUtil {
         return ["-e", ecid, "--timeout", deviceTimeout, "--progress", repair == .revive ? "revive" : "restore"]
     }
 
+    /// Numeric ECID from cfgutil's 0x-hex or decimal form.
+    public static func ecidValue(_ cfgutil: String) -> UInt64? {
+        guard validECID(cfgutil) else { return nil }
+        return cfgutil.lowercased().hasPrefix("0x") ? UInt64(cfgutil.dropFirst(2), radix: 16) : UInt64(cfgutil)
+    }
     /// cfgutil reports ECIDs as 0x-hex or decimal; iBoot's USB serial always as plain hex.
     public static func sameECID(cfgutil: String, usbHex: String) -> Bool {
         guard validECID(cfgutil), let usb = UInt64(usbHex, radix: 16) else { return false }
