@@ -3,8 +3,9 @@ import SwiftUI
 import StudioCore
 
 /// "Gerät": everything for the iPhone/iPad that is plugged in right now – in normal, recovery or DFU mode.
-/// The app recognises the model, shows the newest firmware Apple signs for it and does
-/// "Laden & flashen" in one go. "Reparieren" (Apple Configurator's Revive) keeps the data.
+/// The app recognises the model and shows the newest firmware Apple signs for it. Two explicit steps:
+/// "Firmware laden" (download only), then "Flashen …" (button + confirmation). Nothing starts by itself.
+/// "Reparieren" (Apple Configurator's Revive) keeps the data.
 struct DeviceView: View {
     @ObservedObject var store: FlasherStore
     @ObservedObject var firmware: FirmwareStore
@@ -39,20 +40,18 @@ struct DeviceView: View {
                 if !store.running { await store.refresh() }
             }
         }
-        .confirmationDialog("Gerät löschen und flashen?", isPresented: Binding(get: { store.confirmLoadAndFlash != nil }, set: { if !$0 { store.confirmLoadAndFlash = nil } }), titleVisibility: .visible) {
-            if let pick = store.confirmLoadAndFlash {
-                Button((firmware.existing(pick.item) == nil ? "Laden, löschen und " : "Löschen und ") + "\(pick.item.platform) \(pick.item.version) installieren", role: .destructive) {
+        .confirmationDialog("Gerät löschen und flashen?", isPresented: Binding(get: { store.confirmFlash != nil }, set: { if !$0 { store.confirmFlash = nil } }), titleVisibility: .visible) {
+            if let pick = store.confirmFlash {
+                Button("Löschen und \(pick.item.platform) \(pick.item.version) installieren", role: .destructive) {
                     store.lastWasRepair = true
-                    Task { await store.loadAndFlash(pick.device, pick.item, firmware: firmware, studio: studio) }
-                    store.confirmLoadAndFlash = nil
+                    Task { await store.flashDownloaded(pick.device, pick.item, firmware: firmware, studio: studio) }
+                    store.confirmFlash = nil
                 }
             }
-            Button("Abbrechen", role: .cancel) { store.confirmLoadAndFlash = nil }
+            Button("Abbrechen", role: .cancel) { store.confirmFlash = nil }
         } message: {
-            if let pick = store.confirmLoadAndFlash {
-                Text("\(pick.device.modelName) (ECID \(pick.device.ecid)) wird vollständig gelöscht und mit \(pick.item.platform) \(pick.item.version) (\(pick.item.build)) neu installiert."
-                     + (firmware.existing(pick.item) == nil ? " Die Firmware wird zuerst von Apple geladen und geprüft, danach startet das Flashen automatisch." : "")
-                     + " Kabel nicht trennen.")
+            if let pick = store.confirmFlash {
+                Text("\(pick.device.modelName) (ECID \(pick.device.ecid)) wird vollständig gelöscht und mit \(pick.item.platform) \(pick.item.version) (\(pick.item.build)) neu installiert. Kabel nicht trennen.")
             }
         }
         .confirmationDialog("Gerät reparieren?", isPresented: Binding(get: { store.confirmRevive != nil }, set: { if !$0 { store.confirmRevive = nil } }), titleVisibility: .visible) {
@@ -152,7 +151,7 @@ struct DeviceView: View {
                 if let item {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Neueste Firmware: \(item.platform) \(item.version) (\(item.build))").font(.callout.weight(.medium))
-                        Label(downloaded ? "Bereits geladen – Flashen startet sofort" : "Noch nicht geladen – wird vor dem Flashen von Apple geladen und geprüft",
+                        Label(downloaded ? "Geladen und bereit – zum Flashen auf „Flashen …“ drücken" : "Noch nicht geladen – zuerst „Firmware laden“ drücken",
                               systemImage: downloaded ? "checkmark.circle.fill" : "arrow.down.circle")
                             .font(.caption).foregroundStyle(downloaded ? .green : .secondary)
                     }
@@ -169,11 +168,19 @@ struct DeviceView: View {
             }
             .padding(10).background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
             HStack(spacing: 10) {
-                Button(downloaded ? "Flashen …" : "Laden & flashen …", systemImage: "bolt.fill") {
-                    if let item { store.confirmLoadAndFlash = (device, item) }
+                if downloaded {
+                    Button("Flashen …", systemImage: "bolt.fill") {
+                        if let item { store.confirmFlash = (device, item) }
+                    }
+                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(!idle)
+                    .help("Löscht das Gerät und installiert die geladene Firmware – nach Rückfrage")
+                } else {
+                    Button("Firmware laden", systemImage: "arrow.down.circle") {
+                        if let item { Task { await store.download(for: device, item, firmware: firmware, studio: studio) } }
+                    }
+                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(item == nil || !idle)
+                    .help("Lädt nur die Firmware und prüft sie – am Gerät wird nichts verändert")
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large).disabled(item == nil || !idle)
-                .help("Löscht das Gerät und installiert die neueste Firmware")
                 Button("Reparieren", systemImage: "wrench.and.screwdriver") { store.confirmRevive = device }
                     .controlSize(.large).disabled(mode == .normal || !idle)
                     .help(mode == .normal ? "Nur im Wiederherstellungs- oder DFU-Modus" : "System neu installieren, Daten bleiben erhalten (Apple: „Revive“)")
@@ -208,7 +215,7 @@ struct DeviceView: View {
     private var downloadCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("1/2 · Firmware wird geladen").font(.headline)
+                Text("Firmware wird geladen").font(.headline)
                 Spacer()
                 Button("Abbrechen", role: .cancel) { firmware.cancel() }
             }
@@ -222,7 +229,7 @@ struct DeviceView: View {
                 }
                 if let mbits = firmware.mbits { Text(String(format: "· %.0f Mbit/s", mbits)) }
             }.font(.caption).foregroundStyle(.secondary).monospacedDigit()
-            Text("Danach wird geprüft und automatisch geflasht (2/2). Gerät angesteckt lassen.").font(.caption).foregroundStyle(.secondary)
+            Text("Es wird nur geladen und geprüft – am Gerät ändert sich nichts. Danach erscheint „Flashen …“.").font(.caption).foregroundStyle(.secondary)
         }.padding(16).background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 
@@ -231,7 +238,7 @@ struct DeviceView: View {
     private var notesCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Gut zu wissen", systemImage: "lightbulb").font(.headline)
-            Text("• **Flashen** löscht das Gerät und installiert die neueste von Apple freigegebene Version. Ältere Versionen nimmt das Gerät nicht an, sobald Apple sie nicht mehr signiert.")
+            Text("• Nichts startet von selbst: erst **Firmware laden**, dann **Flashen …** drücken und bestätigen. Flashen löscht das Gerät und installiert die neueste von Apple freigegebene Version.")
             Text("• **Reparieren** zuerst versuchen, wenn die Daten bleiben sollen – laut Apple der erste Schritt für Geräte, die im Wiederherstellungsmodus hängen.")
             Text("• Der **Wiederherstellungsmodus** endet nach etwa 15 Minuten von selbst. Bei langsamem Internet die Firmware vorher laden oder den **DFU-Modus** nutzen.")
             Text("• War „Wo ist?“ aktiv, fragt das Gerät danach nach der Apple-ID des Besitzers (Aktivierungssperre).")

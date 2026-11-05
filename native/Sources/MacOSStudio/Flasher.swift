@@ -75,30 +75,29 @@ import StudioCore
                       failure: "Die Wiederherstellung ist fehlgeschlagen.")
     }
 
-    /// Device tab: ECID whose firmware is downloading right now, to be flashed right after.
+    /// Device tab: ECID whose firmware is downloading right now. Downloading never flashes by itself.
     @Published var pendingFlash: String?
-    @Published var confirmLoadAndFlash: (device: FlashDevice, item: Firmware)?
+    @Published var confirmFlash: (device: FlashDevice, item: Firmware)?
 
-    /// "Laden & flashen": takes the downloaded IPSW for this device or downloads it first (SHA-1 checked),
-    /// then erases the device and installs it. Stops on any failure without touching the device.
-    func loadAndFlash(_ target: FlashDevice, _ item: Firmware, firmware: FirmwareStore, studio: StudioModel) async {
-        guard !running, pendingFlash == nil, item.devices.contains(target.productType) else { return }
-        var file = firmware.existing(item)
-        if file == nil {
-            pendingFlash = target.ecid
-            await firmware.start(item, studio: studio)
-            pendingFlash = nil
-            guard let done = firmware.finished, done.lastPathComponent == item.fileName else { return }   // cancelled or failed
-            file = done
-        }
-        guard let file else { return }
+    /// Step 1 in the device tab: only downloads (SHA-1 checked) the firmware for this device.
+    func download(for target: FlashDevice, _ item: Firmware, firmware: FirmwareStore, studio: StudioModel) async {
+        guard !running, pendingFlash == nil, firmware.existing(item) == nil else { return }
+        pendingFlash = target.ecid
+        await firmware.start(item, studio: studio)
+        pendingFlash = nil
+    }
+
+    /// Step 2, only after the user pressed "Flashen" and confirmed: erases the device and installs the
+    /// already downloaded IPSW. Stops on any failure without touching the device.
+    func flashDownloaded(_ target: FlashDevice, _ item: Firmware, firmware: FirmwareStore, studio: StudioModel) async {
+        guard !running, pendingFlash == nil, item.devices.contains(target.productType), let file = firmware.existing(item) else { return }
         selected = target.ecid
         await select(file)
         guard compatible else {
             error = "„\(file.lastPathComponent)“ passt nicht zu \(target.modelName). Es wurde nichts verändert."; return
         }
         guard device != nil else {
-            error = "\(target.modelName) ist nicht mehr verbunden. Gerät wieder anstecken (DFU- oder Wiederherstellungsmodus) und erneut „Flashen“ wählen – die Firmware ist schon geladen."
+            error = "\(target.modelName) ist nicht mehr verbunden. Gerät wieder anstecken (DFU- oder Wiederherstellungsmodus) und erneut „Flashen“ drücken."
             return
         }
         firmware.dismiss()

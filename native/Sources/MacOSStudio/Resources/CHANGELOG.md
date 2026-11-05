@@ -1,3 +1,7 @@
+Version 1.5.2
+
+• Gerät: Flashen startet nie mehr von selbst. Zuerst „Firmware laden“ (lädt und prüft nur – am Gerät ändert sich nichts), danach erscheint „Flashen …“, das man selbst drücken und bestätigen muss. Das gilt auch, wenn ein Gerät im DFU-Modus erkannt wird.
+
 Version 1.5.1
 
 • Firmware-Download: Während des Ladens steht jetzt „IPSW wird geladen …“ statt dauerhaft „Speicherplatz wird geprüft …“.
