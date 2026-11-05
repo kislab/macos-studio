@@ -55,6 +55,19 @@ final class CoreTests {
 
         XCTAssertEqual(CfgUtil.percent(in: "Restoring 12%\nRestoring 47.5 %"), 47.5)
         XCTAssertNil(CfgUtil.percent(in: "Waiting for device")); XCTAssertNil(CfgUtil.percent(in: "250%"))
+        // Step-wise cfgutil output → steady overall progress
+        var steps = CfgUtil.StepProgress()
+        XCTAssertNil(steps.overall)
+        steps.consume("Step 1 of 4: Preparing\n 50%\n")
+        XCTAssertEqual(steps.overall, 12.5); XCTAssertEqual(steps.title, "Preparing")
+        steps.consume("Step 2 of 4: Restoring iPad\n 49")         // line split across chunks
+        steps.consume("%\n")
+        XCTAssertEqual(steps.step, 2); XCTAssertEqual(steps.stepPercent, 49)
+        XCTAssertTrue(abs((steps.overall ?? 0) - 37.25) < 0.01)
+        steps.consume("Schritt 4 von 4: Abschließen 100%\n")
+        XCTAssertEqual(steps.overall, 100); XCTAssertEqual(steps.title, "Abschließen")
+        steps.consume("Step 3 of 4: x\n 0%\n")                   // never goes backwards
+        XCTAssertEqual(steps.overall, 100)
         XCTAssertEqual(CfgUtil.lastLine(in: "a\r\nVerifying restore\n\n"), "Verifying restore")
         XCTAssertTrue(CfgUtil.locate { $0.hasPrefix("/usr/local") } == "/usr/local/bin/cfgutil")
         XCTAssertNil(CfgUtil.locate { _ in false })

@@ -22,6 +22,11 @@ import StudioCore
     @Published var result: Bool?                    // true = done, false = failed
     @Published var error: String?
     private var command: Command?
+    private var steps = CfgUtil.StepProgress()
+    /// "Schritt 3 von 7 · Name · 49 %" – detail line under the overall bar.
+    @Published var stepInfo = ""
+    /// IPSW file being installed right now (nil for revive / online restore).
+    @Published var activeFile: URL?
 
     var device: FlashDevice? { devices.first { $0.ecid == selected } }
     var compatible: Bool { guard let device, let info else { return false }; return info.supports(device.productType) }
@@ -133,6 +138,8 @@ import StudioCore
     private func execute(_ args: [String], studio: StudioModel, ecid: String, start: String, done: String, failure: String) async {
         guard let tool, !running, !studio.busy, !studio.loading else { return }
         studio.busy = true; running = true; result = nil; progress = nil; log = ""; activeECID = ecid
+        steps = CfgUtil.StepProgress(); stepInfo = ""
+        activeFile = args.firstIndex(of: "-I").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
         phase = start
         let runner = Command(); command = runner
         defer { studio.busy = false; running = false; command = nil; activeECID = nil; DockProgress.clear() }
@@ -161,8 +168,17 @@ import StudioCore
         guard running else { return }
         log += chunk
         if log.count > 200_000 { log = String(log.suffix(100_000)) }
-        if let value = CfgUtil.percent(in: chunk) { progress = value; DockProgress.show(value / 100) }
-        if let line = CfgUtil.lastLine(in: chunk) { phase = line }
+        steps.consume(chunk)
+        if let overall = steps.overall {
+            // Step-wise output: one steady bar over all steps instead of the per-step percent.
+            progress = overall; DockProgress.show(overall / 100)
+            stepInfo = "Schritt \(steps.step) von \(steps.total)" + (steps.title.isEmpty ? "" : " · \(steps.title)")
+                + String(format: " · %.0f %% dieses Schritts", steps.stepPercent)
+            if !steps.title.isEmpty { phase = steps.title }
+        } else {
+            if let value = CfgUtil.percent(in: chunk) { progress = value; DockProgress.show(value / 100) }
+            if let line = CfgUtil.lastLine(in: chunk) { phase = line }
+        }
     }
 }
 
@@ -301,6 +317,20 @@ struct FlasherView: View {
     private var progressCard: some View { FlashProgressCard(store: store, title: "3. Flashen") }
 }
 
+/// Where the IPSW lies on this Mac – full path, selectable, with a Finder button.
+struct IPSWLocation: View {
+    let file: URL
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "doc.zipper").foregroundStyle(.secondary)
+            Text(file.path).font(.caption.monospaced()).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                .help(file.path)
+            Button("Im Finder zeigen") { NSWorkspace.shared.activateFileViewerSelecting([file]) }
+                .buttonStyle(.link).font(.caption)
+        }
+    }
+}
+
 /// Progress of a running cfgutil job (flash, revive, restore), with cancel and close.
 struct FlashProgressCard: View {
     @ObservedObject var store: FlasherStore
@@ -325,8 +355,14 @@ struct FlashProgressCard: View {
                 if store.result == false { Image(systemName: "xmark.circle.fill").foregroundStyle(.red) }
                 Text(store.phase).lineLimit(2)
                 Spacer()
-                if let value = store.progress, store.running { Text(String(format: "%.0f %%", value)) }
+                if let value = store.progress, store.running { Text(String(format: "%.0f %% gesamt", value)).monospacedDigit() }
             }.font(.caption).foregroundStyle(.secondary)
+            if store.running, !store.stepInfo.isEmpty {
+                Text(store.stepInfo).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+            }
+            if let file = store.activeFile {
+                IPSWLocation(file: file)
+            }
             if store.running { Text("Kabel nicht trennen und den Mac nicht in den Ruhezustand versetzen.").font(.caption).foregroundStyle(.orange) }
         }.padding(16).background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }

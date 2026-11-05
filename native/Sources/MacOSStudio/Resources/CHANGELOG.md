@@ -1,3 +1,9 @@
+Version 1.5.3
+
+• Flashen: Der Fortschrittsbalken zeigt jetzt den Gesamtfortschritt über alle Schritte. Vorher sprang er auf die Prozente des aktuellen Schritts (z. B. sofort 49 %). Darunter steht „Schritt 3 von 7 · Name · 49 % dieses Schritts“.
+
+• Speicherort der IPSW: Im Reiter „Gerät“ und während des Flashens steht der vollständige Pfad der verwendeten Firmware-Datei – mit „Im Finder zeigen“. Noch nicht geladene Firmware zeigt, wohin sie gespeichert wird.
+
 Version 1.5.2
 
 • Gerät: Flashen startet nie mehr von selbst. Zuerst „Firmware laden“ (lädt und prüft nur – am Gerät ändert sich nichts), danach erscheint „Flashen …“, das man selbst drücken und bestätigen muss. Das gilt auch, wenn ein Gerät im DFU-Modus erkannt wird.

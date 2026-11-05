@@ -154,6 +154,12 @@ struct DeviceView: View {
                         Label(downloaded ? "Geladen und bereit – zum Flashen auf „Flashen …“ drücken" : "Noch nicht geladen – zuerst „Firmware laden“ drücken",
                               systemImage: downloaded ? "checkmark.circle.fill" : "arrow.down.circle")
                             .font(.caption).foregroundStyle(downloaded ? .green : .secondary)
+                        if let file = firmware.existing(item) {
+                            IPSWLocation(file: file)
+                        } else {
+                            Text("Wird gespeichert in: \(firmware.folder.path)").font(.caption).foregroundStyle(.secondary)
+                                .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                        }
                     }
                 } else if firmware.loading {
                     ProgressView().controlSize(.small); Text("Apple-Firmwareliste wird geladen …").font(.callout).foregroundStyle(.secondary)

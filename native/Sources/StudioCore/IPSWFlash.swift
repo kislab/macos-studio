@@ -110,6 +110,51 @@ public enum CfgUtil {
         .sorted { ($0.productType, $0.ecid) < ($1.productType, $1.ecid) }
     }
 
+    /// Overall progress of a cfgutil restore. cfgutil prints "Step 3 of 7: Name" (German: "Schritt 3 von 7: …")
+    /// followed by percentages that restart at 0 for every step – shown raw they jump around.
+    public struct StepProgress: Equatable, Sendable {
+        public private(set) var step = 0
+        public private(set) var total = 0
+        public private(set) var stepPercent: Double = 0
+        public private(set) var title = ""
+        private var partial = ""
+        private var best: Double = 0
+        public init() {}
+
+        /// 0…100 across all steps; never goes backwards. nil until cfgutil reports its steps.
+        public var overall: Double? {
+            guard total > 0, step > 0 else { return nil }
+            return best
+        }
+
+        public mutating func consume(_ chunk: String) {
+            let text = partial + chunk
+            var lines = text.components(separatedBy: CharacterSet(charactersIn: "\r\n"))
+            partial = lines.removeLast()            // may be an incomplete line
+            for line in lines { read(line) }
+            if partial.count > 400 { read(partial); partial = "" }
+        }
+
+        private mutating func read(_ line: String) {
+            let pattern = try! NSRegularExpression(pattern: #"(?:Step|Schritt)\s+(\d+)\s+(?:of|von)\s+(\d+)\s*:?\s*(.*)"#)
+            var rest = line
+            if let match = pattern.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
+               let n = Range(match.range(at: 1), in: line).flatMap({ Int(line[$0]) }),
+               let m = Range(match.range(at: 2), in: line).flatMap({ Int(line[$0]) }), m > 0, n >= 1, n <= m {
+                if n != step { stepPercent = 0 }
+                step = n; total = m
+                let name = Range(match.range(at: 3), in: line).map { String(line[$0]) } ?? ""
+                title = name.replacingOccurrences(of: #"\s*\d{1,3}(?:[.,]\d+)?\s?%.*$"#, with: "", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespaces)
+                rest = name
+            }
+            if step > 0, let value = CfgUtil.percent(in: rest) { stepPercent = value }
+            if total > 0, step > 0 {
+                best = max(best, min(100, (Double(step - 1) + stepPercent / 100) / Double(total) * 100))
+            }
+        }
+    }
+
     /// Last percentage in a chunk of cfgutil output (0…100), if any.
     public static func percent(in text: String) -> Double? {
         let pattern = try! NSRegularExpression(pattern: #"(\d{1,3}(?:[.,]\d+)?)\s?%"#)
