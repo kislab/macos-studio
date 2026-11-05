@@ -1,3 +1,13 @@
+Version 1.4.0
+
+• iPhone & iPad: Neuer Reiter „Wiederherstellen“ – wie in Apple Configurator. Geräte im Wiederherstellungs- oder DFU-Modus erscheinen mit ihrem Modus in einer Liste.
+
+• „Reparieren“ installiert das System neu, Fotos, Apps und Daten bleiben erhalten. Laut Apple der erste Schritt für Geräte, die im Wiederherstellungsmodus hängen.
+
+• „Wiederherstellen“ lädt die neueste von Apple freigegebene iOS- bzw. iPadOS-Version automatisch und installiert sie – dabei werden alle Daten gelöscht. Eine IPSW-Datei ist dafür nicht nötig.
+
+• „Wiederherstellungsmodus per Anstecken“ ist direkt im neuen Reiter verfügbar: Gerät anstecken, reparieren oder wiederherstellen – ohne Tasten.
+
 Version 1.3.3
 
 • Wiederherstellungsmodus per Anstecken bei gesperrten Geräten: Lehnt ein gesperrtes oder noch nicht vertrautes iPhone/iPad ab, versucht die App es jetzt automatisch alle paar Sekunden erneut – sobald das Gerät entsperrt bzw. „Vertrauen“ getippt ist, geht es durch. Kein Abziehen und neu Anstecken mehr nötig.

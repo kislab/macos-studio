@@ -24,8 +24,8 @@ import StudioCore
     @Published var verifying: String?
     @Published var verifyResults: [String: VerifyResult] = [:]
     @Published var confirmCleanup = false
-    /// false = download list, true = flasher.
-    @Published var showFlasher = false
+    enum Section: Hashable { case download, repair, flasher }
+    @Published var section: Section = .download
 
     var visible: [Firmware] { query.isEmpty ? items : items.filter { $0.matches(query: query) } }
     var downloading: Bool { active != nil && finished == nil }
@@ -205,27 +205,34 @@ struct FirmwareView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("iPhone & iPad").font(.system(size: 32, weight: .bold, design: .rounded))
-                Text(store.showFlasher
-                     ? "IPSW-Firmware auf ein per USB verbundenes iPhone oder iPad flashen (Wiederherstellen über Apple Configurator)."
-                     : "Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert.")
+                Text(subtitle)
                     .foregroundStyle(.secondary)
             }
-            Picker("Bereich", selection: $store.showFlasher) {
-                Label("Firmware laden", systemImage: "arrow.down.circle").tag(false)
-                Label("Flasher", systemImage: "bolt.fill").tag(true)
+            Picker("Bereich", selection: $store.section) {
+                Label("Firmware laden", systemImage: "arrow.down.circle").tag(FirmwareStore.Section.download)
+                Label("Wiederherstellen", systemImage: "wrench.and.screwdriver").tag(FirmwareStore.Section.repair)
+                Label("Flasher", systemImage: "bolt.fill").tag(FirmwareStore.Section.flasher)
             }
-            .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 360)
+            .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 520)
             .disabled(store.downloading || flasher.running)
-            if store.showFlasher {
-                FlasherView(store: flasher, firmware: store, studio: studio)
-            } else {
-                downloadList
+            switch store.section {
+            case .download: downloadList
+            case .repair: RepairView(store: flasher, studio: studio, photos: photos)
+            case .flasher: FlasherView(store: flasher, firmware: store, studio: studio)
             }
         }
         .task { if store.items.isEmpty { await store.load() } }
         .alert("Hinweis", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("OK") { store.error = nil }
         } message: { Text(store.error ?? "") }
+    }
+
+    private var subtitle: String {
+        switch store.section {
+        case .download: "Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert."
+        case .repair: "Geräte im Wiederherstellungs- oder DFU-Modus reparieren oder mit der neuesten Software wiederherstellen – wie Apple Configurator."
+        case .flasher: "IPSW-Firmware auf ein per USB verbundenes iPhone oder iPad flashen (Wiederherstellen über Apple Configurator)."
+        }
     }
 
     @ViewBuilder private var downloadList: some View {

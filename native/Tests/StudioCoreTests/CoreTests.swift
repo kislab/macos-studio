@@ -30,6 +30,13 @@ final class CoreTests {
         let file = URL(fileURLWithPath: "/tmp/a b/iPhone.ipsw")
         XCTAssertEqual(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: file) ?? [], ["-e", "0xABC", "--progress", "restore", "-I", "/tmp/a b/iPhone.ipsw"])
         XCTAssertNil(CfgUtil.restoreArguments(ecid: "bad", ipsw: file))
+        XCTAssertEqual(CfgUtil.repairArguments(ecid: "0xABC", .revive) ?? [], ["-e", "0xABC", "--progress", "revive"])
+        XCTAssertEqual(CfgUtil.repairArguments(ecid: "0xABC", .restoreLatest) ?? [], ["-e", "0xABC", "--progress", "restore"])
+        XCTAssertNil(CfgUtil.repairArguments(ecid: "0x1; reboot", .revive))
+        XCTAssertTrue(CfgUtil.sameECID(cfgutil: "0x1A2B3C4D5E6F70", usbHex: "001A2B3C4D5E6F70"))
+        XCTAssertTrue(CfgUtil.sameECID(cfgutil: "4096", usbHex: "1000"))
+        XCTAssertFalse(CfgUtil.sameECID(cfgutil: "0x1A2B", usbHex: "1A2C"))
+        XCTAssertFalse(CfgUtil.sameECID(cfgutil: "bad", usbHex: "1A2B"))
         XCTAssertNil(CfgUtil.restoreArguments(ecid: "0xABC", ipsw: URL(fileURLWithPath: "/tmp/x.dmg")))
 
         let list = #"{"Command":"list","Output":{"0x1A":{"ECID":"0x1A","deviceType":"iPhone15,2","name":"Kevins iPhone","UDID":"abc"},"0x2B":{"ECID":"0x2B","deviceType":"iPad8,1","name":""},"bad":{"ECID":"x y"}},"Type":"CommandOutput","Devices":["0x1A","0x2B"]}"#

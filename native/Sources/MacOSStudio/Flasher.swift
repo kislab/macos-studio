@@ -67,24 +67,56 @@ import StudioCore
     }
 
     func flash(studio: StudioModel) async {
-        guard let tool, let device, let ipsw, compatible, !studio.busy, !studio.loading,
+        guard let device, let ipsw, compatible,
               let args = CfgUtil.restoreArguments(ecid: device.ecid, ipsw: ipsw) else { return }
-        studio.busy = true; running = true; result = nil; progress = nil; log = ""
-        phase = "Wiederherstellung wird gestartet …"
+        lastWasRepair = false
+        await execute(args, studio: studio, ecid: device.ecid, start: "Wiederherstellung wird gestartet …",
+                      done: "Fertig · \(device.modelName) mit \(info?.platform ?? "iOS") \(info?.version ?? "") wiederhergestellt",
+                      failure: "Die Wiederherstellung ist fehlgeschlagen.")
+    }
+
+    /// ECID of the device a cfgutil job is running for (flash, revive or restore).
+    @Published var activeECID: String?
+    @Published var activeRepair: CfgUtil.Repair?
+    @Published var confirmRevive: FlashDevice?
+    @Published var confirmRestore: FlashDevice?
+    /// The last finished job was a revive/restore (its result belongs to the "Wiederherstellen" tab).
+    @Published var lastWasRepair = false
+
+    /// Apple Configurator's "Revive" (keeps data) or "Restore" with the newest signed iOS/iPadOS (erases).
+    func repair(_ device: FlashDevice, _ action: CfgUtil.Repair, studio: StudioModel) async {
+        guard let args = CfgUtil.repairArguments(ecid: device.ecid, action) else { return }
+        activeRepair = action; lastWasRepair = true
+        defer { activeRepair = nil }
+        switch action {
+        case .revive:
+            await execute(args, studio: studio, ecid: device.ecid, start: "Reparieren wird gestartet – das System wird neu installiert, Daten bleiben …",
+                          done: "Fertig · \(device.modelName) repariert. Das Gerät startet neu.",
+                          failure: "Reparieren hat nicht geklappt. Als Nächstes „Wiederherstellen“ versuchen (löscht alle Daten).")
+        case .restoreLatest:
+            await execute(args, studio: studio, ecid: device.ecid, start: "Neueste Software wird von Apple geladen und installiert …",
+                          done: "Fertig · \(device.modelName) mit der neuesten Software wiederhergestellt.",
+                          failure: "Die Wiederherstellung ist fehlgeschlagen.")
+        }
+    }
+
+    private func execute(_ args: [String], studio: StudioModel, ecid: String, start: String, done: String, failure: String) async {
+        guard let tool, !running, !studio.busy, !studio.loading else { return }
+        studio.busy = true; running = true; result = nil; progress = nil; log = ""; activeECID = ecid
+        phase = start
         let runner = Command(); command = runner
-        defer { studio.busy = false; running = false; command = nil; DockProgress.clear() }
+        defer { studio.busy = false; running = false; command = nil; activeECID = nil; DockProgress.clear() }
         do {
             let out = try await runner.run(tool, args, timeout: 3 * 3600) { [weak self] chunk in
                 Task { @MainActor in self?.report(chunk) }
             }
             if out.cancelled { phase = "Abgebrochen – das Gerät startet ggf. im Wiederherstellungsmodus."; result = false; return }
-            if out.timedOut { phase = "Zeitüberschreitung"; result = false; error = "Die Wiederherstellung hat zu lange gedauert."; return }
+            if out.timedOut { phase = "Zeitüberschreitung"; result = false; error = "Der Vorgang hat zu lange gedauert."; return }
             if out.status == 0 {
-                progress = 100; result = true
-                phase = "Fertig · \(device.modelName) mit \(info?.platform ?? "iOS") \(info?.version ?? "") wiederhergestellt"
+                progress = 100; result = true; phase = done
             } else {
                 result = false; phase = "Fehlgeschlagen (Code \(out.status))"
-                error = "Die Wiederherstellung ist fehlgeschlagen.\n\n" + (CfgUtil.lastLine(in: out.output) ?? "Keine Details von cfgutil.")
+                error = failure + "\n\n" + (CfgUtil.lastLine(in: out.output) ?? "Keine Details von cfgutil.")
             }
         } catch {
             result = false; phase = "Fehlgeschlagen"; self.error = error.localizedDescription
@@ -148,7 +180,7 @@ struct FlasherView: View {
         } message: {
             Text("\(store.device?.modelName ?? "Gerät") (ECID \(store.device?.ecid ?? "–")) wird vollständig gelöscht und mit „\(store.ipsw?.lastPathComponent ?? "")“ neu installiert. Das Kabel während des Vorgangs nicht trennen.")
         }
-        .confirmationDialog("Wiederherstellung abbrechen?", isPresented: $store.confirmCancel, titleVisibility: .visible) {
+        .confirmationDialog("Vorgang abbrechen?", isPresented: $store.confirmCancel, titleVisibility: .visible) {
             Button("Abbrechen erzwingen", role: .destructive) { store.cancel() }
             Button("Weiter flashen", role: .cancel) {}
         } message: { Text("Ein Abbruch kann das Gerät im Wiederherstellungsmodus zurücklassen. Danach erneut flashen.") }
@@ -236,11 +268,18 @@ struct FlasherView: View {
             }
         }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 16))
     }
+    private var progressCard: some View { FlashProgressCard(store: store, title: "3. Flashen") }
+}
 
-    private var progressCard: some View {
+/// Progress of a running cfgutil job (flash, revive, restore), with cancel and close.
+struct FlashProgressCard: View {
+    @ObservedObject var store: FlasherStore
+    let title: String
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("3. Flashen").font(.headline)
+                Text(title).font(.headline)
                 Spacer()
                 if store.running {
                     Button("Abbrechen", role: .cancel) { store.confirmCancel = true }

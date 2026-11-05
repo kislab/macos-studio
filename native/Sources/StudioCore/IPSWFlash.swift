@@ -67,6 +67,24 @@ public enum CfgUtil {
         return ["-e", ecid, "--progress", "restore", "-I", ipsw.path]
     }
 
+    /// Repair actions for a device in recovery or DFU mode, like Apple Configurator's "Revive" and "Restore".
+    public enum Repair: Sendable {
+        case revive         // reinstalls the system, keeps data (Apple: "stuck in recovery mode")
+        case restoreLatest  // downloads the latest signed iOS/iPadOS and erases everything
+    }
+    /// `cfgutil -e <ECID> --progress revive` / `… restore` (no IPSW: cfgutil loads the newest signed version).
+    public static func repairArguments(ecid: String, _ repair: Repair) -> [String]? {
+        guard validECID(ecid) else { return nil }
+        return ["-e", ecid, "--progress", repair == .revive ? "revive" : "restore"]
+    }
+
+    /// cfgutil reports ECIDs as 0x-hex or decimal; iBoot's USB serial always as plain hex.
+    public static func sameECID(cfgutil: String, usbHex: String) -> Bool {
+        guard validECID(cfgutil), let usb = UInt64(usbHex, radix: 16) else { return false }
+        let value = cfgutil.lowercased().hasPrefix("0x") ? UInt64(cfgutil.dropFirst(2), radix: 16) : UInt64(cfgutil)
+        return value == usb
+    }
+
     /// Parses `cfgutil --format JSON list`. Unknown shapes yield an empty list rather than a guess.
     public static func devices(fromList data: Data) -> [FlashDevice] {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
