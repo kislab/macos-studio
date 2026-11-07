@@ -8,7 +8,7 @@ import StudioCore
     @Published var items: [Firmware] = []
     @Published var query = ""
     @Published var loading = false
-    @Published var status = "Apple-Liste noch nicht geladen"
+    @Published var status = String(localized: "Apple-Liste noch nicht geladen")
     @Published var active: Firmware?
     @Published var progress: Double?
     @Published var written: Double = 0
@@ -75,7 +75,13 @@ import StudioCore
     /// Compares an IPSW with Apple's published SHA-1 right before it is flashed – also files chosen by hand.
     func checkBeforeFlash(_ file: URL, isCancelled: @escaping @Sendable () -> Bool,
                           progress: @escaping @Sendable (Double) -> Void) async throws -> Preflight {
-        if items.isEmpty && checksums.isEmpty { await load(quiet: true) }
+        // A list download already in progress (e.g. the tab just opened) must finish first, or the check would be skipped.
+        var waited = 0
+        while loading && waited < 900 {               // at most 90 s, like the list's own timeout
+            if isCancelled() { throw CancellationError() }
+            try? await Task.sleep(nanoseconds: 100_000_000); waited += 1
+        }
+        if checksums.isEmpty { await load(quiet: true) }
         guard let expected = expectedSHA1(for: file) else { return .noReference }
         if isConfirmed(file) { return .alreadyConfirmed }
         let actual = try await Task.detached(priority: .userInitiated) {
@@ -125,11 +131,11 @@ import StudioCore
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = folder
-        panel.prompt = "Hier speichern"
-        panel.message = "Ordner für iPhone-, iPad- und iPod-Firmware (IPSW) wählen"
+        panel.prompt = String(localized: "Hier speichern")
+        panel.message = String(localized: "Ordner für iPhone-, iPad- und iPod-Firmware (IPSW) wählen")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard FileManager.default.isWritableFile(atPath: url.path) else {
-            error = "In diesen Ordner kann OS Studio nicht schreiben:\n\(url.path)\nBitte einen anderen Ordner wählen."; return
+            error = String(localized: "In diesen Ordner kann OS Studio nicht schreiben:\n\(url.path)\nBitte einen anderen Ordner wählen."); return
         }
         folder = url
         UserDefaults.standard.set(url.path, forKey: Self.folderKey)
@@ -145,20 +151,20 @@ import StudioCore
 
     func load(quiet: Bool = false) async {
         guard !loading else { return }
-        loading = true; status = "Apple-Liste wird geladen …"
+        loading = true; status = String(localized: "Apple-Liste wird geladen …")
         defer { loading = false }
         do {
             var request = URLRequest(url: FirmwareCatalog.url, timeoutInterval: 60)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw failure("Apple-Liste nicht erreichbar.") }
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw failure(String(localized: "Apple-Liste nicht erreichbar.")) }
             let plain = (try? Gzip.decompress(data)) ?? data
             let (parsed, sums) = await Task.detached(priority: .userInitiated) { (FirmwareCatalog.parse(plain), FirmwareCatalog.checksums(plain)) }.value
-            guard !parsed.isEmpty else { throw failure("Apple-Liste enthält keine Firmware.") }
+            guard !parsed.isEmpty else { throw failure(String(localized: "Apple-Liste enthält keine Firmware.")) }
             items = parsed; checksums = sums
             status = "\(parsed.count) aktuelle Firmware-Dateien · direkt von Apple (updates.cdn-apple.com)"
         } catch {
-            status = "Liste konnte nicht geladen werden"
+            status = String(localized: "Liste konnte nicht geladen werden")
             if !quiet { self.error = error.localizedDescription }
         }
     }
@@ -166,22 +172,22 @@ import StudioCore
     func start(_ item: Firmware, studio: StudioModel) async {
         guard !downloading, !studio.busy, !studio.loading else { return }
         if let file = existing(item) {
-            error = "\(item.fileName) liegt bereits im gewählten Ordner.\n\(file.path)"
+            error = String(localized: "\(item.fileName) liegt bereits im gewählten Ordner.\n\(file.path)")
             NSWorkspace.shared.activateFileViewerSelecting([file]); return
         }
         studio.busy = true
         defer { studio.busy = false; download = nil; mbits = nil; DockProgress.clear() }
         active = item; finished = nil; progress = 0; written = 0; expected = 0; cancelled = false
-        phase = "IPSW wird geladen"
+        phase = String(localized: "IPSW wird geladen")
         let destination = folder
         guard FileManager.default.isWritableFile(atPath: destination.path) else {
-            error = "In den gewählten Ordner kann nicht geschrieben werden:\n\(destination.path)\nBitte unter „Speicherort“ einen anderen Ordner wählen."
+            error = String(localized: "In den gewählten Ordner kann nicht geschrieben werden:\n\(destination.path)\nBitte unter „Speicherort“ einen anderen Ordner wählen.")
             active = nil; progress = nil; return
         }
-        phase = "Speicherplatz wird geprüft …"
+        phase = String(localized: "Speicherplatz wird geprüft …")
         if let size = await remoteSize(item.url), !Disk.hasSpace(forPath: destination.path, need: size) {
             let free = Disk.freeBytes(forPath: destination.path).map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unbekannt"
-            error = "Nicht genügend Speicherplatz in „\(destination.lastPathComponent)“.\nBenötigt: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file)), frei: \(free)."
+            error = String(localized: "Nicht genügend Speicherplatz in „\(destination.lastPathComponent)“.\nBenötigt: \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file)), frei: \(free).")
             active = nil; progress = nil; phase = ""; return
         }
         let target = destination.appendingPathComponent(item.fileName)
@@ -190,7 +196,7 @@ import StudioCore
         let resumeData = try? Data(contentsOf: resume)
         let downloader = PackageDownload(); download = downloader
         sample = (ProcessInfo.processInfo.systemUptime, 0)
-        phase = resumeData != nil ? "Download wird fortgesetzt …" : "IPSW wird geladen …"
+        phase = resumeData != nil ? String(localized: "Download wird fortgesetzt …") : String(localized: "IPSW wird geladen …")
         do {
             _ = try await downloader.run(item.url, to: partial, resumeFrom: resumeData) { [weak self] written, expected in
                 Task { @MainActor in self?.report(written: written, expected: expected) }
@@ -198,18 +204,18 @@ import StudioCore
             try? FileManager.default.removeItem(at: resume)
             mbits = nil
             if let sha1 = item.sha1 {
-                phase = "Prüfsumme wird geprüft …"; progress = nil
+                phase = String(localized: "Prüfsumme wird geprüft …"); progress = nil
                 let actual = try await Task.detached(priority: .userInitiated) { try FirmwareCatalog.sha1(of: partial) }.value
                 guard actual == sha1 else {
                     try? FileManager.default.removeItem(at: partial)
-                    throw failure("Die Prüfsumme stimmt nicht mit Apples Angabe überein. Die Datei wurde gelöscht; bitte erneut laden.")
+                    throw failure(String(localized: "Die Prüfsumme stimmt nicht mit Apples Angabe überein. Die Datei wurde gelöscht; bitte erneut laden."))
                 }
             }
             try FileManager.default.moveItem(at: partial, to: target)
             finished = target; progress = 100; verifyResults[item.id] = nil
             if item.sha1 != nil { markConfirmed(target) }
             let place = destination.lastPathComponent
-            phase = item.sha1 == nil ? "Fertig · gespeichert in „\(place)“" : "Fertig · Prüfsumme bestätigt · gespeichert in „\(place)“"
+            phase = item.sha1 == nil ? String(localized: "Fertig · gespeichert in „\(place)“") : String(localized: "Fertig · Prüfsumme bestätigt · gespeichert in „\(place)“")
         } catch {
             try? FileManager.default.removeItem(at: partial)
             // Keep resume data so the user can continue instead of restarting the multi-GB download (#4).
@@ -220,10 +226,10 @@ import StudioCore
             }
             active = nil; progress = nil
             if cancelled || (error as? URLError)?.code == .cancelled {
-                phase = downloader.resumeData != nil ? "Abgebrochen · kann fortgesetzt werden" : ""
+                phase = downloader.resumeData != nil ? String(localized: "Abgebrochen · kann fortgesetzt werden") : ""
                 return
             }
-            self.error = "Download fehlgeschlagen.\n\(error.localizedDescription)" + (downloader.resumeData != nil ? "\n\nDer Download kann fortgesetzt werden." : "")
+            self.error = String(localized: "Download fehlgeschlagen.\n\(error.localizedDescription)") + (downloader.resumeData != nil ? String(localized: "\n\nDer Download kann fortgesetzt werden.") : "")
         }
     }
     func cancel() { cancelled = true; download?.cancel() }
@@ -276,9 +282,9 @@ struct FirmwareView: View {
 
     private var subtitle: String {
         switch store.section {
-        case .download: "Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert."
-        case .device: "Angestecktes iPhone oder iPad erkennen – auch im DFU- oder Wiederherstellungsmodus – und mit der passenden neuesten Firmware direkt flashen oder reparieren."
-        case .flasher: "IPSW-Firmware auf ein per USB verbundenes iPhone oder iPad flashen (Wiederherstellen über Apple Configurator)."
+        case .download: String(localized: "Aktuelle Firmware (IPSW) direkt von Apple laden. Es wird nur heruntergeladen – kein Gerät wird verändert.")
+        case .device: String(localized: "Angestecktes iPhone oder iPad erkennen – auch im DFU- oder Wiederherstellungsmodus – und mit der passenden neuesten Firmware direkt flashen oder reparieren.")
+        case .flasher: String(localized: "IPSW-Firmware auf ein per USB verbundenes iPhone oder iPad flashen (Wiederherstellen über Apple Configurator).")
         }
     }
 
@@ -330,7 +336,7 @@ struct FirmwareView: View {
                 }
             }
             cleanupBar
-            Text(store.status + " · Ältere Versionen führt Apple nicht mehr auf und signiert sie meist nicht mehr.")
+            Text(store.status + String(localized: " · Ältere Versionen führt Apple nicht mehr auf und signiert sie meist nicht mehr."))
                 .font(.caption).foregroundStyle(.secondary)
     }
 
@@ -348,7 +354,7 @@ struct FirmwareView: View {
                 Button("\(candidates.count) Datei(en) in den Papierkorb", role: .destructive) { store.trash(candidates.map(\.url)) }
                 Button("Abbrechen", role: .cancel) {}
             } message: {
-                Text("Diese IPSW-Dateien stehen nicht mehr in Apples aktueller Liste:\n" + candidates.map { $0.url.lastPathComponent }.joined(separator: "\n") + "\n\nSie werden in den Papierkorb verschoben und sind wiederherstellbar.")
+                Text(String(localized: "Diese IPSW-Dateien stehen nicht mehr in Apples aktueller Liste:\n") + candidates.map { $0.url.lastPathComponent }.joined(separator: "\n") + String(localized: "\n\nSie werden in den Papierkorb verschoben und sind wiederherstellbar."))
             }
         }
     }
@@ -370,7 +376,7 @@ struct FirmwareView: View {
                 } else {
                     Button("Prüfen", systemImage: "checkmark.seal") { Task { await store.verify(item) } }
                         .disabled(store.verifying != nil)
-                        .help(item.sha1 == nil ? "Für dieses Gerät veröffentlicht Apple keine Prüfsumme." : "Vergleicht die Datei mit Apples SHA-1-Prüfsumme.")
+                        .help(item.sha1 == nil ? String(localized: "Für dieses Gerät veröffentlicht Apple keine Prüfsumme.") : String(localized: "Vergleicht die Datei mit Apples SHA-1-Prüfsumme."))
                 }
                 Button("Im Finder zeigen", systemImage: "folder") { NSWorkspace.shared.activateFileViewerSelecting([file]) }
             } else if store.canResume(item) {

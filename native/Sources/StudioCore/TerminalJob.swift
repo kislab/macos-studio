@@ -56,7 +56,8 @@ public struct TerminalJob {
     /// Root command for the USB stick. Order: verify target → stop if cancelled → probe write access
     /// as the Terminal-attributed root process (fails before anything is erased if macOS denies it)
     /// → optional APFS preparation → createinstallmedia in the background, ended if cancel is requested.
-    public func usbRootCommand(safety: String, mount: String, setup: String?, tool: String, volume: String) -> String {
+    /// `application`: passed as --applicationpath for macOS 10.13 and older, whose createinstallmedia needs it.
+    public func usbRootCommand(safety: String, mount: String, setup: String?, tool: String, volume: String, application: String? = nil) -> String {
         let cancel = shellQuote(cancelFile.path)
         let probe = shellQuote(mount + "/.macOSStudio-Schreibtest")
         var lines = [
@@ -72,7 +73,7 @@ public struct TerminalJob {
         }
         lines += [
             "echo " + shellQuote(USBProgress.startMarker),
-            shellQuote(tool) + " --volume " + shellQuote(volume) + " --nointeraction &",
+            shellQuote(tool) + " --volume " + shellQuote(volume) + (application.map { " --applicationpath " + shellQuote($0) } ?? "") + " --nointeraction &",
             "pid=$!",
             "while /bin/kill -0 \"$pid\" 2>/dev/null; do",
             "  if [ -e " + cancel + " ]; then echo; echo " + shellQuote(USBProgress.cancelMarker) + "; /bin/kill -TERM \"$pid\"; sleep 5; /bin/kill -KILL \"$pid\" 2>/dev/null; wait \"$pid\"; exit \(Self.cancelledExit); fi",

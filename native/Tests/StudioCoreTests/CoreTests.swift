@@ -275,6 +275,26 @@ final class CoreTests {
         XCTAssertTrue(local.matches(Installer(title: "macOS Catalina", version: "10.15.7", build: "19H15")))
         XCTAssertFalse(local.matches(Installer(title: "macOS Catalina", version: "10.15.6", build: "19G2021")))
 
+        // OS X 10.10 – macOS 10.12: expanded InstallOS.pkg → app in Payload, InstallESD.dmg beside it.
+        let pkg = folder.appendingPathComponent("dmg-expanded/InstallOS.pkg")
+        let oldApp = pkg.appendingPathComponent("Payload/Install macOS Sierra.app")
+        try FileManager.default.createDirectory(at: oldApp.appendingPathComponent("Contents/Resources"), withIntermediateDirectories: true)
+        XCTAssertNil(LegacyInstaller.diskImageContents(inExpanded: folder.appendingPathComponent("dmg-expanded")))   // nothing yet
+        let oldTool = oldApp.appendingPathComponent("Contents/Resources/createinstallmedia")
+        try Data("#!/bin/sh\n".utf8).write(to: oldTool)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: oldTool.path)
+        XCTAssertNil(LegacyInstaller.diskImageContents(inExpanded: folder.appendingPathComponent("dmg-expanded")))   // ESD missing
+        try Data("esd".utf8).write(to: pkg.appendingPathComponent("InstallESD.dmg"))
+        let found = try XCTUnwrap(LegacyInstaller.diskImageContents(inExpanded: folder.appendingPathComponent("dmg-expanded")))
+        XCTAssertEqual(found.app.lastPathComponent, "Install macOS Sierra.app")
+        try LegacyInstaller.assemble(app: found.app, installESD: found.esd)
+        XCTAssertEqual(try String(contentsOf: oldApp.appendingPathComponent("Contents/SharedSupport/InstallESD.dmg"), encoding: .utf8), "esd")
+        XCTAssertNil(LocalInstaller.inspect(oldApp.path)?.preparationIssue)
+        let images = AppleCatalog.diskImageInstallers
+        XCTAssertEqual(images.map(\.version), ["10.12.6", "10.11.6", "10.10.5"])
+        XCTAssertTrue(images.allSatisfy { $0.fromDiskImage && $0.assembledFromParts && !$0.offeredForThisMac && $0.packageURL?.host == "updates.cdn-apple.com" })
+        XCTAssertFalse(Installer(title: "x", version: "15.0", build: "A", packageParts: [CatalogPart(name: "InstallAssistant.pkg", url: images[0].packageURL!, bytes: 1)]).assembledFromParts)
+
         // Mach-O architectures and the Rosetta hint.
         func be(_ v: UInt32) -> [UInt8] { withUnsafeBytes(of: v.bigEndian, Array.init) }
         func le(_ v: UInt32) -> [UInt8] { withUnsafeBytes(of: v.littleEndian, Array.init) }
@@ -285,10 +305,23 @@ final class CoreTests {
         XCTAssertEqual(MachO.architectures(header: Data("#!/bin/sh".utf8)), [])
         let intelTool = folder.appendingPathComponent("intel"); try thinIntel.write(to: intelTool)
         let fatTool = folder.appendingPathComponent("fat"); try fat.write(to: fatTool)
-        XCTAssertNotNil(MachO.rosettaIssue(executable: intelTool, hostIsARM: true, rosettaInstalled: false))
-        XCTAssertNil(MachO.rosettaIssue(executable: intelTool, hostIsARM: true, rosettaInstalled: true))
-        XCTAssertNil(MachO.rosettaIssue(executable: intelTool, hostIsARM: false, rosettaInstalled: false))
-        XCTAssertNil(MachO.rosettaIssue(executable: fatTool, hostIsARM: true, rosettaInstalled: false))
+        // --applicationpath: offered up to 10.13, deprecated from 10.14 (text taken from Apple's tools).
+        let sierraTool = folder.appendingPathComponent("cim-sierra"), mojaveTool = folder.appendingPathComponent("cim-mojave")
+        try Data("Usage: createinstallmedia --volume <path>\n--applicationpath, A path to copy of the OS installer application".utf8).write(to: sierraTool)
+        try Data("WARNING: \"--applicationpath\" is deprecated in macOS 10.14 and greater.\n--volume, A path".utf8).write(to: mojaveTool)
+        XCTAssertTrue(LegacyInstaller.needsApplicationPath(tool: sierraTool))
+        XCTAssertFalse(LegacyInstaller.needsApplicationPath(tool: mojaveTool))
+        XCTAssertFalse(LegacyInstaller.needsApplicationPath(tool: thinIntelTool(folder)))
+        let job = TerminalJob(directory: folder.appendingPathComponent("job"))
+        XCTAssertTrue(job.usbRootCommand(safety: "true", mount: "/Volumes/U", setup: nil, tool: "/A/cim", volume: "/Volumes/U", application: "/Applications/Install macOS Sierra.app")
+            .contains("--volume '/Volumes/U' --applicationpath '/Applications/Install macOS Sierra.app' --nointeraction"))
+        XCTAssertFalse(job.usbRootCommand(safety: "true", mount: "/Volumes/U", setup: nil, tool: "/A/cim", volume: "/Volumes/U").contains("applicationpath"))
+        // Launch probe: a tool killed by SIGKILL at start counts as blocked; one that exits normally does not.
+        let killed = folder.appendingPathComponent("killed.sh"), fine = folder.appendingPathComponent("fine.sh")
+        try Data("#!/bin/sh\nkill -9 $$\n".utf8).write(to: killed); try Data("#!/bin/sh\nexit 1\n".utf8).write(to: fine)
+        for tool in [killed, fine] { try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tool.path) }
+        XCTAssertTrue(MachO.killedAtLaunch(killed)); XCTAssertFalse(MachO.killedAtLaunch(fine))
+        XCTAssertFalse(MachO.killedAtLaunch(folder.appendingPathComponent("missing")))
     }
     func testSerialLookup() throws {
         XCTAssertEqual(SerialLookup.configCode(for: " c02abc12hv2r "), "HV2R")
@@ -572,6 +605,12 @@ extension CoreTests {
     }
 }
 
+func thinIntelTool(_ folder: URL) -> URL { folder.appendingPathComponent("intel") }
+final class LockedValue: @unchecked Sendable {
+    private let lock = NSLock(); private var smallest = Int64.max
+    func min(_ value: Int64) { lock.lock(); smallest = Swift.min(smallest, value); lock.unlock() }
+    var value: Int64 { lock.lock(); defer { lock.unlock() }; return smallest }
+}
 final class LockedFlag: @unchecked Sendable {
     private let lock = NSLock(); private var flag = false
     func set() { lock.lock(); flag = true; lock.unlock() }
@@ -623,6 +662,24 @@ final class LockedFlag: @unchecked Sendable {
                 _ = try await PackageDownload().run(old.parts[0].url, to: stub) { _, _ in }
                 let (integrity, _) = try await URLSession.shared.data(from: old.parts[0].integrity!)
                 XCTAssertEqual(try XCTUnwrap(Chunklist.parse(integrity)).verify(stub), .ok)
+                // Interrupted download: cancel after the first megabytes, continue from the resume data, same bytes as Apple's.
+                let resumed = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pkg")
+                defer { try? FileManager.default.removeItem(at: resumed) }
+                let first = PackageDownload()
+                let stopped = LockedFlag()
+                do {
+                    _ = try await first.run(old.parts[0].url, to: resumed) { written, _ in
+                        if written > 1_000_000, !stopped.value { stopped.set(); first.cancel() }
+                    }
+                    XCTAssertTrue(false)                          // must not finish
+                } catch { XCTAssertTrue((error as? URLError)?.code == .cancelled) }
+                var resumeData = first.resumeData
+                for _ in 0..<20 where resumeData == nil { try await Task.sleep(nanoseconds: 100_000_000); resumeData = first.resumeData }
+                let data = try XCTUnwrap(resumeData)
+                let offset = LockedValue()
+                _ = try await PackageDownload().run(old.parts[0].url, to: resumed, resumeFrom: data) { written, _ in offset.min(written) }
+                XCTAssertTrue(offset.value > 1_000_000)               // continued, did not start over
+                XCTAssertEqual(try XCTUnwrap(Chunklist.parse(integrity)).verify(resumed), .ok)
                 let expand = try await Command().run("/usr/sbin/pkgutil", ["--expand-full", stub.path, expanded.path], timeout: 120)
                 XCTAssertEqual(expand.status, 0)
                 let app = try XCTUnwrap(LegacyInstaller.stubApp(inExpanded: expanded))
@@ -630,6 +687,12 @@ final class LockedFlag: @unchecked Sendable {
                 let info = try PropertyListSerialization.propertyList(from: infoData, format: nil) as! [String: Any]
                 XCTAssertEqual((info["Payload Image Info"] as? [String: Any])?["URL"] as? String, "InstallESD.dmg")
                 print("Live legacy installer: \(old.id) → \(app.lastPathComponent), \(products.filter(\.legacy).count) older installers in catalog")
+            }
+            for image in AppleCatalog.diskImageInstallers {
+                var head = URLRequest(url: image.packageURL!); head.httpMethod = "HEAD"
+                let (_, response) = try await URLSession.shared.data(for: head)
+                XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+                XCTAssertEqual(response.expectedContentLength, Int64(image.bytes))
             }
             let (answer, _) = try await URLSession.shared.data(from: SerialLookup.url(for: "HV2R")!)
             XCTAssertEqual(SerialLookup.modelName(fromResponse: String(decoding: answer, as: UTF8.self)), "MacBook Pro (13-inch, 2017, Four Thunderbolt 3 Ports)")
@@ -649,6 +712,25 @@ final class LockedFlag: @unchecked Sendable {
             let missing = ids.filter { id in DevicePhotos.heading(for: id).flatMap { headings[$0] } == nil }.sorted()
             print("Live device photos: \(headings.count) Apple photos, \(ids.count - missing.count)/\(ids.count) devices matched, missing: \(missing)")
             print("Live Apple catalog: \(products.count) full installers, e.g. \(info.title) \(info.version) (\(info.build))")
+        }
+        // Opt-in check against a real, expanded Apple disk image package (pkgutil --expand-full InstallOS.pkg <dir>).
+        if let path = ProcessInfo.processInfo.environment["STUDIO_EXPANDED_DMG_PKG"] {
+            let root = URL(fileURLWithPath: path)
+            let appURL: URL
+            if let contents = LegacyInstaller.diskImageContents(inExpanded: root) {
+                try LegacyInstaller.assemble(app: contents.app, installESD: contents.esd); appURL = contents.app
+            } else {                                              // assembled by an earlier run
+                let payload = try XCTUnwrap(FileManager.default.enumerator(atPath: path)?.compactMap { $0 as? String }.first { $0.hasSuffix("Payload") })
+                appURL = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: root.appendingPathComponent(payload), includingPropertiesForKeys: nil).first { $0.pathExtension == "app" })
+            }
+            let contents = (app: appURL, esd: appURL)
+            let local = try XCTUnwrap(LocalInstaller.inspect(contents.app.path))
+            XCTAssertNil(local.preparationIssue)
+            let image = try XCTUnwrap(AppleCatalog.diskImageInstallers.first { local.matches($0) })
+            let tool = contents.app.appendingPathComponent("Contents/Resources/createinstallmedia")
+            XCTAssertTrue(LegacyInstaller.needsApplicationPath(tool: tool))
+            print("Real createinstallmedia killed at launch on this Mac: \(MachO.killedAtLaunch(tool))")
+            print("Real disk image installer: \(contents.app.lastPathComponent) matches \(image.title) \(image.version), archs \(MachO.architectures(of: tool).sorted()), --applicationpath needed")
         }
         try await tests.testUSBRootCommand()
         let normal = try await Command().run("/usr/bin/printf", ["Installing: 42.5%%\rInstalling: 100%%"], timeout: 5)

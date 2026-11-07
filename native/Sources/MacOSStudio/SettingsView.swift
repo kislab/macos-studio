@@ -53,7 +53,7 @@ struct SettingsView: View {
                         Text("Zeigt auch macOS-Versionen, die dieser Mac selbst nicht installieren kann – z. B. für USB-Sticks anderer Macs.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    section("iPhone & iPad", "iphone") {
+                    section(String(localized: "iPhone & iPad"), "iphone") {
                         HStack {
                             Text("Speicherort für Firmware").fontWeight(.medium)
                             Spacer()
@@ -67,7 +67,7 @@ struct SettingsView: View {
                             Text("Fotos werden beim Start von Apples Support-Seiten geladen und auf diesem Mac zwischengespeichert (\(ByteCountFormatter.string(fromByteCount: photos.cacheBytes, countStyle: .file))).")
                                 .font(.caption).foregroundStyle(.secondary)
                             Spacer()
-                            Button("Zwischenspeicher leeren") { photos.clearCache(); state.notice = "Gerätefotos gelöscht." + (photos.enabled ? " Sie werden neu von Apple geladen." : "") }
+                            Button("Zwischenspeicher leeren") { photos.clearCache(); state.notice = String(localized: "Gerätefotos gelöscht.") + (photos.enabled ? String(localized: " Sie werden neu von Apple geladen.") : "") }
                         }
                     }
                     section("Diagnose & Hilfe", "stethoscope") {
@@ -77,7 +77,7 @@ struct SettingsView: View {
                             Button("Diagnose exportieren …") { model.exportDiagnostics() }
                         }
                     }
-                    section("Zurücksetzen", "arrow.counterclockwise") {
+                    section(String(localized: "Zurücksetzen"), "arrow.counterclockwise") {
                         HStack {
                             Text("Ziel-Mac, Filter, Speicherort und alle Schalter auf Standard setzen.").foregroundStyle(.secondary)
                             Spacer()
@@ -104,7 +104,7 @@ struct SettingsView: View {
         firmware.resetFolder()
         if !photos.enabled { photos.enabled = true }
         UserDefaults.standard.removeObject(forKey: "selectedTargetMac")
-        state.notice = "Alle Einstellungen wurden zurückgesetzt."
+        state.notice = String(localized: "Alle Einstellungen wurden zurückgesetzt.")
     }
 
     private func section<Content: View>(_ title: String, _ symbol: String, @ViewBuilder content: () -> Content) -> some View {

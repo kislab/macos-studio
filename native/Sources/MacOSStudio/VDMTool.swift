@@ -34,7 +34,7 @@ enum VDMTool {
             }
             // Connection check (register 0x3f, bit 0).
             let conn = try read(device, chip: 0, reg: 0x3f)
-            guard (conn.first ?? 0) & 1 == 1 else { throw Fail(message: "Kein Gerät am DFU-Port erkannt. Beide Macs über den DFU-Port mit einem USB-C-/Thunderbolt-Kabel verbinden.") }
+            guard (conn.first ?? 0) & 1 == 1 else { throw Fail(message: String(localized: "Kein Gerät am DFU-Port erkannt. Beide Macs über den DFU-Port mit einem USB-C-/Thunderbolt-Kabel verbinden.")) }
             // Enter debug (DBMa) mode if not already there.
             var status = string(try read(device, chip: 0, reg: 0x03))
             if status != "DBMa" {
@@ -44,16 +44,16 @@ enum VDMTool {
                 }
                 _ = command(device, chip: 0, cmd: VDM.dbma, args: [0x01])
                 status = string(try read(device, chip: 0, reg: 0x03))
-                guard status == "DBMa" else { throw Fail(message: "Der USB-C-Controller ließ sich nicht entsperren (Status \"\(status)\"). Nur Apple Silicon, nur am DFU-Port.") }
+                guard status == "DBMa" else { throw Fail(message: String(localized: "Der USB-C-Controller ließ sich nicht entsperren (Status \"\(status)\"). Nur Apple Silicon, nur am DFU-Port.")) }
             }
             try sendVDM(device, words: reboot ? VDM.rebootWords : VDM.dfuWords)
-            print(reboot ? "OK: Ziel-Mac startet neu." : "OK: Ziel-Mac ist jetzt im DFU-Modus.")
+            print(reboot ? String(localized: "OK: Ziel-Mac startet neu.") : String(localized: "OK: Ziel-Mac ist jetzt im DFU-Modus."))
             return 0
         } catch let error as Fail {
             print(error.message)
             return 2
         } catch {
-            print("Unerwarteter Fehler: \(error.localizedDescription)")
+            print(String(localized: "Unerwarteter Fehler: \(error.localizedDescription)"))
             return 3
         }
     }
@@ -66,7 +66,7 @@ enum VDMTool {
         let result = buffer.withUnsafeMutableBytes { raw in
             device.pointee.pointee.Read!(UnsafeMutableRawPointer(device), chip, reg, raw.baseAddress, 64, 0, &readLen)
         }
-        guard result == 0 else { throw Fail(message: "Lesen von Register \(reg) fehlgeschlagen (0x\(String(UInt32(bitPattern: result), radix: 16))).") }
+        guard result == 0 else { throw Fail(message: String(localized: "Lesen von Register \(String(reg)) fehlgeschlagen (0x\(String(UInt32(bitPattern: result), radix: 16))).")) }
         return buffer
     }
     private static func command(_ device: UnsafeMutablePointer<UnsafeMutablePointer<AppleHPMLib>>, chip: UInt64, cmd: UInt32, args: [UInt8]) -> Int {
@@ -84,7 +84,7 @@ enum VDMTool {
         let before = try read(device, chip: 0, reg: 0x4d)
         let rxst = before.first ?? 0
         guard command(device, chip: 0, cmd: VDM.vdms, args: VDM.args(for: words)) == 0 else {
-            throw Fail(message: "Das VDM konnte nicht gesendet werden.")
+            throw Fail(message: String(localized: "Das VDM konnte nicht gesendet werden."))
         }
         var reply = before
         var changed = false
@@ -92,10 +92,10 @@ enum VDMTool {
             reply = try read(device, chip: 0, reg: 0x4d)
             if (reply.first ?? 0) != rxst { changed = true; break }
         }
-        guard changed else { throw Fail(message: "Keine Antwort auf das VDM. Kabel am DFU-Port prüfen.") }
+        guard changed else { throw Fail(message: String(localized: "Keine Antwort auf das VDM. Kabel am DFU-Port prüfen.")) }
         let header = UInt32(reply[1]) | (UInt32(reply[2]) << 8) | (UInt32(reply[3]) << 16) | (UInt32(reply[4]) << 24)
         guard header == VDM.replyHeader(for: words) else {
-            throw Fail(message: "Das Gerät lehnte das VDM ab (Antwort 0x\(String(header, radix: 16))).")
+            throw Fail(message: String(localized: "Das Gerät lehnte das VDM ab (Antwort 0x\(String(header, radix: 16)))."))
         }
     }
     private static func string(_ bytes: [UInt8]) -> String {
@@ -108,9 +108,9 @@ enum VDMTool {
         CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault, b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15])
     }
     private static func openDevice() throws -> (UnsafeMutablePointer<UnsafeMutablePointer<IOCFPlugInInterface>?>, UnsafeMutablePointer<UnsafeMutablePointer<AppleHPMLib>>) {
-        guard let matching = IOServiceMatching("AppleHPM") else { throw Fail(message: "AppleHPM nicht gefunden. Dieses Gerät unterstützt die Funktion nicht (nur Apple Silicon).") }
+        guard let matching = IOServiceMatching("AppleHPM") else { throw Fail(message: String(localized: "AppleHPM nicht gefunden. Dieses Gerät unterstützt die Funktion nicht (nur Apple Silicon).")) }
         var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else { throw Fail(message: "USB-C-Controller nicht erreichbar.") }
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else { throw Fail(message: String(localized: "USB-C-Controller nicht erreichbar.")) }
         defer { IOObjectRelease(iterator) }
         var service = IOIteratorNext(iterator)
         while service != 0 {
@@ -123,25 +123,25 @@ enum VDMTool {
             var plugin: UnsafeMutablePointer<UnsafeMutablePointer<IOCFPlugInInterface>?>?
             var score: Int32 = 0
             guard IOCreatePlugInInterfaceForService(service, hpmType, plugInID, &plugin, &score) == kIOReturnSuccess, let plugin else {
-                throw Fail(message: "AppleHPM-Schnittstelle konnte nicht geöffnet werden (Administratorrechte nötig).")
+                throw Fail(message: String(localized: "AppleHPM-Schnittstelle konnte nicht geöffnet werden (Administratorrechte nötig)."))
             }
             var deviceRaw: UnsafeMutableRawPointer?
             let qi = plugin.pointee!.pointee.QueryInterface(UnsafeMutableRawPointer(plugin), CFUUIDGetUUIDBytes(hpmInterface), &deviceRaw)
             guard qi == S_OK, let deviceRaw else {
                 IODestroyPlugInInterface(plugin)
-                throw Fail(message: "AppleHPM-Schnittstelle nicht verfügbar.")
+                throw Fail(message: String(localized: "AppleHPM-Schnittstelle nicht verfügbar."))
             }
             let device = deviceRaw.assumingMemoryBound(to: UnsafeMutablePointer<AppleHPMLib>.self)
             return (plugin, device)
         }
-        throw Fail(message: "Kein passender USB-C-Controller (RID 0) gefunden. Nur Apple Silicon.")
+        throw Fail(message: String(localized: "Kein passender USB-C-Controller (RID 0) gefunden. Nur Apple Silicon."))
     }
     private static func boardKey() throws -> [UInt8] {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"))
-        guard service != 0 else { throw Fail(message: "Mac-Modell konnte nicht gelesen werden.") }
+        guard service != 0 else { throw Fail(message: String(localized: "Mac-Modell konnte nicht gelesen werden.")) }
         defer { IOObjectRelease(service) }
         var name = [CChar](repeating: 0, count: 128)
-        guard IORegistryEntryGetName(service, &name) == KERN_SUCCESS else { throw Fail(message: "Mac-Modell konnte nicht gelesen werden.") }
+        guard IORegistryEntryGetName(service, &name) == KERN_SUCCESS else { throw Fail(message: String(localized: "Mac-Modell konnte nicht gelesen werden.")) }
         return name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
     }
 

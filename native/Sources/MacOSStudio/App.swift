@@ -39,7 +39,7 @@ struct MacOSStudioApp: App {
                     VStack(alignment: .leading, spacing: 18) {
                         Label("Was ist neu in OS Studio?", systemImage: "sparkles").font(.title2.bold())
                         ScrollView {
-                            Text((Bundle.module.url(forResource: "CHANGELOG", withExtension: "md").flatMap { try? String(contentsOf: $0, encoding: .utf8) }) ?? "Änderungsprotokoll nicht verfügbar.")
+                            Text((Bundle.module.url(forResource: "CHANGELOG", withExtension: "md").flatMap { try? String(contentsOf: $0, encoding: .utf8) }) ?? String(localized: "Änderungsprotokoll nicht verfügbar."))
                                 .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                         }
                         HStack { Spacer(); Button("Weiter") { startup.showChanges = false }.keyboardShortcut(.defaultAction) }
@@ -51,7 +51,7 @@ struct MacOSStudioApp: App {
                     delegate.model = model
                     updates.isBusy = { model.busy || model.loading || model.scanning || model.localScanning }
                     await model.loadCatalog()
-                    startup.phase = "Prüfe auf Updates …"
+                    startup.phase = String(localized: "Prüfe auf Updates …")
                     await updates.checkOnLaunch()
                     let deadline = Date().addingTimeInterval(15)
                     while updates.startupPending && Date() < deadline {
@@ -93,8 +93,8 @@ struct MacOSStudioApp: App {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard model?.busy == true else { return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Ein Vorgang läuft noch"
-        alert.informativeText = model?.flashing == true ? "Bitte die USB-Erstellung abschließen lassen." : "Bitte den Download zuerst abbrechen."
+        alert.messageText = String(localized: "Ein Vorgang läuft noch")
+        alert.informativeText = model?.flashing == true ? String(localized: "Bitte die USB-Erstellung abschließen lassen.") : String(localized: "Bitte den Download zuerst abbrechen.")
         alert.runModal()
         return .terminateCancel
     }
@@ -135,11 +135,11 @@ struct StudioView: View {
                     .font(.title3.bold()).padding(.top, 20)
                 Text("INSTALLER, BOOT MEDIA & FIRMWARE").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                 VStack(spacing: 6) {
-                    navigation("download", "Installer laden", "arrow.down.circle")
-                    navigation("local", "Installer lokal", "internaldrive")
-                    navigation("compatibility", "Mac suchen", "laptopcomputer")
-                    navigation("usb", "USB erstellen", "externaldrive")
-                    navigation("firmware", "iPhone & iPad", "iphone")
+                    navigation("download", String(localized: "Installer laden"), "arrow.down.circle")
+                    navigation("local", String(localized: "Installer lokal"), "internaldrive")
+                    navigation("compatibility", String(localized: "Mac suchen"), "laptopcomputer")
+                    navigation("usb", String(localized: "USB erstellen"), "externaldrive")
+                    navigation("firmware", String(localized: "iPhone & iPad"), "iphone")
                     navigation("extras", "Extras", "wrench.and.screwdriver")
                     navigation("settings", "Einstellungen", "gearshape")
                 }
@@ -262,7 +262,7 @@ struct StudioView: View {
     }
     private var downloader: some View {
         VStack(alignment: .leading, spacing: 18) {
-            heading("Dein nächstes macOS.", "Offizielle Installer. Klare Fortschritte. Bereit für deinen USB-Stick.")
+            heading(String(localized: "Dein nächstes macOS."), String(localized: "Offizielle Installer. Klare Fortschritte. Bereit für deinen USB-Stick."))
             HStack {
                 TextField("Name, Version oder Build suchen", text: $model.query).textFieldStyle(.roundedBorder)
                 Button { Task { await model.loadCatalog() } } label: { Image(systemName: "arrow.clockwise") }
@@ -287,6 +287,11 @@ struct StudioView: View {
                                 Text(item.title).font(.headline)
                                 Text("\(item.version)  ·  Build \(item.build)").font(.subheadline).foregroundStyle(.secondary)
                                 Text(String(format: "%.2f GB", item.bytes / 1e9)).font(.caption).foregroundStyle(.secondary)
+                                if item.assembledFromParts && StudioModel.hostIsARM {
+                                    Label("USB-Stick nur an einem Intel-Mac möglich", systemImage: "cpu")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                        .help("Macs mit Apple-Chip starten das createinstallmedia dieser älteren Versionen nicht mehr. Laden geht hier; den USB-Stick mit der fertigen Installer-App an einem Intel-Mac erstellen.")
+                                }
                                 if !item.offeredForThisMac {
                                     Label("Nicht für diesen Mac · für andere Macs als Apple-Paket", systemImage: "shippingbox")
                                         .font(.caption).foregroundStyle(.orange)
@@ -296,8 +301,17 @@ struct StudioView: View {
                                 }
                             }
                             Spacer()
-                            Button("Laden", systemImage: "arrow.down") { Task { await model.download(item) } }
-                                .buttonStyle(.borderedProminent).disabled(model.busy || model.loading)
+                            if model.canResume(item) {
+                                Button("Verwerfen", systemImage: "trash") { model.discardPartial(item) }
+                                    .disabled(model.busy || model.loading)
+                                    .help("Bereits geladene Teile dieses Installers löschen und später von vorn laden.")
+                                Button("Fortsetzen", systemImage: "arrow.clockwise") { Task { await model.download(item) } }
+                                    .buttonStyle(.borderedProminent).disabled(model.busy || model.loading)
+                                    .help("Der letzte Download wurde unterbrochen. Lädt ab der Abbruchstelle weiter.")
+                            } else {
+                                Button("Laden", systemImage: "arrow.down") { Task { await model.download(item) } }
+                                    .buttonStyle(.borderedProminent).disabled(model.busy || model.loading)
+                            }
                         }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 16))
                     }
                     if !model.loading && model.filteredInstallers.isEmpty {
@@ -314,7 +328,7 @@ struct StudioView: View {
     }
     private var localLibrary: some View {
         VStack(alignment: .leading, spacing: 16) {
-            heading("Deine Installer auf dem Mac.", "Vorhandene Installations-Apps öffnen, für USB verwenden oder entfernen.")
+            heading(String(localized: "Deine Installer auf dem Mac."), String(localized: "Vorhandene Installations-Apps öffnen, für USB verwenden oder entfernen."))
             HStack {
                 Label("\(model.localItems.count) lokale Installer", systemImage: "internaldrive").font(.headline)
                 Spacer()
@@ -334,7 +348,7 @@ struct StudioView: View {
                                 InstallerArtwork(title: item.name).frame(width: 58, height: 58)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(item.name).font(.headline)
-                                    Text(item.bytes.map { String(format: "%.2f GB", Double($0) / 1e9) } ?? "Größe nicht vollständig lesbar").foregroundStyle(.secondary)
+                                    Text(item.bytes.map { String(format: "%.2f GB", Double($0) / 1e9) } ?? String(localized: "Größe nicht vollständig lesbar")).foregroundStyle(.secondary)
                                     if let issue = item.preparationIssue {
                                         Label("Unvollständig · nicht für USB verwendbar", systemImage: "exclamationmark.triangle.fill")
                                             .font(.caption).foregroundStyle(.orange).help(issue)
@@ -406,7 +420,7 @@ struct StudioView: View {
     }
     private var compatibility: some View {
         VStack(alignment: .leading, spacing: 16) {
-            heading("Mac suchen", "Mac auswählen und passende macOS-Installer finden.")
+            heading(String(localized: "Mac suchen"), String(localized: "Mac auswählen und passende macOS-Installer finden."))
             HStack(spacing: 16) {
                 Image(systemName: "laptopcomputer.and.arrow.down").font(.system(size: 30)).foregroundStyle(.blue)
                 VStack(alignment: .leading, spacing: 4) {
@@ -480,7 +494,7 @@ struct StudioView: View {
     }
     private var usb: some View {
         VStack(alignment: .leading, spacing: 20) {
-            heading("Ein Stick. Ein neuer Start.", "Erstelle ein bootfähiges Installationsmedium mit Apples createinstallmedia.")
+            heading(String(localized: "Ein Stick. Ein neuer Start."), String(localized: "Erstelle ein bootfähiges Installationsmedium mit Apples createinstallmedia."))
             GroupBox {
                 VStack(alignment: .leading, spacing: 14) {
                     Label("1  Installer auswählen", systemImage: "macwindow").font(.headline)
@@ -489,7 +503,7 @@ struct StudioView: View {
                         ForEach(model.localInstallers, id: \.self) { Text(URL(fileURLWithPath: $0).lastPathComponent).tag($0) }
                     }
                     Button("Andere Installer-App auswählen …") { model.chooseInstaller() }
-                    Text(model.selectedInstaller.isEmpty ? "Lade zuerst einen macOS-Installer herunter." : model.selectedInstaller)
+                    Text(model.selectedInstaller.isEmpty ? String(localized: "Lade zuerst einen macOS-Installer herunter.") : model.selectedInstaller)
                         .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 }.padding(12)
             }.disabled(model.busy)
@@ -546,7 +560,7 @@ struct StudioView: View {
                 }
             }
             DisclosureGroup("Protokoll", isExpanded: $ui.details) {
-                ScrollView { Text(model.log.isEmpty ? "Noch keine Ausgabe." : model.log).font(.caption.monospaced()).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
+                ScrollView { Text(model.log.isEmpty ? String(localized: "Noch keine Ausgabe.") : model.log).font(.caption.monospaced()).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
                     .frame(height: 110)
             }.font(.caption)
         }.padding(18).background(Color.accentColor.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
@@ -623,7 +637,7 @@ struct MacModelCard: View {
             }
             DisclosureGroup("Weitere Versionen & Modelldetails") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Unterstützt: " + mac.supported_versions.joined(separator: ", "))
+                    Text(String(localized: "Unterstützt: ") + mac.supported_versions.joined(separator: ", "))
                     Text("Prozessor: " + mac.cpu)
                     Text("Modellkennung: " + mac.identifiers.joined(separator: ", ")).textSelection(.enabled)
                     if let numbers = mac.model_numbers, !numbers.isEmpty {

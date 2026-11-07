@@ -8,11 +8,11 @@ public enum DFUGuide {
         public var id: String { rawValue }
         public var title: String {
             switch self {
-            case .faceIDiPhone: "iPhone 8 und neuer (auch SE 2./3. Gen.)"
+            case .faceIDiPhone: String(localized: "iPhone 8 und neuer (auch SE 2./3. Gen.)")
             case .iPhone7: "iPhone 7 / 7 Plus"
-            case .homeButtoniPhone: "iPhone 6s und älter, SE (1. Gen.), iPod touch"
-            case .faceIDiPad: "iPad ohne Home-Taste"
-            case .homeButtoniPad: "iPad mit Home-Taste"
+            case .homeButtoniPhone: String(localized: "iPhone 6s und älter, SE (1. Gen.), iPod touch")
+            case .faceIDiPad: String(localized: "iPad ohne Home-Taste")
+            case .homeButtoniPad: String(localized: "iPad mit Home-Taste")
             }
         }
     }
@@ -34,22 +34,22 @@ public enum DFUGuide {
     public static func steps(for method: Method) -> [Step] {
         switch method {
         case .faceIDiPhone: [
-            Step(text: "Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann sofort die Seitentaste gedrückt halten – bis der Bildschirm schwarz wird.", seconds: 10),
-            Step(text: "Seitentaste weiter halten und zusätzlich Leiser gedrückt halten.", seconds: 5),
-            Step(text: "Seitentaste loslassen, Leiser weiter gedrückt halten.", seconds: 10)]
+            Step(text: String(localized: "Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann sofort die Seitentaste gedrückt halten – bis der Bildschirm schwarz wird."), seconds: 10),
+            Step(text: String(localized: "Seitentaste weiter halten und zusätzlich Leiser gedrückt halten."), seconds: 5),
+            Step(text: String(localized: "Seitentaste loslassen, Leiser weiter gedrückt halten."), seconds: 10)]
         case .iPhone7: [
-            Step(text: "Seitentaste und Leiser gleichzeitig gedrückt halten.", seconds: 8),
-            Step(text: "Seitentaste loslassen, Leiser weiter gedrückt halten.", seconds: 10)]
+            Step(text: String(localized: "Seitentaste und Leiser gleichzeitig gedrückt halten."), seconds: 8),
+            Step(text: String(localized: "Seitentaste loslassen, Leiser weiter gedrückt halten."), seconds: 10)]
         case .homeButtoniPhone: [
-            Step(text: "Home-Taste und Seiten- bzw. obere Taste gleichzeitig gedrückt halten.", seconds: 8),
-            Step(text: "Seiten- bzw. obere Taste loslassen, Home-Taste weiter gedrückt halten.", seconds: 10)]
+            Step(text: String(localized: "Home-Taste und Seiten- bzw. obere Taste gleichzeitig gedrückt halten."), seconds: 8),
+            Step(text: String(localized: "Seiten- bzw. obere Taste loslassen, Home-Taste weiter gedrückt halten."), seconds: 10)]
         case .faceIDiPad: [
-            Step(text: "Die Lautstärketaste näher an der oberen Taste kurz drücken, dann die andere Lautstärketaste kurz drücken, dann sofort die obere Taste gedrückt halten – bis der Bildschirm schwarz wird.", seconds: 10),
-            Step(text: "Obere Taste weiter halten und zusätzlich die Lautstärketaste weiter weg von der oberen Taste gedrückt halten.", seconds: 5),
-            Step(text: "Obere Taste loslassen, die Lautstärketaste weiter gedrückt halten.", seconds: 10)]
+            Step(text: String(localized: "Die Lautstärketaste näher an der oberen Taste kurz drücken, dann die andere Lautstärketaste kurz drücken, dann sofort die obere Taste gedrückt halten – bis der Bildschirm schwarz wird."), seconds: 10),
+            Step(text: String(localized: "Obere Taste weiter halten und zusätzlich die Lautstärketaste weiter weg von der oberen Taste gedrückt halten."), seconds: 5),
+            Step(text: String(localized: "Obere Taste loslassen, die Lautstärketaste weiter gedrückt halten."), seconds: 10)]
         case .homeButtoniPad: [
-            Step(text: "Home-Taste und obere Taste gleichzeitig gedrückt halten.", seconds: 8),
-            Step(text: "Obere Taste loslassen, Home-Taste weiter gedrückt halten.", seconds: 10)]
+            Step(text: String(localized: "Home-Taste und obere Taste gleichzeitig gedrückt halten."), seconds: 8),
+            Step(text: String(localized: "Obere Taste loslassen, Home-Taste weiter gedrückt halten."), seconds: 10)]
         }
     }
 
@@ -57,11 +57,11 @@ public enum DFUGuide {
     public static func forceRestart(for method: Method) -> String {
         switch method {
         case .faceIDiPhone, .faceIDiPad:
-            return "Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann die Seitentaste (beim iPad die obere Taste) gedrückt halten, bis das Apple-Logo erscheint (10–20 Sekunden). Laptop-und-Kabel-Bildschirm dabei ignorieren."
+            return String(localized: "Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann die Seitentaste (beim iPad die obere Taste) gedrückt halten, bis das Apple-Logo erscheint (10–20 Sekunden). Laptop-und-Kabel-Bildschirm dabei ignorieren.")
         case .iPhone7:
-            return "Seitentaste und Leiser gleichzeitig gedrückt halten, bis das Apple-Logo erscheint (etwa 10 Sekunden)."
+            return String(localized: "Seitentaste und Leiser gleichzeitig gedrückt halten, bis das Apple-Logo erscheint (etwa 10 Sekunden).")
         case .homeButtoniPhone, .homeButtoniPad:
-            return "Home-Taste und die obere bzw. seitliche Taste gleichzeitig gedrückt halten, bis das Apple-Logo erscheint (etwa 10 Sekunden)."
+            return String(localized: "Home-Taste und die obere bzw. seitliche Taste gleichzeitig gedrückt halten, bis das Apple-Logo erscheint (etwa 10 Sekunden).")
         }
     }
 
@@ -69,11 +69,11 @@ public enum DFUGuide {
     public static func recoveryButtons(for method: Method) -> String {
         switch method {
         case .faceIDiPhone, .faceIDiPad:
-            return "Gerät per Kabel anstecken. Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann die Seitentaste (beim iPad die obere Taste) gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen."
+            return String(localized: "Gerät per Kabel anstecken. Lauter kurz drücken und loslassen, Leiser kurz drücken und loslassen, dann die Seitentaste (beim iPad die obere Taste) gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen.")
         case .iPhone7:
-            return "Gerät per Kabel anstecken. Seitentaste und Leiser gleichzeitig gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen."
+            return String(localized: "Gerät per Kabel anstecken. Seitentaste und Leiser gleichzeitig gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen.")
         case .homeButtoniPhone, .homeButtoniPad:
-            return "Gerät per Kabel anstecken. Home-Taste und die obere bzw. seitliche Taste gleichzeitig gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen."
+            return String(localized: "Gerät per Kabel anstecken. Home-Taste und die obere bzw. seitliche Taste gleichzeitig gedrückt halten – auch über das Apple-Logo hinweg –, bis Laptop und Kabel erscheinen.")
         }
     }
 

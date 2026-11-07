@@ -160,7 +160,7 @@ struct DeviceView: View {
                 if let item {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Neueste Firmware: \(item.platform) \(item.version) (\(item.build))").font(.callout.weight(.medium))
-                        Label(downloaded ? "Geladen und bereit – zum Flashen auf „Flashen …“ drücken" : "Noch nicht geladen – zuerst „Firmware laden“ drücken",
+                        Label(downloaded ? String(localized: "Geladen und bereit – zum Flashen auf „Flashen …“ drücken") : String(localized: "Noch nicht geladen – zuerst „Firmware laden“ drücken"),
                               systemImage: downloaded ? "checkmark.circle.fill" : "arrow.down.circle")
                             .font(.caption).foregroundStyle(downloaded ? .green : .secondary)
                         if let file = firmware.existing(item) {
@@ -176,7 +176,7 @@ struct DeviceView: View {
                     Text("Apple-Firmwareliste nicht geladen.").font(.callout).foregroundStyle(.secondary)
                     Button("Erneut laden") { Task { await firmware.load() } }
                 } else {
-                    Text(device.productType.isEmpty ? "Modell unbekannt – Gerät kurz ab- und wieder anstecken." : "Keine aktuelle Firmware für \(device.productType) bei Apple gefunden.")
+                    Text(device.productType.isEmpty ? String(localized: "Modell unbekannt – Gerät kurz ab- und wieder anstecken.") : String(localized: "Keine aktuelle Firmware für \(device.productType) bei Apple gefunden."))
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()

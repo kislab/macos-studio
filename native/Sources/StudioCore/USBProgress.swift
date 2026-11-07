@@ -15,21 +15,21 @@ public struct USBProgress: Equatable {
     public static let noAccessMarker = "▸ Kein Schreibzugriff für Terminal – USB-Stick bleibt unverändert"
 
     private static let phases: [(pattern: String, step: String)] = [
-        (checkMarker, "Ziel-Laufwerk wird geprüft"),
-        (prepareMarker, "USB-Stick wird vorbereitet (APFS → Mac OS Extended)"),
-        (startMarker, "Apples createinstallmedia startet"),
-        ("Ready to start", "Apples createinstallmedia startet"),
-        ("Erasing disk", "USB-Stick wird gelöscht"),
-        ("Making disk bootable", "USB-Stick wird bootfähig gemacht"),
-        ("Making the disk bootable", "USB-Stick wird bootfähig gemacht"),
-        ("Copying to disk", "Installer wird auf den USB-Stick kopiert"),
-        ("Copying essential files", "Wichtige Systemdateien werden kopiert"),
-        ("Copying the macOS RecoveryOS", "macOS-Wiederherstellung wird kopiert"),
-        ("Copying boot files", "Startdateien werden kopiert"),
-        ("Copying installer files", "Installer wird auf den USB-Stick kopiert"),
-        ("Install media now available", "Fertig – USB-Stick ist bereit"),
-        (cancelMarker, "Wird abgebrochen"),
-        (noAccessMarker, "Kein Schreibzugriff für Terminal")
+        (checkMarker, String(localized: "Ziel-Laufwerk wird geprüft")),
+        (prepareMarker, String(localized: "USB-Stick wird vorbereitet (APFS → Mac OS Extended)")),
+        (startMarker, String(localized: "Apples createinstallmedia startet")),
+        ("Ready to start", String(localized: "Apples createinstallmedia startet")),
+        ("Erasing disk", String(localized: "USB-Stick wird gelöscht")),
+        ("Making disk bootable", String(localized: "USB-Stick wird bootfähig gemacht")),
+        ("Making the disk bootable", String(localized: "USB-Stick wird bootfähig gemacht")),
+        ("Copying to disk", String(localized: "Installer wird auf den USB-Stick kopiert")),
+        ("Copying essential files", String(localized: "Wichtige Systemdateien werden kopiert")),
+        ("Copying the macOS RecoveryOS", String(localized: "macOS-Wiederherstellung wird kopiert")),
+        ("Copying boot files", String(localized: "Startdateien werden kopiert")),
+        ("Copying installer files", String(localized: "Installer wird auf den USB-Stick kopiert")),
+        ("Install media now available", String(localized: "Fertig – USB-Stick ist bereit")),
+        (cancelMarker, String(localized: "Wird abgebrochen")),
+        (noAccessMarker, String(localized: "Kein Schreibzugriff für Terminal"))
     ]
 
     /// Printable text: carriage returns become line breaks, terminal control characters are removed.

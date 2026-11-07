@@ -26,7 +26,7 @@ import StudioCore
     @Published var busy = false
     @Published var flashing = false
     @Published var status = "Bereit"
-    @Published var catalogStatus = "Apple-Katalog noch nicht geladen"
+    @Published var catalogStatus = String(localized: "Apple-Katalog noch nicht geladen")
     @Published var progress: Double?
     @Published var amount: Double?
     @Published var mbits: Double?
@@ -36,7 +36,7 @@ import StudioCore
     @Published var error: String?
     /// Privacy pane anchor to offer with the current error, if any.
     @Published var privacyPane: String?
-    static let terminalAccessHint = "macOS hat Terminal den Schreibzugriff auf den USB-Stick verweigert (250). Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff „Terminal“ aktivieren, Terminal beenden und die USB-Erstellung erneut starten. Alternativ genügt bei „Dateien und Ordner“ für Terminal der Zugriff auf „Wechselmedien“."
+    static let terminalAccessHint = String(localized: "macOS hat Terminal den Schreibzugriff auf den USB-Stick verweigert (250). Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff „Terminal“ aktivieren, Terminal beenden und die USB-Erstellung erneut starten. Alternativ genügt bei „Dateien und Ordner“ für Terminal der Zugriff auf „Wechselmedien“.")
     /// Set while the Terminal job runs; the user can cancel it from the app.
     @Published var waitingForTerminal = false
     @Published private(set) var cancelRequestedAt: Date?
@@ -44,7 +44,7 @@ import StudioCore
     func cancelTerminalJob() {
         guard let job = activeJob, cancelRequestedAt == nil else { return }
         job.requestCancel(); cancelRequestedAt = Date()
-        status = "Abbruch angefordert …"
+        status = String(localized: "Abbruch angefordert …")
     }
     /// Apple's tool needs room for the whole installer plus boot files; at least 16 GB.
     static func requiredUSBBytes(installerBytes: Int64?) -> Double {
@@ -163,9 +163,9 @@ import StudioCore
         panel.treatsFilePackagesAsDirectories = false
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         if panel.runModal() == .OK, let url = panel.url {
-            do { try fileAccess.remember(url) } catch { self.error = "Speicherort konnte nicht dauerhaft gespeichert werden: " + error.localizedDescription; return }
+            do { try fileAccess.remember(url) } catch { self.error = String(localized: "Speicherort konnte nicht dauerhaft gespeichert werden: ") + error.localizedDescription; return }
             guard FileManager.default.isExecutableFile(atPath: url.path + "/Contents/Resources/createinstallmedia") else {
-                error = "Die App enthält kein ausführbares createinstallmedia."; return
+                error = String(localized: "Die App enthält kein ausführbares createinstallmedia."); return
             }
             if let issue = LocalInstaller.preparationIssue(at: url.path) {
                 extraLocalPaths.insert(url.path)
@@ -180,11 +180,11 @@ import StudioCore
     func chooseSearchFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false; panel.canChooseDirectories = true
-        panel.message = "Ordner für die Installer-Suche freigeben. Die Auswahl wird für kommende Starts gespeichert."
-        panel.prompt = "Ordner merken"
+        panel.message = String(localized: "Ordner für die Installer-Suche freigeben. Die Auswahl wird für kommende Starts gespeichert.")
+        panel.prompt = String(localized: "Ordner merken")
         if panel.runModal() == .OK, let url = panel.url {
             do { try fileAccess.remember(url); Task { await scanLocal() } }
-            catch { self.error = "Ordnerauswahl konnte nicht gespeichert werden: " + error.localizedDescription }
+            catch { self.error = String(localized: "Ordnerauswahl konnte nicht gespeichert werden: ") + error.localizedDescription }
         }
     }
     func scanLocal() async {
@@ -208,21 +208,21 @@ import StudioCore
         guard !busy && !verifyingLocal else { return }
         verifyingLocal = true
         defer { verifyingLocal = false }
-        localNotice = "„\(item.name)“ wird geprüft …"
+        localNotice = String(localized: "„\(item.name)“ wird geprüft …")
         let path = item.path
         let fresh = await Task.detached(priority: .userInitiated) { LocalInstaller.inspect(path) }.value
-        guard let fresh else { localNotice = "„\(item.name)“ ist nicht mehr auffindbar. Liste aktualisieren."; return }
+        guard let fresh else { localNotice = String(localized: "„\(item.name)“ ist nicht mehr auffindbar. Liste aktualisieren."); return }
         if let issue = fresh.preparationIssue {
             localNotice = "„\(item.name)“: \(issue)"
         } else {
             let size = fresh.bytes.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unbekannt"
-            localNotice = "„\(item.name)“: OK – vollständige Installationsdaten vorhanden (\(size)). Bereit für die USB-Erstellung."
+            localNotice = String(localized: "„\(item.name)“: OK – vollständige Installationsdaten vorhanden (\(size)). Bereit für die USB-Erstellung.")
         }
     }
     func trashLocal(_ item: LocalInstaller) async {
         guard !busy && !localScanning && localItems.contains(item) else { return }
         busy = true
-        localNotice = "Installer wird in den Papierkorb verschoben …"
+        localNotice = String(localized: "Installer wird in den Papierkorb verschoben …")
         do {
             do {
                 try await Task.detached(priority: .utility) { try item.moveToTrash() }.value
@@ -233,16 +233,16 @@ import StudioCore
                     || posix == EPERM || posix == EACCES
                 guard denied else { throw error }
                 try await trashWithAdministrator(item)
-                guard !FileManager.default.fileExists(atPath: item.path) else { throw failure("Der Installer wurde nicht verschoben. Bitte erneut prüfen.") }
+                guard !FileManager.default.fileExists(atPath: item.path) else { throw failure(String(localized: "Der Installer wurde nicht verschoben. Bitte erneut prüfen.")) }
             }
             extraLocalPaths.remove(item.path)
             if selectedInstaller == item.path { selectedInstaller = "" }
             if completedPath == item.path { completedPath = "" }
             localItems.removeAll { $0.path == item.path }
             refreshLocal()
-            localNotice = "„\(item.name)“ wurde in den Papierkorb verschoben. Speicher wird erst beim Leeren des Papierkorbs freigegeben."
+            localNotice = String(localized: "„\(item.name)“ wurde in den Papierkorb verschoben. Speicher wird erst beim Leeren des Papierkorbs freigegeben.")
         } catch {
-            localNotice = "Installer konnte nicht entfernt werden."
+            localNotice = String(localized: "Installer konnte nicht entfernt werden.")
             self.error = error.localizedDescription
         }
         busy = false
@@ -250,61 +250,61 @@ import StudioCore
     /// Root-owned installers: first let Finder trash them (it asks for the password itself), then fall back to
     /// handing ownership to the user. macOS "App Management" can block both for apps in /Applications.
     private func trashWithAdministrator(_ item: LocalInstaller) async throws {
-        localNotice = "Finder verschiebt den Installer in den Papierkorb – bitte ggf. das Passwort eingeben …"
+        localNotice = String(localized: "Finder verschiebt den Installer in den Papierkorb – bitte ggf. das Passwort eingeben …")
         let script = try await Task.detached(priority: .utility) { try item.finderTrashScript() }.value
         let finder = try await Command().run("/usr/bin/osascript", ["-e", script], timeout: .greatestFiniteMagnitude)
         if finder.status == 0 && !FileManager.default.fileExists(atPath: item.path) { return }
-        if finder.output.contains("(-128)") { throw failure("Entfernen abgebrochen. Der Installer bleibt erhalten.") }
+        if finder.output.contains("(-128)") { throw failure(String(localized: "Entfernen abgebrochen. Der Installer bleibt erhalten.")) }
         let automationDenied = finder.output.contains("(-1743)")
-        localNotice = "Administratorfreigabe zum Verschieben in den Papierkorb erforderlich …"
+        localNotice = String(localized: "Administratorfreigabe zum Verschieben in den Papierkorb erforderlich …")
         let shell = try await Task.detached(priority: .utility) {
             try item.authorizedOwnershipCommand(owner: getuid())
         }.value
         let result = try await Command().run("/usr/bin/osascript",
             ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: .greatestFiniteMagnitude)
-        if result.output.contains("(-128)") { throw failure("Entfernen abgebrochen. Der Installer bleibt erhalten.") }
+        if result.output.contains("(-128)") { throw failure(String(localized: "Entfernen abgebrochen. Der Installer bleibt erhalten.")) }
         guard result.status == 0 else {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
             if automationDenied {
                 privacyPane = "Privacy_Automation"
-                throw failure("macOS hat OS Studio die Steuerung des Finders verweigert. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Automation bei „OS Studio“ den Finder erlauben und erneut löschen.\n\nAlternativ den im Finder markierten Installer selbst in den Papierkorb ziehen.")
+                throw failure(String(localized: "macOS hat OS Studio die Steuerung des Finders verweigert. Bitte unter Systemeinstellungen → Datenschutz & Sicherheit → Automation bei „OS Studio“ den Finder erlauben und erneut löschen.\n\nAlternativ den im Finder markierten Installer selbst in den Papierkorb ziehen."))
             }
             privacyPane = result.output.contains("Operation not permitted") ? "Privacy_AppBundles" : nil
-            throw failure("macOS schützt den Installer vor Änderungen durch andere Apps („App-Verwaltung“). Der Installer ist jetzt im Finder markiert: Einfach in den Papierkorb ziehen und mit dem Passwort bestätigen.\n\nAlternativ unter Systemeinstellungen → Datenschutz & Sicherheit → App-Verwaltung „OS Studio“ aktivieren und erneut löschen.")
+            throw failure(String(localized: "macOS schützt den Installer vor Änderungen durch andere Apps („App-Verwaltung“). Der Installer ist jetzt im Finder markiert: Einfach in den Papierkorb ziehen und mit dem Passwort bestätigen.\n\nAlternativ unter Systemeinstellungen → Datenschutz & Sicherheit → App-Verwaltung „OS Studio“ aktivieren und erneut löschen."))
         }
         // Ownership changed; revalidate the same bundle and trash it as the user.
         try await Task.detached(priority: .utility) {
             guard let current = LocalInstaller.inspect(item.path), current.path == item.path, current.bytes == item.bytes else {
-                throw NSError(domain: "LocalInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert. Bitte die Liste aktualisieren."])
+                throw NSError(domain: "LocalInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Der Installer wurde verändert. Bitte die Liste aktualisieren.")])
             }
             try current.moveToTrash()
         }.value
     }
     func loadCatalog() async {
         guard !loading && !busy else { return }
-        loading = true; catalogStatus = "Apple-Katalog wird geprüft … maximal 90 Sekunden"
+        loading = true; catalogStatus = String(localized: "Apple-Katalog wird geprüft … maximal 90 Sekunden")
         defer { loading = false }
         async let offeredResult = Self.offeredInstallers()
         async let catalogResult = Self.catalogInstallers()
         let (offered, catalog) = await (offeredResult, catalogResult)
         let merged = AppleCatalog.merge(offered: (try? offered.get()) ?? [], catalog: (try? catalog.get()) ?? [])
         guard !merged.isEmpty else {
-            catalogStatus = "Katalog konnte nicht geladen werden"
+            catalogStatus = String(localized: "Katalog konnte nicht geladen werden")
             let reasons = [offered, catalog].compactMap { result -> String? in
                 if case .failure(let problem) = result { return problem.localizedDescription }; return nil
             }
-            error = reasons.isEmpty ? "Apple bietet keine Installer an." : reasons.joined(separator: "\n\n")
+            error = reasons.isEmpty ? String(localized: "Apple bietet keine Installer an.") : reasons.joined(separator: "\n\n")
             return
         }
         installers = merged
         let extra = merged.filter { !$0.offeredForThisMac }.count
-        catalogStatus = "\(merged.count) Versionen abrufbar · Apple-Katalog" + (extra > 0 ? " · \(extra) davon nicht für diesen Mac, Download als Apple-Paket für andere Macs" : "")
-        if case .failure = catalog, extra == 0 { catalogStatus += " · vollständiger Katalog nicht erreichbar" }
+        catalogStatus = "\(merged.count) Versionen abrufbar · Apple-Katalog" + (extra > 0 ? String(localized: " · \(extra) davon nicht für diesen Mac, Download als Apple-Paket für andere Macs") : "")
+        if case .failure = catalog, extra == 0 { catalogStatus += String(localized: " · vollständiger Katalog nicht erreichbar") }
     }
     private nonisolated static func offeredInstallers() async -> Result<[Installer], Error> {
         do {
             let result = try await Command().run("/usr/sbin/softwareupdate", ["--list-full-installers"], timeout: 90)
-            guard !result.timedOut else { throw failure("Apple antwortet nicht. Verbindung prüfen und erneut laden.") }
+            guard !result.timedOut else { throw failure(String(localized: "Apple antwortet nicht. Verbindung prüfen und erneut laden.")) }
             guard result.status == 0 else { throw failure(result.output) }
             return .success(Installer.parse(result.output))
         } catch { return .failure(error) }
@@ -315,7 +315,7 @@ import StudioCore
             var request = URLRequest(url: AppleCatalog.url, timeoutInterval: 60)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw failure("Apple-Katalog nicht erreichbar.") }
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw failure(String(localized: "Apple-Katalog nicht erreichbar.")) }
             let products = AppleCatalog.products(fromCatalog: try Gzip.decompress(data))
             let items = await withTaskGroup(of: Installer?.self) { group in
                 for product in products {
@@ -332,15 +332,15 @@ import StudioCore
             }
             // Apple occasionally lists the same build twice; keep one.
             var seen = Set<String>()
-            return .success(items.filter { seen.insert($0.version + $0.build).inserted })
+            return .success((items + AppleCatalog.diskImageInstallers).filter { seen.insert($0.version + $0.build).inserted })
         } catch { return .failure(error) }
     }
     private nonisolated static func failure(_ message: String) -> NSError { NSError(domain: "MacOSStudio", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     func download(_ item: Installer) async {
         guard !busy && !loading else { return }
-        guard Installer.validVersion(item.version) else { error = "Bitte eine Version wie 15.7.2 eingeben."; return }
+        guard Installer.validVersion(item.version) else { error = String(localized: "Bitte eine Version wie 15.7.2 eingeben."); return }
         busy = true
-        status = "Vorhandene Installer werden geprüft …"
+        status = String(localized: "Vorhandene Installer werden geprüft …")
         completedPath = ""; error = nil
         let home = FileManager.default.homeDirectoryForCurrentUser
         let roots = ["/Applications", home.appendingPathComponent("Applications").path] + fileAccess.directories
@@ -356,29 +356,29 @@ import StudioCore
             completedPath = existing.path; selectedInstaller = existing.path
             activeTitle = item.title + " " + item.version
             progress = 100; total = Double(existing.bytes ?? 0); amount = total; mbits = nil
-            status = "Passender Installer bereits vorhanden – kein Download nötig"
+            status = String(localized: "Passender Installer bereits vorhanden – kein Download nötig")
             log = "Vorhandener Installer: \(existing.path)\n"
-            error = "Dieser Installer ist bereits vorhanden:\n\(existing.path)\n\nVersion und Installationsdaten wurden erkannt. Er wurde für die USB-Erstellung ausgewählt; ein erneuter Download ist nicht nötig."
+            error = String(localized: "Dieser Installer ist bereits vorhanden:\n\(existing.path)\n\nVersion und Installationsdaten wurden erkannt. Er wurde für die USB-Erstellung ausgewählt; ein erneuter Download ist nicht nötig.")
             return
         }
         // A manual request is titled only "macOS" and would match every installer; skip the series check.
         let manual = item.build == "Manuell"
         if !manual, let existing = found.first(where: { $0.name.localizedCaseInsensitiveContains(item.title) }) {
-            status = "Vorhandenen Installer prüfen"
+            status = String(localized: "Vorhandenen Installer prüfen")
             if let issue = existing.preparationIssue {
-                error = "\(existing.path)\n\n\(issue)\nBitte unter „Installer lokal“ in den Papierkorb verschieben und danach erneut laden."
+                error = String(localized: "\(existing.path)\n\n\(issue)\nBitte unter „Installer lokal“ in den Papierkorb verschieben und danach erneut laden.")
             } else {
-                error = "Ein Installer dieser macOS-Reihe ist bereits vorhanden:\n\(existing.path)\n\nDie gewünschte Version \(item.version) (\(item.build)) konnte nicht bestätigt werden. Bitte unter „Installer lokal“ prüfen. Für einen neuen Download den vorhandenen Installer zuerst an einen anderen Ort verschieben oder in den Papierkorb legen."
+                error = String(localized: "Ein Installer dieser macOS-Reihe ist bereits vorhanden:\n\(existing.path)\n\nDie gewünschte Version \(item.version) (\(item.build)) konnte nicht bestätigt werden. Bitte unter „Installer lokal“ prüfen. Für einen neuen Download den vorhandenen Installer zuerst an einen anderen Ort verschieben oder in den Papierkorb legen.")
             }
             return
         }
         let free = ((try? FileManager.default.attributesOfFileSystem(forPath: "/Applications")[.systemFreeSize]) as? NSNumber)?.doubleValue ?? 0
-        guard free > max(item.bytes * 2 + 5e9, 20e9) else { error = "Nicht genügend freier Speicher für Download und Entpacken."; return }
+        guard free > max(item.bytes * 2 + 5e9, 20e9) else { error = String(localized: "Nicht genügend freier Speicher für Download und Entpacken."); return }
         if !item.offeredForThisMac, item.packageURL != nil { await downloadPackage(item); return }
         busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version
         total = item.bytes; amount = nil; mbits = nil; progress = nil
         metrics.reset(); lastSample = nil; lastProgress = Date(); buffer = ""; stopReason = nil
-        status = "Apple prüft die Verfügbarkeit …"
+        status = String(localized: "Apple prüft die Verfügbarkeit …")
         let before = Dictionary(uniqueKeysWithValues: localInstallers.map { ($0, modification($0)) })
         let cmd = Command(); command = cmd
         let monitor = Task { [weak self] in
@@ -389,7 +389,7 @@ import StudioCore
                 if elapsed > 15 { self.mbits = nil }
                 let limit: Double = self.lastSample == nil ? 180 : 900
                 if elapsed > limit {
-                    self.stopReason = self.lastSample == nil ? "Apple meldet nach 3 Minuten keinen Downloadfortschritt. Katalog neu laden und erneut versuchen." : "Seit 15 Minuten kein Fortschritt. Verbindung und Speicher prüfen."
+                    self.stopReason = self.lastSample == nil ? String(localized: "Apple meldet nach 3 Minuten keinen Downloadfortschritt. Katalog neu laden und erneut versuchen.") : String(localized: "Seit 15 Minuten kein Fortschritt. Verbindung und Speicher prüfen.")
                     cmd.cancel(); return
                 }
             }
@@ -402,7 +402,7 @@ import StudioCore
             // Process the complete output once more to include a final unterminated line.
             if let sample = ProgressSample.parse(result.output) { update(sample) }
             if let reason = stopReason { throw failure(reason) }
-            if result.cancelled { status = "Download abgebrochen"; return }
+            if result.cancelled { status = String(localized: "Download abgebrochen"); return }
             guard result.status == 0 && !result.timedOut else { throw failure(String(result.output.suffix(1800))) }
             refreshLocal()
             let changed = localInstallers.filter { before[$0] == nil || before[$0] != modification($0) }
@@ -410,11 +410,11 @@ import StudioCore
             let candidate = manual ? (changed.count == 1 ? changed.first : nil)
                 : (named.count == 1 ? named.first : (changed.count == 1 ? changed.first : nil))
             guard let path = candidate else {
-                throw failure("Apple hat den Vorgang beendet, aber kein passender Installer mit Installationsdaten wurde gefunden. Unter „Installer lokal“ kannst du unvollständige Downloads prüfen und entfernen.")
+                throw failure(String(localized: "Apple hat den Vorgang beendet, aber kein passender Installer mit Installationsdaten wurde gefunden. Unter „Installer lokal“ kannst du unvollständige Downloads prüfen und entfernen."))
             }
             completedPath = path; selectedInstaller = path; progress = 100; amount = total > 0 ? total : nil
-            status = "Installer geladen und geprüft"
-        } catch { status = "Download fehlgeschlagen"; self.error = error.localizedDescription }
+            status = String(localized: "Installer geladen und geprüft")
+        } catch { status = String(localized: "Download fehlgeschlagen"); self.error = error.localizedDescription }
     }
     /// Catalog-only installers: download Apple's InstallAssistant.pkg, verify it and let macOS' installer
     /// create "Install macOS ….app" in /Applications. Works on Macs that cannot run this macOS themselves.
@@ -424,55 +424,48 @@ import StudioCore
         packageCancelled.reset()
         busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version
         total = item.bytes; amount = nil; mbits = nil; progress = 0
-        status = "Apple-Paket wird geladen …"
-        let downloader = PackageDownload(); packageDownload = downloader
+        status = String(localized: "Apple-Paket wird geladen …")
         defer { packageDownload = nil; busy = false; mbits = nil }
-        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.appletools.macosstudio/Packages", isDirectory: true)
-        let package = folder.appendingPathComponent("InstallAssistant-\(item.build).pkg")
-        defer { try? FileManager.default.removeItem(at: package) }
+        let package = Self.packageFile(item)
         appendLog("Quelle: \(url.absoluteString)\n")
         do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            packageSample = (ProcessInfo.processInfo.systemUptime, 0)
-            _ = try await downloader.run(url, to: package) { [weak self] written, expected in
-                Task { @MainActor in self?.packageProgress(written: written, expected: expected) }
-            }
+            try FileManager.default.createDirectory(at: package.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try await fetch(url, expected: Int64(item.bytes), to: package, offset: 0, total: Int64(item.bytes), label: String(localized: "Apple-Paket wird geladen"))
             mbits = nil; progress = 95
             let size = ((try? FileManager.default.attributesOfItem(atPath: package.path)[.size]) as? NSNumber)?.doubleValue ?? 0
             guard item.bytes <= 0 || size == item.bytes else {
-                throw failure("Das geladene Paket ist unvollständig (\(Int64(size)) statt \(Int64(item.bytes)) Bytes). Bitte erneut laden.")
+                try? FileManager.default.removeItem(at: package)
+                throw failure(String(localized: "Das geladene Paket ist unvollständig (\(Int64(size)) statt \(Int64(item.bytes)) Bytes). Bitte erneut laden."))
             }
             if let part = item.packageParts.first, part.integrity != nil {
                 try await verifyPart(part, file: package, from: 95, to: 96.5)
             }
-            status = "Apple-Signatur wird geprüft …"
+            status = String(localized: "Apple-Signatur wird geprüft …")
             let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", package.path], timeout: 600)
             appendLog(signature.output)
             guard signature.status == 0, signature.output.contains("signed Apple Software") else {
-                throw failure("Das Paket ist nicht von Apple signiert und wird nicht installiert.\n\n" + signature.output)
+                try? FileManager.default.removeItem(at: package)
+                throw failure(String(localized: "Das Paket ist nicht von Apple signiert und wird nicht installiert.\n\n") + signature.output)
             }
-            status = "Installer-App wird erstellt – bitte Administratorpasswort eingeben …"; progress = 97
+            status = String(localized: "Installer-App wird erstellt – bitte Administratorpasswort eingeben …"); progress = 97
             let before = Dictionary(uniqueKeysWithValues: localInstallers.map { ($0, modification($0)) })
             let shell = "/usr/sbin/installer -pkg " + shellQuote(package.path) + " -target /"
             let result = try await Command().run("/usr/bin/osascript",
                 ["-e", "do shell script " + appleScriptQuote(shell) + " with administrator privileges"], timeout: 3 * 3600)
             appendLog(result.output)
-            if result.output.contains("(-128)") { status = "Abgebrochen"; return }
-            guard result.status == 0 else { throw failure("Apples Installer konnte die Installer-App nicht erstellen.\n\n" + String(result.output.suffix(1800))) }
+            if result.output.contains("(-128)") { status = String(localized: "Abgebrochen – das geladene Paket bleibt für den nächsten Versuch erhalten"); return }
+            guard result.status == 0 else { throw failure(String(localized: "Apples Installer konnte die Installer-App nicht erstellen.\n\n") + String(result.output.suffix(1800))) }
+            try? FileManager.default.removeItem(at: package)
             refreshLocal()
             let changed = localInstallers.filter { before[$0] == nil || before[$0] != modification($0) }
             let found = LocalInstaller.discover(roots: ["/Applications"], known: changed)
             guard let installed = found.first(where: { $0.matches(item) }) ?? (changed.count == 1 ? LocalInstaller.inspect(changed[0]) : nil) else {
-                throw failure("Das Paket wurde installiert, aber keine passende Installer-App wurde in /Applications gefunden.")
+                throw failure(String(localized: "Das Paket wurde installiert, aber keine passende Installer-App wurde in /Applications gefunden."))
             }
             localItems = found
             completedPath = installed.path; selectedInstaller = installed.path; progress = 100; amount = total
-            status = "Installer geladen und geprüft"
-        } catch {
-            if (error as? URLError)?.code == .cancelled || error is CancellationError { status = "Download abgebrochen"; return }
-            status = "Download fehlgeschlagen"; self.error = error.localizedDescription
-        }
+            status = String(localized: "Installer geladen und geprüft")
+        } catch { reportPackageFailure(error, item) }
     }
 
     /// macOS 10.13–10.15 from Apple's catalog: downloads the installer parts, checks each against Apple's
@@ -483,31 +476,26 @@ import StudioCore
         total = item.bytes; amount = 0; mbits = nil; progress = 0
         packageCancelled.reset()
         let fileManager = FileManager.default
-        let folder = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.appletools.macosstudio/Packages/\(item.build)-parts", isDirectory: true)
-        defer { packageDownload = nil; busy = false; mbits = nil; try? fileManager.removeItem(at: folder) }
+        let folder = Self.partsFolder(item)
+        defer { packageDownload = nil; busy = false; mbits = nil }
         do {
-            try? fileManager.removeItem(at: folder)
+            // Parts already downloaded completely stay; interrupted ones continue from their resume data.
             try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
             let parts = item.packageParts
             let totalBytes = parts.reduce(Int64(0)) { $0 + $1.bytes }
             var files: [String: URL] = [:]
             var offset: Int64 = 0
             for (index, part) in parts.enumerated() {
-                let label = "Apple-Pakete werden geladen (\(index + 1) von \(parts.count))"
+                let label = String(localized: "Apple-Pakete werden geladen (\(index + 1) von \(parts.count))")
                 status = label + " …"
                 appendLog("Quelle: \(part.url.absoluteString)\n")
                 let target = folder.appendingPathComponent(part.name)
-                let downloader = PackageDownload(); packageDownload = downloader
-                packageSample = (ProcessInfo.processInfo.systemUptime, offset)
-                let start = offset
-                _ = try await downloader.run(part.url, to: target) { [weak self] written, _ in
-                    Task { @MainActor in self?.packageProgress(written: start + written, expected: totalBytes, label: label) }
-                }
+                try await fetch(part.url, expected: part.bytes, to: target, offset: offset, total: totalBytes, label: label)
                 if packageCancelled.value { throw CancellationError() }
                 let size = ((try? fileManager.attributesOfItem(atPath: target.path)[.size]) as? NSNumber)?.int64Value ?? -1
                 guard part.bytes <= 0 || size == part.bytes else {
-                    throw failure("\(part.name) ist unvollständig (\(size) statt \(part.bytes) Bytes). Bitte erneut laden.")
+                    try? fileManager.removeItem(at: target)
+                    throw failure(String(localized: "\(part.name) ist unvollständig (\(size) statt \(part.bytes) Bytes). Bitte erneut laden."))
                 }
                 files[part.name] = target
                 offset += part.bytes
@@ -520,40 +508,187 @@ import StudioCore
                     try await verifyPart(part, file: file, from: 95, to: 98)
                 } else if let list = files[part.name.replacingOccurrences(of: ".dmg", with: ".chunklist")], part.name.hasSuffix(".dmg") {
                     try await verifyPart(part, file: file, from: 95, to: 98, localList: list)
+                } else if item.fromDiskImage {
+                    try await verifyDiskImage(file)
                 } else {
-                    appendLog("\(part.name): Apple veröffentlicht keine Prüfdaten – nur Größe geprüft.\n")
+                    appendLog(String(localized: "\(part.name): Apple veröffentlicht keine Prüfdaten – nur Größe geprüft.\n"))
                 }
             }
-            status = "Apple-Signatur wird geprüft …"
-            guard let stubPackage = files[AppleCatalog.legacyParts[0]] else { throw failure("InstallAssistantAuto.pkg fehlt.") }
+            if item.fromDiskImage, let image = files[parts[0].name] {
+                try await assembleFromDiskImage(image, folder: folder, item: item)
+                return
+            }
+            status = String(localized: "Apple-Signatur wird geprüft …")
+            guard let stubPackage = files[AppleCatalog.legacyParts[0]] else { throw failure(String(localized: "InstallAssistantAuto.pkg fehlt.")) }
             let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", stubPackage.path], timeout: 600)
             appendLog(signature.output)
             guard signature.status == 0, signature.output.contains("signed Apple Software") else {
-                throw failure("Das Paket ist nicht von Apple signiert und wird nicht verwendet.\n\n" + signature.output)
+                try? fileManager.removeItem(at: stubPackage)
+                throw failure(String(localized: "Das Paket ist nicht von Apple signiert und wird nicht verwendet.\n\n") + signature.output)
             }
-            status = "Installer-App wird zusammengesetzt …"; progress = 98.5
+            status = String(localized: "Installer-App wird zusammengesetzt …"); progress = 98.5
             let expanded = folder.appendingPathComponent("expanded")
+            try? fileManager.removeItem(at: expanded)
             let expand = try await Command().run("/usr/sbin/pkgutil", ["--expand-full", stubPackage.path, expanded.path], timeout: 600)
             guard expand.status == 0, let app = LegacyInstaller.stubApp(inExpanded: expanded) else {
-                throw failure("Das Apple-Paket konnte nicht entpackt werden.\n\n" + String(expand.output.suffix(1200)))
+                throw failure(String(localized: "Das Apple-Paket konnte nicht entpackt werden.\n\n") + String(expand.output.suffix(1200)))
             }
             try LegacyInstaller.assemble(app: app, files: files)
-            let destination = try installDestination(for: app.lastPathComponent)
-            try fileManager.moveItem(at: app, to: destination)
-            appendLog("Installer-App: \(destination.path)\n")
-            guard let installed = LocalInstaller.inspect(destination.path), installed.preparationIssue == nil else {
-                throw failure("Die Installer-App wurde erstellt, ist aber unvollständig:\n\(destination.path)")
-            }
-            extraLocalPaths.insert(installed.path)
-            refreshLocal()
-            localItems = (localItems.filter { $0.path != installed.path } + [installed])
-                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            completedPath = installed.path; selectedInstaller = installed.path; progress = 100; amount = total
-            status = "Installer geladen und geprüft"
-        } catch {
-            if (error as? URLError)?.code == .cancelled || error is CancellationError { status = "Download abgebrochen"; return }
-            status = "Download fehlgeschlagen"; self.error = error.localizedDescription
+            try finishAssembledApp(app, folder: folder, item: item)
+        } catch { reportPackageFailure(error, item) }
+    }
+
+    // MARK: Resumable downloads of Apple packages
+
+    private static var packagesFolder: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.appletools.macosstudio/Packages", isDirectory: true)
+    }
+    private static func packageFile(_ item: Installer) -> URL { packagesFolder.appendingPathComponent("InstallAssistant-\(item.build).pkg") }
+    private static func partsFolder(_ item: Installer) -> URL { packagesFolder.appendingPathComponent("\(item.build)-parts", isDirectory: true) }
+
+    /// Deletes a work folder, but never descends into a disk image still mounted at <folder>/mount.
+    private static func removeWorkFolder(_ folder: URL) {
+        let fileManager = FileManager.default
+        let mount = folder.appendingPathComponent("mount")
+        if ((try? fileManager.contentsOfDirectory(atPath: mount.path)) ?? []).isEmpty {
+            try? fileManager.removeItem(at: folder); return
         }
+        for child in (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] where child.lastPathComponent != "mount" {
+            try? fileManager.removeItem(at: child)
+        }
+    }
+
+    /// True when an earlier download of this installer left data to continue from.
+    func canResume(_ item: Installer) -> Bool {
+        guard item.packageURL != nil, !item.offeredForThisMac else { return false }
+        let fileManager = FileManager.default
+        if item.assembledFromParts {
+            let entries = (try? fileManager.contentsOfDirectory(atPath: Self.partsFolder(item).path)) ?? []
+            return entries.contains { !$0.hasPrefix(".") && $0 != "expanded" && $0 != "mount" }
+        }
+        let file = Self.packageFile(item)
+        return fileManager.fileExists(atPath: file.path) || fileManager.fileExists(atPath: file.path + ".resume")
+    }
+    /// Deletes the kept partial download of this installer.
+    func discardPartial(_ item: Installer) {
+        guard !busy else { return }
+        let file = Self.packageFile(item)
+        for url in [file, URL(fileURLWithPath: file.path + ".resume")] { try? FileManager.default.removeItem(at: url) }
+        Self.removeWorkFolder(Self.partsFolder(item))
+        objectWillChange.send()
+    }
+
+    /// Downloads one file. A complete file is kept and skipped; after an interruption the download continues
+    /// from the resume data saved next to it (`<file>.resume`), even after the app was restarted.
+    private func fetch(_ url: URL, expected: Int64, to target: URL, offset: Int64, total: Int64, label: String) async throws {
+        let fileManager = FileManager.default
+        let resume = URL(fileURLWithPath: target.path + ".resume")
+        if expected > 0, ((try? fileManager.attributesOfItem(atPath: target.path)[.size]) as? NSNumber)?.int64Value == expected {
+            try? fileManager.removeItem(at: resume)
+            appendLog(String(localized: "\(target.lastPathComponent): bereits vollständig geladen\n"))
+            packageProgress(written: offset + expected, expected: total, label: label, force: true)
+            return
+        }
+        let resumeData = try? Data(contentsOf: resume)
+        if resumeData != nil { appendLog(String(localized: "\(target.lastPathComponent): Download wird fortgesetzt\n")); status = label + String(localized: " – wird fortgesetzt …") }
+        let downloader = PackageDownload(); packageDownload = downloader
+        packageSample = (ProcessInfo.processInfo.systemUptime, -1)
+        do {
+            _ = try await downloader.run(url, to: target, resumeFrom: resumeData) { [weak self] written, _ in
+                Task { @MainActor in self?.packageProgress(written: offset + written, expected: total, label: label) }
+            }
+            try? fileManager.removeItem(at: resume)
+        } catch {
+            // Cancelling hands over resume data asynchronously; give it a moment.
+            if downloader.resumeData == nil { try? await Task.sleep(nanoseconds: 500_000_000) }
+            if let data = downloader.resumeData {
+                try? data.write(to: resume, options: .atomic)
+            } else if resumeData != nil {
+                // Stale resume data (e.g. the partial temp file was purged) fails every time: start this file fresh.
+                try? fileManager.removeItem(at: resume)
+                let cancelled = (error as? URLError)?.code == .cancelled || packageCancelled.value
+                if !cancelled {
+                    appendLog(String(localized: "\(target.lastPathComponent): Fortsetzen nicht möglich – Download beginnt neu\n"))
+                    try await fetch(url, expected: expected, to: target, offset: offset, total: total, label: label)
+                    return
+                }
+            }
+            throw error
+        }
+    }
+
+    private func reportPackageFailure(_ error: Error, _ item: Installer) {
+        let resumable = canResume(item)
+        if (error as? URLError)?.code == .cancelled || error is CancellationError {
+            status = resumable ? String(localized: "Download angehalten – „Fortsetzen“ lädt ab hier weiter") : String(localized: "Download abgebrochen")
+            return
+        }
+        status = String(localized: "Download fehlgeschlagen")
+        self.error = error.localizedDescription + (resumable ? String(localized: "\n\nBereits geladene Daten bleiben erhalten. „Fortsetzen“ lädt ab der Abbruchstelle weiter.") : "")
+    }
+
+    /// Checks the disk image's own checksums (UDIF) – Apple publishes no separate integrity data for it.
+    private func verifyDiskImage(_ image: URL) async throws {
+        status = String(localized: "Prüfsumme des Apple-Abbilds wird geprüft …"); progress = 96
+        let result = try await Command().run("/usr/bin/hdiutil", ["verify", "-quiet", image.path], timeout: 1800)
+        guard result.status == 0 else {
+            try? FileManager.default.removeItem(at: image)
+            throw failure(String(localized: "Das Apple-Abbild \(image.lastPathComponent) ist beschädigt und wurde verworfen. Bitte erneut laden.\n\n") + String(result.output.suffix(800)))
+        }
+        appendLog(String(localized: "\(image.lastPathComponent): Prüfsumme des Abbilds bestätigt.\n"))
+    }
+
+    /// OS X 10.10 – macOS 10.12: mount Apple's disk image, check the package signature, expand the package
+    /// and put InstallESD.dmg into the installer app. The macOS installer itself is not run (it refuses newer systems).
+    private func assembleFromDiskImage(_ image: URL, folder: URL, item: Installer) async throws {
+        let fileManager = FileManager.default
+        let mount = folder.appendingPathComponent("mount", isDirectory: true)
+        let expanded = folder.appendingPathComponent("expanded", isDirectory: true)
+        _ = try? await Command().run("/usr/bin/hdiutil", ["detach", "-force", mount.path], timeout: 60)
+        try? fileManager.removeItem(at: expanded)
+        try fileManager.createDirectory(at: mount, withIntermediateDirectories: true)
+        status = String(localized: "Apple-Abbild wird geöffnet …"); progress = 97
+        let attach = try await Command().run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-noautoopen", "-noverify", "-mountpoint", mount.path, image.path], timeout: 600)
+        guard attach.status == 0 else { throw failure(String(localized: "Das Apple-Abbild ließ sich nicht öffnen.\n\n") + String(attach.output.suffix(800))) }
+        func detach() async { _ = try? await Command().run("/usr/bin/hdiutil", ["detach", "-force", mount.path], timeout: 120) }
+        let app: URL
+        do {
+            let packages = ((try? fileManager.contentsOfDirectory(at: mount, includingPropertiesForKeys: nil)) ?? []).filter { $0.pathExtension == "pkg" }
+            guard packages.count == 1 else { throw failure(String(localized: "Im Apple-Abbild wurde kein eindeutiges Installationspaket gefunden.")) }
+            status = String(localized: "Apple-Signatur wird geprüft …")
+            let signature = try await Command().run("/usr/sbin/pkgutil", ["--check-signature", packages[0].path], timeout: 600)
+            appendLog(signature.output)
+            guard signature.status == 0, signature.output.contains("signed Apple Software") else {
+                throw failure(String(localized: "Das Paket ist nicht von Apple signiert und wird nicht verwendet.\n\n") + signature.output)
+            }
+            status = String(localized: "Installer-App wird zusammengesetzt …"); progress = 98
+            let expand = try await Command().run("/usr/sbin/pkgutil", ["--expand-full", packages[0].path, expanded.path], timeout: 3600)
+            guard expand.status == 0, let contents = LegacyInstaller.diskImageContents(inExpanded: expanded) else {
+                throw failure(String(localized: "Das Apple-Paket konnte nicht entpackt werden.\n\n") + String(expand.output.suffix(1200)))
+            }
+            try LegacyInstaller.assemble(app: contents.app, installESD: contents.esd)
+            app = contents.app
+        } catch { await detach(); throw error }
+        await detach()                                  // before the work folder (with the mount point) is removed
+        try finishAssembledApp(app, folder: folder, item: item)
+    }
+
+    /// Moves an assembled installer app to /Applications (or ~/Applications) and selects it.
+    private func finishAssembledApp(_ app: URL, folder: URL, item: Installer) throws {
+        let destination = try installDestination(for: app.lastPathComponent)
+        try FileManager.default.moveItem(at: app, to: destination)
+        appendLog("Installer-App: \(destination.path)\n")
+        guard let installed = LocalInstaller.inspect(destination.path), installed.preparationIssue == nil else {
+            throw failure(String(localized: "Die Installer-App wurde erstellt, ist aber unvollständig:\n\(destination.path)"))
+        }
+        extraLocalPaths.insert(installed.path)
+        refreshLocal()
+        localItems = (localItems.filter { $0.path != installed.path } + [installed])
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        Self.removeWorkFolder(folder)
+        completedPath = installed.path; selectedInstaller = installed.path; progress = 100; amount = total
+        status = String(localized: "Installer geladen und geprüft")
     }
 
     /// /Applications when writable, otherwise ~/Applications. Never replaces an existing app.
@@ -563,28 +698,28 @@ import StudioCore
         for folder in [URL(fileURLWithPath: "/Applications", isDirectory: true), home] {
             let target = folder.appendingPathComponent(name)
             if fileManager.fileExists(atPath: target.path) {
-                throw failure("„\(name)“ ist bereits vorhanden:\n\(target.path)\n\nBitte unter „Installer lokal“ prüfen oder vorher in den Papierkorb legen.")
+                throw failure(String(localized: "„\(name)“ ist bereits vorhanden:\n\(target.path)\n\nBitte unter „Installer lokal“ prüfen oder vorher in den Papierkorb legen."))
             }
             if folder == home { try? fileManager.createDirectory(at: home, withIntermediateDirectories: true) }
             if fileManager.isWritableFile(atPath: folder.path) { return target }
         }
-        throw failure("Weder /Applications noch ~/Applications sind beschreibbar.")
+        throw failure(String(localized: "Weder /Applications noch ~/Applications sind beschreibbar."))
     }
 
     /// Checks a downloaded file against Apple's chunked SHA-256 list (remote integrity data or a local .chunklist).
     private func verifyPart(_ part: CatalogPart, file: URL, from start: Double, to end: Double, localList: URL? = nil) async throws {
-        status = "Apple-Prüfsumme wird geprüft: \(part.name) …"
+        status = String(localized: "Apple-Prüfsumme wird geprüft: \(part.name) …")
         let data: Data
         if let localList {
             data = try Data(contentsOf: localList)
         } else if let source = part.integrity {
             let (loaded, response) = try await URLSession.shared.data(for: URLRequest(url: source, timeoutInterval: 60))
             guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                throw failure("Apples Prüfdaten für \(part.name) sind nicht erreichbar. Bitte später erneut versuchen.")
+                throw failure(String(localized: "Apples Prüfdaten für \(part.name) sind nicht erreichbar. Bitte später erneut versuchen."))
             }
             data = loaded
         } else { return }
-        guard let list = Chunklist.parse(data) else { throw failure("Apples Prüfdaten für \(part.name) sind unlesbar.") }
+        guard let list = Chunklist.parse(data) else { throw failure(String(localized: "Apples Prüfdaten für \(part.name) sind unlesbar.")) }
         let cancelled = packageCancelled
         let outcome = try await Task.detached(priority: .userInitiated) { [weak self] in
             try list.verify(file, isCancelled: { cancelled.value }) { fraction in
@@ -595,21 +730,27 @@ import StudioCore
             }
         }.value
         switch outcome {
-        case .ok: appendLog("\(part.name): Prüfsumme bestätigt (\(list.chunks.count) Blöcke, SHA-256).\n")
+        case .ok: appendLog(String(localized: "\(part.name): Prüfsumme bestätigt (\(list.chunks.count) Blöcke, SHA-256).\n"))
         case .wrongSize(let expected, let actual):
-            throw failure("\(part.name) hat die falsche Größe (\(actual) statt \(expected) Bytes). Bitte erneut laden.")
+            try? FileManager.default.removeItem(at: file)
+            throw failure(String(localized: "\(part.name) hat die falsche Größe (\(actual) statt \(expected) Bytes). Bitte erneut laden."))
         case .mismatch(let chunk):
-            throw failure("\(part.name) stimmt nicht mit Apples Prüfsumme überein (Block \(chunk + 1)). Die Datei wurde verworfen; bitte erneut laden.")
+            try? FileManager.default.removeItem(at: file)
+            throw failure(String(localized: "\(part.name) stimmt nicht mit Apples Prüfsumme überein (Block \(chunk + 1)). Die Datei wurde verworfen; bitte erneut laden."))
         }
     }
     private let packageCancelled = CancelFlag()
     private var packageSample: (time: TimeInterval, bytes: Int64) = (0, 0)
-    private func packageProgress(written: Int64, expected: Int64, label: String = "Apple-Paket wird geladen") {
+    private func packageProgress(written: Int64, expected: Int64, label: String = String(localized: "Apple-Paket wird geladen"), force: Bool = false) {
         guard busy else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - packageSample.time >= 1 else { return }
-        mbits = Double(written - packageSample.bytes) * 8 / (now - packageSample.time) / 1_000_000
-        packageSample = (now, written)
+        if packageSample.bytes < 0 {
+            packageSample = (now, written)          // resumed downloads start counting at the resume offset
+        } else {
+            guard force || now - packageSample.time >= 1 else { return }
+            if !force { mbits = Double(written - packageSample.bytes) * 8 / (now - packageSample.time) / 1_000_000 }
+            packageSample = (now, written)
+        }
         let size = expected > 0 ? Double(expected) : total
         if size > 0 { total = size; progress = min(95, Double(written) / size * 95) }
         amount = Double(written); status = label
@@ -630,7 +771,7 @@ import StudioCore
         progress = min(99.9, sample.percent)
         let values = metrics.update(sample, total: total, time: ProcessInfo.processInfo.systemUptime)
         amount = values.bytes; mbits = values.mbits
-        status = sample.phase == "downloading" ? "Installer wird geladen" : "Installer laden und vorbereiten"
+        status = sample.phase == "downloading" ? String(localized: "Installer wird geladen") : String(localized: "Installer laden und vorbereiten")
         DockProgress.show(progress.map { $0 / 100 })
     }
     /// Only a macOS download started here can be cancelled from the activity panel (not IPSW downloads,
@@ -638,7 +779,7 @@ import StudioCore
     var canCancelDownload: Bool { !flashing && (command != nil || packageDownload != nil) }
     func cancel() {
         guard !flashing else { return }
-        status = "Download wird abgebrochen …"; packageCancelled.set(); command?.cancel(); packageDownload?.cancel()
+        status = String(localized: "Download wird abgebrochen …"); packageCancelled.set(); command?.cancel(); packageDownload?.cancel()
     }
     func detectMac() async {
         guard !detectingMac else { return }
@@ -649,7 +790,7 @@ import StudioCore
             let id = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
             if let model = models.first(where: { $0.identifiers.contains(id) }) {
                 modelQuery = model.name; selectedMac = model.id; detectedMacID = model.id
-            } else { modelQuery = id; error = "\(id) ist in der übernommenen Modelldatenbank nicht enthalten." }
+            } else { modelQuery = id; error = String(localized: "\(id) ist in der übernommenen Modelldatenbank nicht enthalten.") }
         } catch { self.error = error.localizedDescription }
     }
     func scanDisks() async {
@@ -659,7 +800,7 @@ import StudioCore
         refreshLocal()
         do {
             let result = try await Command().run("/usr/sbin/diskutil", ["list", "-plist", "external"], timeout: 10)
-            guard result.status == 0 && !result.timedOut else { throw failure("Laufwerkssuche fehlgeschlagen oder Zeitlimit erreicht.") }
+            guard result.status == 0 && !result.timedOut else { throw failure(String(localized: "Laufwerkssuche fehlgeschlagen oder Zeitlimit erreicht.")) }
             let plist = try PropertyListSerialization.propertyList(from: Data(result.output.utf8), format: nil) as? [String: Any]
             var identifiers: [String] = []
             func walk(_ obj: Any) {
@@ -681,13 +822,13 @@ import StudioCore
         let result = try await Command().run("/usr/sbin/diskutil", ["info", "-plist", identifier], timeout: 5)
         guard result.status == 0 && !result.timedOut,
               let plist = try PropertyListSerialization.propertyList(from: Data(result.output.utf8), format: nil) as? [String: Any],
-              let disk = ExternalDisk.validated(plist) else { throw failure("Kein geeignetes externes USB-Volume.") }
+              let disk = ExternalDisk.validated(plist) else { throw failure(String(localized: "Kein geeignetes externes USB-Volume.")) }
         return disk
     }
     private func diskPlist(_ identifier: String) async throws -> [String: Any] {
         let result = try await Command().run("/usr/sbin/diskutil", ["info", "-plist", identifier], timeout: 5)
         guard result.status == 0, !result.timedOut,
-              let info = try PropertyListSerialization.propertyList(from: Data(result.output.utf8), format: nil) as? [String: Any] else { throw failure("Laufwerksinformationen konnten nicht gelesen werden.") }
+              let info = try PropertyListSerialization.propertyList(from: Data(result.output.utf8), format: nil) as? [String: Any] else { throw failure(String(localized: "Laufwerksinformationen konnten nicht gelesen werden.")) }
         return info
     }
     func flash() async {
@@ -695,24 +836,29 @@ import StudioCore
         busy = true; flashing = true; progress = nil; amount = nil; mbits = nil; total = 0
         privacyPane = nil
         completedPath = ""
-        activeTitle = "USB-Stick erstellen"; log = ""; status = "Ziel-Laufwerk erneut prüfen …"
+        activeTitle = String(localized: "USB-Stick erstellen"); log = ""; status = String(localized: "Ziel-Laufwerk erneut prüfen …")
         defer { busy = false; flashing = false }
         do {
             let checked = try await diskInfo(target.identifier)
-            guard checked == target else { throw failure("Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.") }
+            guard checked == target else { throw failure(String(localized: "Das Ziel-Laufwerk hat sich geändert. Bitte erneut auswählen.")) }
             let tool = selectedInstaller + "/Contents/Resources/createinstallmedia"
             if let issue = LocalInstaller.preparationIssue(at: selectedInstaller) { throw failure(issue) }
-            if let issue = MachO.rosettaIssue(executable: URL(fileURLWithPath: tool), hostIsARM: Self.hostIsARM,
-                                              rosettaInstalled: FileManager.default.fileExists(atPath: "/Library/Apple/usr/share/rosetta/rosetta")) {
-                throw failure(issue)
+            if Self.hostIsARM, !MachO.architectures(of: URL(fileURLWithPath: tool)).contains("arm64") {
+                status = String(localized: "Installer-Werkzeug wird geprüft …")
+                let toolURL = URL(fileURLWithPath: tool)
+                // Without Rosetta it cannot start at all; with Rosetta macOS kills these Apple-signed Intel tools.
+                let rosetta = FileManager.default.fileExists(atPath: "/Library/Apple/usr/share/rosetta/rosetta")
+                if await Task.detached(priority: .userInitiated, operation: { !rosetta || MachO.killedAtLaunch(toolURL) }).value {
+                    throw failure(MachO.blockedOnAppleSilicon)
+                }
             }
             // The stick must hold the whole installer; check before anything is erased.
-            status = "Speicherplatz auf dem USB-Stick prüfen …"
+            status = String(localized: "Speicherplatz auf dem USB-Stick prüfen …")
             let installerPath = selectedInstaller
             let installerBytes = await Task.detached(priority: .userInitiated) { LocalInstaller.inspect(installerPath)?.bytes }.value
             let required = Self.requiredUSBBytes(installerBytes: installerBytes)
             guard target.bytes >= required else {
-                throw failure(String(format: "Der USB-Stick ist zu klein: %.1f GB vorhanden, für diesen Installer werden mindestens %.0f GB benötigt. Der USB-Stick wurde nicht verändert.", target.bytes / 1e9, (required / 1e9).rounded(.up)))
+                throw failure(String(localized: "Der USB-Stick ist zu klein: \(String(format: "%.1f", target.bytes / 1e9)) GB vorhanden, für diesen Installer werden mindestens \(Int((required / 1e9).rounded(.up))) GB benötigt. Der USB-Stick wurde nicht verändert."))
             }
             var preparation: USBPreparation?
             let info = try await diskPlist(target.identifier)
@@ -723,10 +869,10 @@ import StudioCore
                       let containers = list["Containers"] as? [[String: Any]],
                       let container = containers.first(where: { ($0["ContainerReference"] as? String) == (info["APFSContainerReference"] as? String) }),
                       let stores = container["PhysicalStores"] as? [[String: Any]], stores.count == 1,
-                      let store = stores[0]["DeviceIdentifier"] as? String else { throw failure("APFS-Ziel konnte nicht sicher zugeordnet werden.") }
+                      let store = stores[0]["DeviceIdentifier"] as? String else { throw failure(String(localized: "APFS-Ziel konnte nicht sicher zugeordnet werden.")) }
                 let physical = try await diskPlist(store)
                 guard let plan = USBPreparation(target: target, container: container, storeInfo: physical) else {
-                    throw failure("Dieser APFS-Container enthält weitere Volumes oder lässt sich keinem einzelnen externen USB-Speicher zuordnen. Automatische Formatierung wurde gestoppt, um andere Daten zu schützen.")
+                    throw failure(String(localized: "Dieser APFS-Container enthält weitere Volumes oder lässt sich keinem einzelnen externen USB-Speicher zuordnen. Automatische Formatierung wurde gestoppt, um andere Daten zu schützen."))
                 }
                 preparation = plan
             }
@@ -747,15 +893,16 @@ import StudioCore
             defer { if job.exitStatus() != nil { job.remove() } }
             let shell = job.usbRootCommand(safety: safety, mount: target.mount,
                                            setup: preparation?.shellCommand(name: preparedName, mount: preparedMount),
-                                           tool: tool, volume: volume)
-            try job.write(rootCommand: shell, headline: "OS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht")
-            let header = "Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster; Schritte und Fortschritt erscheinen hier live.\n\n"
+                                           tool: tool, volume: volume,
+                                           application: LegacyInstaller.needsApplicationPath(tool: URL(fileURLWithPath: tool)) ? selectedInstaller : nil)
+            try job.write(rootCommand: shell, headline: String(localized: "OS Studio – bootfähigen USB-Stick erstellen\nInstaller: \(selectedInstaller)\nZiel: \(target.name) (\(target.identifier)) – wird gelöscht"))
+            let header = String(localized: "Installer: \(selectedInstaller)\nZiel: \(target.name) · \(target.identifier) · \(target.mount)\nDer Vorgang läuft im Terminal-Fenster; Schritte und Fortschritt erscheinen hier live.\n\n")
             appendLog(header)
             let config = NSWorkspace.OpenConfiguration(); config.activates = true
-            guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { throw failure("Terminal wurde nicht gefunden.") }
+            guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { throw failure(String(localized: "Terminal wurde nicht gefunden.")) }
             do { _ = try await NSWorkspace.shared.open([job.script], withApplicationAt: terminal, configuration: config) }
-            catch { throw failure("Terminal konnte nicht geöffnet werden: " + error.localizedDescription) }
-            status = "Im Terminal-Fenster das Mac-Passwort eingeben. Der USB-Stick wird dort erstellt …"
+            catch { throw failure(String(localized: "Terminal konnte nicht geöffnet werden: ") + error.localizedDescription) }
+            status = String(localized: "Im Terminal-Fenster das Mac-Passwort eingeben. Der USB-Stick wird dort erstellt …")
             cancelRequestedAt = nil; activeJob = job; waitingForTerminal = true
             defer { waitingForTerminal = false; activeJob = nil; DockProgress.clear() }
             var exit: Int32?
@@ -763,13 +910,13 @@ import StudioCore
             while exit == nil {
                 // Cancel requested but no reaction: Terminal is most likely still asking for the password.
                 if let asked = cancelRequestedAt, Date().timeIntervalSince(asked) > 20, job.output().isEmpty {
-                    throw failure("Abgebrochen. Im Terminal-Fenster ist vermutlich noch die Passwortabfrage offen – bitte das Fenster schließen. Auch nach einer Passworteingabe bricht der Vorgang sofort ab; der USB-Stick wurde nicht verändert.")
+                    throw failure(String(localized: "Abgebrochen. Im Terminal-Fenster ist vermutlich noch die Passwortabfrage offen – bitte das Fenster schließen. Auch nach einer Passworteingabe bricht der Vorgang sofort ab; der USB-Stick wurde nicht verändert."))
                 }
                 // The root command stops within seconds of a cancel request. No status after a minute means the
                 // Terminal window was closed and nobody will ever write one – don't wait forever.
                 if let asked = cancelRequestedAt, Date().timeIntervalSince(asked) > 60, job.exitStatus() == nil {
                     log = header + USBProgress.clean(job.output())
-                    throw failure("Abgebrochen. Das Terminal-Fenster antwortet nicht mehr (vermutlich geschlossen). Der USB-Stick ist möglicherweise unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden.")
+                    throw failure(String(localized: "Abgebrochen. Das Terminal-Fenster antwortet nicht mehr (vermutlich geschlossen). Der USB-Stick ist möglicherweise unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden."))
                 }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 exit = job.exitStatus()
@@ -791,29 +938,29 @@ import StudioCore
                 switch exit {
                 case TerminalJob.cancelledExit:
                     throw failure(output.contains(USBProgress.startMarker)
-                        ? "USB-Erstellung abgebrochen. Der USB-Stick ist unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden.\n\n" + output
-                        : "USB-Erstellung abgebrochen. Der USB-Stick wurde nicht verändert.")
+                        ? String(localized: "USB-Erstellung abgebrochen. Der USB-Stick ist unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden.\n\n") + output
+                        : String(localized: "USB-Erstellung abgebrochen. Der USB-Stick wurde nicht verändert."))
                 case TerminalJob.noWriteAccessExit:
                     privacyPane = "Privacy_AllFiles"
-                    throw failure(Self.terminalAccessHint + "\n\nDie Prüfung erfolgte vor dem Löschen – der USB-Stick wurde nicht verändert.")
+                    throw failure(Self.terminalAccessHint + String(localized: "\n\nDie Prüfung erfolgte vor dem Löschen – der USB-Stick wurde nicht verändert."))
                 case TerminalJob.targetChangedExit:
-                    throw failure("Das Ziel-Laufwerk hat sich vor dem Schreiben geändert. Bitte die USB-Laufwerke aktualisieren und erneut auswählen. Der USB-Stick wurde nicht verändert.")
+                    throw failure(String(localized: "Das Ziel-Laufwerk hat sich vor dem Schreiben geändert. Bitte die USB-Laufwerke aktualisieren und erneut auswählen. Der USB-Stick wurde nicht verändert."))
                 default: break
                 }
                 if output.localizedCaseInsensitiveContains("does not appear to be a valid OS installer") {
-                    throw failure("Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n" + output)
+                    throw failure(String(localized: "Apple lehnt diesen Installer als unvollständig oder beschädigt ab (253). Bitte unter „Installer lokal“ entfernen und erneut vollständig laden. Der Installer wird nicht automatisch geöffnet.\n\n") + output)
                 }
                 if output.contains("Operation not permitted") || output.contains(".IAPhysicalMedia") {
                     privacyPane = "Privacy_AllFiles"
                     throw failure(Self.terminalAccessHint + "\n\n" + output)
                 }
                 if exit == 1 && output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    throw failure("Die Administratorfreigabe im Terminal ist fehlgeschlagen. Der USB-Stick wurde nicht verändert.\n\n" + output)
+                    throw failure(String(localized: "Die Administratorfreigabe im Terminal ist fehlgeschlagen. Der USB-Stick wurde nicht verändert.\n\n") + output)
                 }
-                throw failure(output.isEmpty ? "USB-Erstellung fehlgeschlagen (Code \(exit ?? -1))." : output)
+                throw failure(output.isEmpty ? String(localized: "USB-Erstellung fehlgeschlagen (Code \(String(exit ?? -1))).") : output)
             }
-            progress = 100; status = "Bootfähiger USB-Stick ist bereit"
-        } catch { status = "USB-Erstellung nicht abgeschlossen"; self.error = error.localizedDescription }
+            progress = 100; status = String(localized: "Bootfähiger USB-Stick ist bereit")
+        } catch { status = String(localized: "USB-Erstellung nicht abgeschlossen"); self.error = error.localizedDescription }
     }
     /// Bundles app/system info and the recent log into a text file for bug reports (#9).
     func exportDiagnostics() {
@@ -839,7 +986,7 @@ import StudioCore
         do {
             try report.data(using: .utf8)?.write(to: url, options: .atomic)
             NSWorkspace.shared.activateFileViewerSelecting([url])
-        } catch { self.error = "Diagnose konnte nicht gespeichert werden: \(error.localizedDescription)" }
+        } catch { self.error = String(localized: "Diagnose konnte nicht gespeichert werden: \(error.localizedDescription)") }
     }
     func openPrivacySettings() {
         let pane = URL(string: "x-apple.systempreferences:com.apple.preference.security?" + (privacyPane ?? "Privacy_AllFiles"))!

@@ -78,14 +78,14 @@ import StudioCore
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         if let type = UTType(filenameExtension: "ipsw") { panel.allowedContentTypes = [type] }
         panel.directoryURL = folder
-        panel.prompt = "Auswählen"
-        panel.message = "IPSW-Datei für iPhone oder iPad wählen"
+        panel.prompt = String(localized: "Auswählen")
+        panel.message = String(localized: "IPSW-Datei für iPhone oder iPad wählen")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { await select(url) }
     }
 
     func select(_ url: URL) async {
-        guard url.pathExtension.lowercased() == "ipsw" else { error = "Bitte eine .ipsw-Datei wählen."; return }
+        guard url.pathExtension.lowercased() == "ipsw" else { error = String(localized: "Bitte eine .ipsw-Datei wählen."); return }
         ipsw = url; info = nil; result = nil; reading = true
         defer { reading = false }
         // Extract only the small plist into a private temp folder (it may be binary, so read it as Data).
@@ -97,22 +97,22 @@ import StudioCore
             if let parsed = IPSWInfo.parse(data) { info = parsed; return }
         }
         ipsw = nil
-        error = "„\(url.lastPathComponent)“ ist keine lesbare iPhone-/iPad-Firmware (IPSW)."
+        error = String(localized: "„\(url.lastPathComponent)“ ist keine lesbare iPhone-/iPad-Firmware (IPSW).")
     }
 
     func flash(studio: StudioModel, firmware: FirmwareStore) async {
         guard let device, let ipsw, compatible,
               let args = CfgUtil.restoreArguments(ecid: device.ecid, ipsw: ipsw) else { return }
         lastWasRepair = false
-        await execute(args, studio: studio, ecid: device.ecid, start: "Wiederherstellung wird gestartet …",
-                      done: "Fertig · \(device.modelName) mit \(info?.platform ?? "iOS") \(info?.version ?? "") wiederhergestellt",
-                      failure: "Die Wiederherstellung ist fehlgeschlagen.",
+        await execute(args, studio: studio, ecid: device.ecid, start: String(localized: "Wiederherstellung wird gestartet …"),
+                      done: String(localized: "Fertig · \(device.modelName) mit \(info?.platform ?? "iOS") \(info?.version ?? "") wiederhergestellt"),
+                      failure: String(localized: "Die Wiederherstellung ist fehlgeschlagen."),
                       preflight: { [weak self] in try await self?.checkIPSW(ipsw, firmware: firmware) })
     }
 
     /// Before anything is written: the IPSW must match Apple's published SHA-1 (when Apple lists one).
     private func checkIPSW(_ file: URL, firmware: FirmwareStore) async throws {
-        phase = "Prüfsumme wird vor dem Flashen geprüft …"; progress = 0
+        phase = String(localized: "Prüfsumme wird vor dem Flashen geprüft …"); progress = 0
         checkingChecksum = true
         defer { checkingChecksum = false }
         let cancelled = checkCancelled
@@ -120,18 +120,18 @@ import StudioCore
             Task { @MainActor in
                 guard let self, self.checkingChecksum else { return }
                 self.progress = fraction * 100
-                self.stepInfo = String(format: "Prüfsumme (SHA-1) · %.0f %%", fraction * 100)
+                self.stepInfo = String(localized: "Prüfsumme (SHA-1) · \(Int((fraction * 100).rounded())) %")
             }
         }
         if cancelled.value { throw CancellationError() }
         switch outcome {
         case .confirmed, .alreadyConfirmed:
-            log += "Prüfsumme von „\(file.lastPathComponent)“ stimmt mit Apples Angabe überein.\n"
+            log += String(localized: "Prüfsumme von „\(file.lastPathComponent)“ stimmt mit Apples Angabe überein.\n")
         case .noReference:
-            log += "Für „\(file.lastPathComponent)“ veröffentlicht Apple keine Prüfsumme – Prüfung übersprungen.\n"
+            log += String(localized: "Für „\(file.lastPathComponent)“ veröffentlicht Apple keine Prüfsumme – Prüfung übersprungen.\n")
         case .mismatch:
             throw NSError(domain: "Flasher", code: 1, userInfo: [NSLocalizedDescriptionKey:
-                "„\(file.lastPathComponent)“ stimmt nicht mit Apples Prüfsumme überein. Die Datei ist beschädigt oder verändert.\n\nDas Gerät wurde nicht verändert. Bitte die Datei löschen und die Firmware neu laden."])
+                String(localized: "„\(file.lastPathComponent)“ stimmt nicht mit Apples Prüfsumme überein. Die Datei ist beschädigt oder verändert.\n\nDas Gerät wurde nicht verändert. Bitte die Datei löschen und die Firmware neu laden.")])
         }
         self.preflightNote = outcome
         progress = nil; stepInfo = ""
@@ -160,10 +160,10 @@ import StudioCore
         selected = target.ecid
         await select(file)
         guard compatible else {
-            error = "„\(file.lastPathComponent)“ passt nicht zu \(target.modelName). Es wurde nichts verändert."; return
+            error = String(localized: "„\(file.lastPathComponent)“ passt nicht zu \(target.modelName). Es wurde nichts verändert."); return
         }
         guard device != nil else {
-            error = "\(target.modelName) ist nicht mehr verbunden. Gerät wieder anstecken (DFU- oder Wiederherstellungsmodus) und erneut „Flashen“ drücken."
+            error = String(localized: "\(target.modelName) ist nicht mehr verbunden. Gerät wieder anstecken (DFU- oder Wiederherstellungsmodus) und erneut „Flashen“ drücken.")
             return
         }
         firmware.dismiss()
@@ -186,13 +186,13 @@ import StudioCore
         defer { activeRepair = nil }
         switch action {
         case .revive:
-            await execute(args, studio: studio, ecid: device.ecid, start: "Reparieren wird gestartet – das System wird neu installiert, Daten bleiben …",
-                          done: "Fertig · \(device.modelName) repariert. Das Gerät startet neu.",
-                          failure: "Reparieren hat nicht geklappt. Als Nächstes „Wiederherstellen“ versuchen (löscht alle Daten).")
+            await execute(args, studio: studio, ecid: device.ecid, start: String(localized: "Reparieren wird gestartet – das System wird neu installiert, Daten bleiben …"),
+                          done: String(localized: "Fertig · \(device.modelName) repariert. Das Gerät startet neu."),
+                          failure: String(localized: "Reparieren hat nicht geklappt. Als Nächstes „Wiederherstellen“ versuchen (löscht alle Daten)."))
         case .restoreLatest:
-            await execute(args, studio: studio, ecid: device.ecid, start: "Neueste Software wird von Apple geladen und installiert …",
-                          done: "Fertig · \(device.modelName) mit der neuesten Software wiederhergestellt.",
-                          failure: "Die Wiederherstellung ist fehlgeschlagen.")
+            await execute(args, studio: studio, ecid: device.ecid, start: String(localized: "Neueste Software wird von Apple geladen und installiert …"),
+                          done: String(localized: "Fertig · \(device.modelName) mit der neuesten Software wiederhergestellt."),
+                          failure: String(localized: "Die Wiederherstellung ist fehlgeschlagen."))
         }
     }
 
@@ -205,7 +205,7 @@ import StudioCore
         activeFile = args.firstIndex(of: "-I").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
         phase = start
         // Keep the Mac (and its USB ports) awake for the whole restore.
-        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "iPhone/iPad wird wiederhergestellt")
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: String(localized: "iPhone/iPad wird wiederhergestellt"))
         defer { studio.busy = false; running = false; command = nil; activeECID = nil; DockProgress.clear(); ProcessInfo.processInfo.endActivity(activity) }
         let attempts = 3
         userCancelled = false; checkCancelled.reset(); preflightNote = nil
@@ -226,13 +226,13 @@ import StudioCore
                 lastLogFile = saveLog(out.output, args: args)
                 attempt += 1
                 steps = CfgUtil.StepProgress(); stepInfo = ""; progress = nil
-                phase = "Verbindung unterbrochen – warte auf das Gerät, dann Versuch \(attempt) von \(attempts) …"
+                phase = String(localized: "Verbindung unterbrochen – warte auf das Gerät, dann Versuch \(attempt) von \(attempts) …")
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
                 guard !userCancelled, await waitForDevice(ecid, seconds: 180) else { break }
-                phase = "Versuch \(attempt) von \(attempts) läuft …"
+                phase = String(localized: "Versuch \(attempt) von \(attempts) läuft …")
             }
-            if out.cancelled || userCancelled { phase = "Abgebrochen – das Gerät startet ggf. im Wiederherstellungsmodus."; result = false; return }
-            if out.timedOut { phase = "Zeitüberschreitung"; result = false; error = "Der Vorgang hat zu lange gedauert."; return }
+            if out.cancelled || userCancelled { phase = String(localized: "Abgebrochen – das Gerät startet ggf. im Wiederherstellungsmodus."); result = false; return }
+            if out.timedOut { phase = String(localized: "Zeitüberschreitung"); result = false; error = String(localized: "Der Vorgang hat zu lange gedauert."); return }
             if out.status == 0 {
                 progress = 100; result = true; phase = attempt > 1 ? done + " (im \(attempt). Versuch)" : done
             } else {
@@ -241,12 +241,12 @@ import StudioCore
                 let hub = DeviceMonitor.shared.usbDevices.first { $0.locationID != nil && $0.locationID == target?.locationID }?.viaHub ?? false
                 lastLogFile = saveLog(out.output, args: args)
                 error = failure + "\n\n" + CfgUtil.failureReport(out.output, viaHub: hub)
-                    + (lastLogFile.map { "\n\nVollständiges Protokoll: \($0.path)" } ?? "")
+                    + (lastLogFile.map { String(localized: "\n\nVollständiges Protokoll: \($0.path)") } ?? "")
             }
         } catch {
             result = false
             if error is CancellationError || userCancelled {
-                phase = "Abgebrochen – das Gerät wurde nicht verändert."; progress = nil; stepInfo = ""
+                phase = String(localized: "Abgebrochen – das Gerät wurde nicht verändert."); progress = nil; stepInfo = ""
             } else {
                 phase = "Fehlgeschlagen"; self.error = error.localizedDescription
             }
@@ -281,8 +281,8 @@ import StudioCore
         if let overall = steps.overall {
             // Step-wise output: one steady bar over all steps instead of the per-step percent.
             progress = overall; DockProgress.show(overall / 100)
-            stepInfo = "Schritt \(steps.step) von \(steps.total)" + (steps.title.isEmpty ? "" : " · \(steps.title)")
-                + String(format: " · %.0f %% dieses Schritts", steps.stepPercent)
+            stepInfo = String(localized: "Schritt \(steps.step) von \(steps.total)") + (steps.title.isEmpty ? "" : " · \(steps.title)")
+                + String(localized: " · \(Int(steps.stepPercent.rounded())) % dieses Schritts")
             if !steps.title.isEmpty { phase = steps.title }
         } else {
             if let value = CfgUtil.percent(in: chunk) { progress = value; DockProgress.show(value / 100) }
@@ -467,7 +467,7 @@ struct FlashProgressCard: View {
                 if store.result == false { Image(systemName: "xmark.circle.fill").foregroundStyle(.red) }
                 Text(store.phase).lineLimit(2)
                 Spacer()
-                if let value = store.progress, store.running { Text(String(format: "%.0f %% gesamt", value)).monospacedDigit() }
+                if let value = store.progress, store.running { Text(String(localized: "\(Int(value.rounded())) % gesamt")).monospacedDigit() }
             }.font(.caption).foregroundStyle(.secondary)
             if store.running, !store.stepInfo.isEmpty {
                 Text(store.stepInfo).font(.caption2).foregroundStyle(.secondary).monospacedDigit()

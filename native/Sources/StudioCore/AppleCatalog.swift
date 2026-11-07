@@ -87,6 +87,18 @@ public enum AppleCatalog {
         }
     }
 
+    /// OS X Yosemite – macOS Sierra are not in the software catalog. Apple offers them as disk images
+    /// (support article "How to download and install macOS"); the links and sizes are Apple's.
+    public static let diskImageInstallers: [Installer] = [
+        ("macOS Sierra", "10.12.6", "16G29", "https://updates.cdn-apple.com/2019/cert/061-39476-20191023-48f365f4-0015-4c41-9f44-39d3d2aca067/InstallOS.dmg", Int64(5_007_882_126)),
+        ("OS X El Capitan", "10.11.6", "15G31", "https://updates.cdn-apple.com/2019/cert/061-41424-20191024-218af9ec-cf50-4516-9011-228c78eda3d2/InstallMacOSX.dmg", Int64(6_204_629_298)),
+        ("OS X Yosemite", "10.10.5", "14F27", "https://updates.cdn-apple.com/2019/cert/061-41343-20191023-02465f92-3ab5-4c92-bfe2-b725447a070d/InstallMacOSX.dmg", Int64(5_718_074_248))
+    ].map { title, version, build, link, bytes in
+        let url = URL(string: link)!
+        return Installer(title: title, version: version, build: build, bytes: Double(bytes), packageURL: url,
+                         packageParts: [CatalogPart(name: url.lastPathComponent, url: url, bytes: bytes)], offeredForThisMac: false)
+    }
+
     /// Names for distributions without a readable title.
     public static func marketingName(version: String) -> String? {
         let names = ["10.10": "OS X Yosemite", "10.11": "OS X El Capitan", "10.12": "macOS Sierra", "10.13": "macOS High Sierra",

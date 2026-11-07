@@ -1,0 +1,2 @@
+"NSRemovableVolumesUsageDescription" = "OS Studio benötigt Zugriff auf Wechselmedien, um mit Apples createinstallmedia einen bootfähigen USB-Stick zu erstellen.";
+"NSAppleEventsUsageDescription" = "OS Studio bittet den Finder, root-eigene Installer wiederherstellbar in den Papierkorb zu legen.";

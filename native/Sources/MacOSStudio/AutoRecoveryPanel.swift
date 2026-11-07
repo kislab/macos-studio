@@ -64,7 +64,7 @@ struct AutoRecoveryPanel: View {
             banner {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(text.isEmpty ? "Das Gerät hat abgelehnt." : text).font(.callout)
+                    Text(text.isEmpty ? String(localized: "Das Gerät hat abgelehnt.") : text).font(.callout)
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.mini)
                         Text("Gerät entsperren – es wird automatisch alle paar Sekunden erneut versucht.").font(.caption).foregroundStyle(.secondary)

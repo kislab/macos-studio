@@ -81,7 +81,7 @@ struct ExtrasView: View {
     // MARK: Connected devices (normal, recovery, DFU in one list)
 
     private var connectedCard: some View {
-        card("Angeschlossene Geräte", "cable.connector") {
+        card(String(localized: "Angeschlossene Geräte"), "cable.connector") {
             if !monitor.available {
                 Text("Apples Gerätedienst ist auf diesem Mac nicht verfügbar. Wiederherstellungs- und DFU-Modus werden trotzdem über USB erkannt.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -95,16 +95,16 @@ struct ExtrasView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             if monitor.restoringCount > 0 {
-                deviceRow(photo: nil, symbol: "arrow.triangle.2.circlepath", title: "Gerät im Restore-System",
-                          detail: "Wird gerade wiederhergestellt – oder ist nach einem Abbruch dort hängen geblieben.", badge: ("Restore", .red),
-                          note: "Hängt es fest: in den DFU-Modus bringen und erneut flashen.") {
+                deviceRow(photo: nil, symbol: "arrow.triangle.2.circlepath", title: String(localized: "Gerät im Restore-System"),
+                          detail: String(localized: "Wird gerade wiederhergestellt – oder ist nach einem Abbruch dort hängen geblieben."), badge: ("Restore", .red),
+                          note: String(localized: "Hängt es fest: in den DFU-Modus bringen und erneut flashen.")) {
                     Button("Zum Gerät …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
                 }
             }
             if monitor.blockedCount > 0 {
-                deviceRow(photo: nil, symbol: "lock.iphone", title: "iPhone/iPad gesperrt",
-                          detail: "Angesteckt, aber das Gerät gibt per USB keine Daten frei.", badge: ("Gesperrt", .orange),
-                          note: "Entsperren (ggf. „Erlauben“ bzw. „Vertrauen“ tippen) – dann geht es automatisch weiter. Ohne Code: per Tasten.") {
+                deviceRow(photo: nil, symbol: "lock.iphone", title: String(localized: "iPhone/iPad gesperrt"),
+                          detail: String(localized: "Angesteckt, aber das Gerät gibt per USB keine Daten frei."), badge: ("Gesperrt", .orange),
+                          note: String(localized: "Entsperren (ggf. „Erlauben“ bzw. „Vertrauen“ tippen) – dann geht es automatisch weiter. Ohne Code: per Tasten.")) {
                     Button("Tasten-Anleitung", systemImage: "hand.point.down") { state.showRestart = true }
                 }
             }
@@ -112,13 +112,13 @@ struct ExtrasView: View {
                 deviceRow(photo: photos.image(for: device.productType), symbol: device.productType.hasPrefix("iPad") ? "ipad" : "iphone",
                           title: device.name,
                           detail: [device.modelName, device.version.isEmpty ? nil : "iOS \(device.version)"].compactMap { $0 }.joined(separator: " · "),
-                          badge: ("Normal", .green), note: device.paired ? nil : "Gesperrt oder nicht vertraut") {
+                          badge: ("Normal", .green), note: device.paired ? nil : String(localized: "Gesperrt oder nicht vertraut")) {
                     Button("Wiederherstellungsmodus", systemImage: "arrow.uturn.down.circle") { state.confirm = device }
                         .disabled(monitor.working)
                 }
             }
             ForEach(inRecovery) { device in
-                deviceRow(photo: nil, symbol: "laptopcomputer.and.iphone", title: "Gerät im Wiederherstellungsmodus",
+                deviceRow(photo: nil, symbol: "laptopcomputer.and.iphone", title: String(localized: "Gerät im Wiederherstellungsmodus"),
                           detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("Wiederherstellung", .orange), note: nil) {
                     Button("Flashen …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
                     Button("Normal starten", systemImage: "power") { Task { await monitor.exitRecovery() } }
@@ -126,8 +126,8 @@ struct ExtrasView: View {
                 }
             }
             ForEach(inDFU) { device in
-                deviceRow(photo: nil, symbol: "bolt.horizontal.circle", title: "Gerät im DFU-Modus",
-                          detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("DFU", .purple), note: "Zum Verlassen per Tasten neu starten (unten)") {
+                deviceRow(photo: nil, symbol: "bolt.horizontal.circle", title: String(localized: "Gerät im DFU-Modus"),
+                          detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("DFU", .purple), note: String(localized: "Zum Verlassen per Tasten neu starten (unten)")) {
                     Button("Flashen …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
                     Button("Verlassen", systemImage: "hand.point.down") { state.showRestart = true }
                 }
@@ -188,7 +188,7 @@ struct ExtrasView: View {
     // MARK: DFU
 
     private var dfuCard: some View {
-        card("DFU-Modus (geführt)", "bolt.horizontal.circle") {
+        card(String(localized: "DFU-Modus (geführt)"), "bolt.horizontal.circle") {
             Text("DFU geht nur über die Tasten. Die App zählt die Schritte herunter und meldet, sobald es geklappt hat (Bildschirm bleibt schwarz).")
                 .font(.callout).foregroundStyle(.secondary)
             Picker("Gerät", selection: $state.method) {
@@ -196,7 +196,7 @@ struct ExtrasView: View {
             }.disabled(state.guiding)
             if !inDFU.isEmpty || state.dfuReached {
                 HStack {
-                    Label("Gerät ist im DFU-Modus" + (inDFU.first?.cpid.map { " · CPID \($0)" } ?? "") + ". Tasten loslassen.",
+                    Label(String(localized: "Gerät ist im DFU-Modus") + (inDFU.first?.cpid.map { " · CPID \($0)" } ?? "") + ". Tasten loslassen.",
                           systemImage: "checkmark.seal.fill")
                         .foregroundStyle(.green).font(.headline)
                     Spacer()
@@ -253,7 +253,7 @@ struct ExtrasView: View {
             }
             state.guiding = false
             if inDFU.isEmpty {
-                monitor.message = "Der DFU-Modus wurde nicht erkannt. Gerät normal starten (bzw. eingeschaltet lassen) und die Anleitung erneut starten – das Timing ist entscheidend."
+                monitor.message = String(localized: "Der DFU-Modus wurde nicht erkannt. Gerät normal starten (bzw. eingeschaltet lassen) und die Anleitung erneut starten – das Timing ist entscheidend.")
             }
         }
     }
@@ -262,7 +262,7 @@ struct ExtrasView: View {
     // MARK: Mac DFU over USB-C
 
     private var macDFUCard: some View {
-        card("Mac in DFU versetzen (USB-C)", "bolt.horizontal.circle") {
+        card(String(localized: "Mac in DFU versetzen (USB-C)"), "bolt.horizontal.circle") {
             Text("Nur für einen zweiten Mac mit Apple Silicon: über den DFU-Port per USB-C-/Thunderbolt-Kabel verbunden, kann dieser Mac den anderen per Klick in den DFU-Modus versetzen oder neu starten – ohne Tasten. Für iPhone/iPad funktioniert das nicht.")
                 .font(.callout).foregroundStyle(.secondary)
             Label("Experimentell und nicht getestet. Admin-Passwort nötig.", systemImage: "exclamationmark.triangle")

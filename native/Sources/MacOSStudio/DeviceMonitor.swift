@@ -74,13 +74,13 @@ import StudioCore
         autoHandled.formIntersection(devices.map(\.id))
         guard auto != .off, autoTask == nil else { return }
         guard let next = devices.first(where: { !autoHandled.contains($0.id) && !readingOut.contains($0.id) }) else {
-            if auto == .waiting, !readingOut.isEmpty { auto = .sending("Gerät") }
+            if auto == .waiting, !readingOut.isEmpty { auto = .sending(String(localized: "Gerät")) }
             // Unplugged during the read-out: nothing left to send, back to waiting.
             if case .sending = auto, readingOut.isEmpty { auto = .waiting }
             return
         }
         autoHandled.insert(next.id)
-        if case .failed = auto {} else { auto = .sending(next.name == "iPhone/iPad" ? "Gerät" : next.name) }
+        if case .failed = auto {} else { auto = .sending(next.name == "iPhone/iPad" ? String(localized: "Gerät") : next.name) }
         autoTask = Task { @MainActor in
             defer { autoTask = nil; autoCheck() }
             while working && !Task.isCancelled { try? await Task.sleep(nanoseconds: 300_000_000) }
@@ -184,13 +184,13 @@ import StudioCore
             return (true, status)
         }.value
         if !connected {
-            message = "Verbindung zu „\(device.name)“ fehlgeschlagen (\(hex(status))). Gerät entsperren und erneut versuchen."
+            message = String(localized: "Verbindung zu „\(device.name)“ fehlgeschlagen (\(hex(status))). Gerät entsperren und erneut versuchen.")
         } else if status == 0 {
-            message = "„\(device.name)“ startet jetzt im Wiederherstellungsmodus neu. Auf dem Display erscheint gleich Laptop und Kabel."
+            message = String(localized: "„\(device.name)“ startet jetzt im Wiederherstellungsmodus neu. Auf dem Display erscheint gleich Laptop und Kabel.")
         } else if !device.paired {
-            message = "„\(device.name)“ vertraut diesem Mac noch nicht. Gerät entsperren, auf „Vertrauen“ tippen und erneut versuchen (\(hex(status)))."
+            message = String(localized: "„\(device.name)“ vertraut diesem Mac noch nicht. Gerät entsperren, auf „Vertrauen“ tippen und erneut versuchen (\(hex(status))).")
         } else {
-            message = "Das Gerät hat den Wiederherstellungsmodus abgelehnt (\(hex(status))). Gerät entsperren und erneut versuchen."
+            message = String(localized: "Das Gerät hat den Wiederherstellungsmodus abgelehnt (\(hex(status))). Gerät entsperren und erneut versuchen.")
         }
         return status == 0
     }
@@ -212,20 +212,20 @@ import StudioCore
     func exitRecovery() async {
         guard !working else { return }
         guard let md else {
-            message = "Der Gerätedienst ist auf diesem Mac nicht verfügbar. Bitte das Gerät mit den Tasten neu starten – die Anleitung steht unten."
+            message = String(localized: "Der Gerätedienst ist auf diesem Mac nicht verfügbar. Bitte das Gerät mit den Tasten neu starten – die Anleitung steht unten.")
             return
         }
         working = true
         defer { working = false }
         let targets = recoveryHandles
-        guard !targets.isEmpty else { message = "Kein Gerät im Wiederherstellungsmodus gefunden. Kabel prüfen und kurz warten."; return }
+        guard !targets.isEmpty else { message = String(localized: "Kein Gerät im Wiederherstellungsmodus gefunden. Kabel prüfen und kurz warten."); return }
         var failed = false
         for device in targets {
             if md.setAutoBoot(device, 1) != 0 { failed = true }
             if md.reboot(device) != 0 { failed = true }
         }
-        message = failed ? "Das Gerät konnte nicht normal gestartet werden. Alternativ die Seitentaste (bzw. obere Taste) halten, bis das Apple-Logo erscheint."
-                         : "Das Gerät startet jetzt normal. Das dauert etwa eine Minute."
+        message = failed ? String(localized: "Das Gerät konnte nicht normal gestartet werden. Alternativ die Seitentaste (bzw. obere Taste) halten, bis das Apple-Logo erscheint.")
+                         : String(localized: "Das Gerät startet jetzt normal. Das dauert etwa eine Minute.")
     }
 
     /// Sends the USB-C VDM to a connected target Mac (Apple Silicon), via the app's own privileged helper.
@@ -233,14 +233,14 @@ import StudioCore
         guard !working else { return }
         working = true
         defer { working = false }
-        guard let exe = Bundle.main.executablePath else { message = "Programmpfad nicht gefunden."; return }
+        guard let exe = Bundle.main.executablePath else { message = String(localized: "Programmpfad nicht gefunden."); return }
         let shell = shellQuote(exe) + (reboot ? " --vdm-reboot" : " --vdm-dfu")
         let script = "do shell script " + appleScriptQuote(shell) + " with administrator privileges"
         do {
             let result = try await Command().run("/usr/bin/osascript", ["-e", script], timeout: 120)
             let output = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-            if output.contains("(-128)") { message = "Abgebrochen. Es wurde nichts gesendet."; return }
-            message = output.isEmpty ? (result.status == 0 ? "Fertig." : "Fehlgeschlagen.") : output
+            if output.contains("(-128)") { message = String(localized: "Abgebrochen. Es wurde nichts gesendet."); return }
+            message = output.isEmpty ? (result.status == 0 ? String(localized: "Fertig.") : String(localized: "Fehlgeschlagen.")) : output
         } catch { message = error.localizedDescription }
     }
 

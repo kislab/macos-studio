@@ -15,7 +15,7 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
         let app = URL(fileURLWithPath: path).standardizedFileURL
         guard app.pathExtension.lowercased() == "app",
               FileManager.default.isExecutableFile(atPath: app.appendingPathComponent("Contents/Resources/createinstallmedia").path) else {
-            return "Kein ausführbares createinstallmedia gefunden."
+            return String(localized: "Kein ausführbares createinstallmedia gefunden.")
         }
         let support = app.appendingPathComponent("Contents/SharedSupport")
         let payloads = ["SharedSupport.dmg", "InstallESD.dmg", "InstallAssistant.pkg"]
@@ -25,7 +25,7 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
             return values.isRegularFile == true && values.isReadable == true && (values.fileSize ?? 0) > 0
         }
         guard present else {
-            return "Installer unvollständig: In Contents/SharedSupport fehlen lesbare Installationsdaten. Bitte den Installer erneut vollständig laden."
+            return String(localized: "Installer unvollständig: In Contents/SharedSupport fehlen lesbare Installationsdaten. Bitte den Installer erneut vollständig laden.")
         }
         return nil
     }
@@ -94,7 +94,7 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
     /// exactly the confirmed bundle to the user; the app then trashes it normally and recoverably.
     public func authorizedOwnershipCommand(owner: uid_t) throws -> String {
         guard Self.inspect(path) == self else {
-            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren."])
+            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren.")])
         }
         let source = shellQuote(path)
         return "test ! -L " + source + " && test -d " + source + " && /usr/sbin/chown -R -P " + String(owner) + " " + source
@@ -104,7 +104,7 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
     /// chown it is not blocked by macOS "App Management" protection for apps in /Applications.
     public func finderTrashScript() throws -> String {
         guard Self.inspect(path) == self else {
-            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren."])
+            throw NSError(domain: "LocalInstaller", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren.")])
         }
         return "tell application \"Finder\" to delete (POSIX file " + appleScriptQuote(path) + " as alias)"
     }
@@ -112,7 +112,7 @@ public struct LocalInstaller: Identifiable, Equatable, Sendable {
     /// Revalidate the exact bundle shown in the confirmation before moving it.
     public func moveToTrash() throws {
         guard let current = Self.inspect(path), current == self else {
-            throw NSError(domain: "LocalInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren."])
+            throw NSError(domain: "LocalInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Der Installer wurde verändert oder ist nicht mehr vorhanden. Bitte die Liste aktualisieren.")])
         }
         try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
     }

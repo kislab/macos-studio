@@ -16,6 +16,11 @@ install_name_tool -add_rpath '@executable_path/../Frameworks' "$APP/Contents/Mac
 cp ../docs/licenses/AppleDB.txt "$APP/Contents/Resources/AppleDB-LICENSE.txt"
 cp ../docs/licenses/Sparkle.txt "$APP/Contents/Resources/Sparkle-LICENSE.txt"
 cp ../assets/icons/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# German is the source language (texts are their own keys); English comes from Localization/en.lproj.
+for lproj in Localization/*.lproj; do
+    rm -rf "$APP/Contents/Resources/$(basename "$lproj")"
+    ditto "$lproj" "$APP/Contents/Resources/$(basename "$lproj")"
+done
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -25,11 +30,11 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>OS Studio</string>
 <key>CFBundleDisplayName</key><string>OS Studio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.6.0</string>
-<key>CFBundleVersion</key><string>47</string>
+<key>CFBundleShortVersionString</key><string>1.7.0</string>
+<key>CFBundleVersion</key><string>48</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleDevelopmentRegion</key><string>de</string>
-<key>CFBundleLocalizations</key><array><string>de</string></array>
+<key>CFBundleLocalizations</key><array><string>de</string><string>en</string></array>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSRemovableVolumesUsageDescription</key><string>OS Studio benötigt Zugriff auf Wechselmedien, um mit Apples createinstallmedia einen bootfähigen USB-Stick zu erstellen.</string>

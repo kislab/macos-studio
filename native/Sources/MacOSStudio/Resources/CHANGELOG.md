@@ -1,3 +1,17 @@
+Version 1.7.0
+
+• Englisch: Ist macOS auf Englisch eingestellt, erscheint OS Studio jetzt auf Englisch – Menüs, Hinweise, Fehlermeldungen und Anleitungen. Auf Deutsch bleibt alles wie gewohnt. Die Sprache lässt sich pro App unter Systemeinstellungen → Allgemein → Sprache & Region wählen.
+
+• Downloads fortsetzen: Bricht der Download eines Apple-Pakets ab (Verbindung weg, abgebrochen, App beendet), lädt „Fortsetzen“ ab der Abbruchstelle weiter statt von vorn. Fertig geladene Teile bleiben erhalten; „Verwerfen“ löscht sie.
+
+• Behoben: „Fortsetzen“ bei IPSW-Firmware schlug fehl, weil Apples Antwort auf eine Fortsetzung (HTTP 206) als Fehler galt.
+
+• Noch ältere Installer: OS X Yosemite, El Capitan und macOS Sierra (10.10–10.12) lassen sich von Apple laden. Das Abbild wird geprüft, die Paketsignatur kontrolliert und die Installer-App ohne Administratorpasswort zusammengesetzt. Beim USB-Stick übergibt die App diesen Versionen automatisch den Installer-Pfad, den ihr createinstallmedia verlangt.
+
+• Wichtig für Macs mit Apple-Chip: macOS startet dort das ältere createinstallmedia von OS X 10.10 bis macOS 10.15 nicht mehr – auch nicht mit Rosetta (der Hinweis auf Rosetta aus 1.6.0 war falsch). Laden geht weiterhin; den USB-Stick mit der fertigen Installer-App an einem Intel-Mac erstellen. Die App prüft das vor dem Löschen und lässt den Stick unverändert.
+
+• Flashen: Wird Apples Firmwareliste gerade geladen, wartet die Prüfsummen-Kontrolle jetzt darauf, statt die Prüfung auszulassen.
+
 Version 1.6.0
 
 • Ältere Installer: macOS High Sierra, Mojave und Catalina (10.13–10.15) lassen sich jetzt direkt aus Apples Katalog laden – auch auf Macs, denen Apple diese Versionen nicht mehr anbietet. Die App lädt die Installationsdateien, prüft jede gegen Apples Prüfsumme und setzt daraus „macOS … installieren.app“ zusammen. Ein Administratorpasswort ist dafür nicht nötig.

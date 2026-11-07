@@ -12,7 +12,7 @@
 2. Die DMG öffnen und **OS Studio** auf **Programme** ziehen.
 3. Die DMG auswerfen und die App aus Programme starten.
 
-**Systemanforderungen:** macOS 13 Ventura oder neuer. Die DMG enthält Intel (`x86_64`) und Apple Silicon (`arm64`) in einer Universal-App. Python wird nicht benötigt.
+**Systemanforderungen:** macOS 13 Ventura oder neuer. Die App ist auf Deutsch und Englisch verfügbar (folgt der Systemsprache). Die DMG enthält Intel (`x86_64`) und Apple Silicon (`arm64`) in einer Universal-App. Python wird nicht benötigt.
 
 **Signierung:** Diese Version ist lokal ad-hoc signiert, jedoch nicht mit einer Developer ID signiert oder Apple-notarisiert. macOS kann beim Öffnen des Downloads eine Sicherheitswarnung anzeigen. Eine notarisiert veröffentlichte Version steht noch aus.
 
@@ -33,7 +33,7 @@ Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Seit **1.2.2**
 
 ### Downloads
 
-Die App verwendet Apples `softwareupdate` und zusätzlich Apples öffentlichen Softwarekatalog. Versionen, die Apple dem ausführenden Mac nicht anbietet, werden direkt von Apple geladen: ab macOS 11 als `InstallAssistant.pkg` (Installation mit Administratorpasswort), für macOS 10.13–10.15 als Einzeldateien, aus denen die App ohne Administratorpasswort die Installer-App zusammensetzt. Jede Datei wird gegen Apples SHA-256-Prüfdaten geprüft, sofern Apple welche veröffentlicht (bei 10.13 nur Größe und Paketsignatur). Ältere Installer enthalten nur ein Intel-`createinstallmedia`; auf Macs mit Apple-Chip ist dafür Rosetta nötig. Manuell eingegebene Versionen sind nicht vorab auf Verfügbarkeit geprüft.
+Die App verwendet Apples `softwareupdate` und zusätzlich Apples öffentlichen Softwarekatalog. Versionen, die Apple dem ausführenden Mac nicht anbietet, werden direkt von Apple geladen: ab macOS 11 als `InstallAssistant.pkg` (Installation mit Administratorpasswort), für macOS 10.13–10.15 als Einzeldateien und für OS X 10.10 bis macOS 10.12 als Apple-Abbild; daraus setzt die App ohne Administratorpasswort die Installer-App zusammen. Unterbrochene Downloads lassen sich fortsetzen. Jede Datei wird gegen Apples SHA-256-Prüfdaten geprüft, sofern Apple welche veröffentlicht (bei 10.13 nur Größe und Paketsignatur, bei 10.10–10.12 die Prüfsumme des Abbilds und die Paketsignatur). Installer bis macOS 10.15 enthalten nur ein Intel-`createinstallmedia`, das macOS auf Macs mit Apple-Chip nicht mehr startet (auch nicht mit Rosetta): Laden geht dort, den USB-Stick dann an einem Intel-Mac erstellen. Manuell eingegebene Versionen sind nicht vorab auf Verfügbarkeit geprüft.
 
 Der Balken übernimmt Apples Prozentangaben. Die GB-Anzeige ist mit `≈` als Schätzung aus Paketgröße und Fortschritt gekennzeichnet: Die Vorbereitungsphase kann auch Entpacken enthalten. Die App zeigt keine Mbit/s an. Speicherprüfung, Zeitlimits, Downloadabbruch und Protokoll sind enthalten.
 

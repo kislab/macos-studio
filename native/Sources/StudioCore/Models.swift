@@ -11,7 +11,9 @@ public struct Installer: Identifiable, Equatable {
     /// All catalog files for this installer (one InstallAssistant.pkg, or the 10.13–10.15 set).
     public var packageParts: [CatalogPart] = []
     /// macOS 10.13–10.15 from the catalog: assembled without the macOS installer, no administrator password.
-    public var assembledFromParts: Bool { packageParts.count > 1 }
+    public var assembledFromParts: Bool { !packageParts.isEmpty && packageParts[0].name != "InstallAssistant.pkg" }
+    /// OS X 10.10 – macOS 10.12: one Apple disk image with the installer package inside.
+    public var fromDiskImage: Bool { packageParts.count == 1 && packageParts[0].name.hasSuffix(".dmg") }
     /// True when `softwareupdate --list-full-installers` offers this installer on the current Mac.
     public var offeredForThisMac: Bool
     public init(title: String, version: String, build: String = "Manuell", bytes: Double = 0,

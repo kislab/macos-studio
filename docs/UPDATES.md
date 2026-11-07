@@ -13,7 +13,7 @@ Version 1.1 hat noch keinen Updater. Nutzer müssen Version 1.2 einmal normal in
 Ein neuer Commit auf GitHub allein ist **kein** App-Update. Benötigt werden eine gebaute App, eine signierte ZIP, ein veröffentlichtes Release und ein aktualisierter signierter Feed.
 
 1. In `native/build-app.sh` die `CFBundleShortVersionString` erhöhen (z. B. `1.3`) und `CFBundleVersion` strikt erhöhen (z. B. `4`). DMG-Skript und Update-Vorbereitung lesen die Version aus der gebauten App; Ausgaben landen in `dist/`, wo nur die drei neuesten Versionen erhalten bleiben. `build-dmg.sh` erzeugt auch die gemeinsame `dist/SHA256SUMS.txt`.
-2. `./native/build-app.sh` ausführen und die App prüfen.
+2. `./native/check-strings.sh` ausführen: Neue oder geänderte Texte brauchen eine englische Übersetzung in `native/Localization/en.lproj/Localizable.strings` (Deutsch ist die Ausgangssprache, die deutschen Texte sind die Schlüssel). Dann `./native/build-app.sh` ausführen und die App prüfen.
 3. `./native/prepare-update.sh` ausführen. Das erzeugt die ZIP, Prüfsumme und `appcast.xml`; Archiv und Feed werden signiert und lokal verifiziert.
 4. Code und Release-Beschreibung committen/pushen, den neuen Feed zunächst noch zurückhalten.
 5. Ein GitHub-Release mit passendem Tag (z. B. `v1.3.0`) erstellen und ZIP und DMG für Erstinstallationen anhängen. Die Prüfsummen beider Dateien in einer gemeinsamen `SHA256SUMS.txt` hochladen; keine separaten `.dmg.sha256`/`.zip.sha256`-Assets. Oben in der Release-Beschreibung einen direkten DMG-Download-Link ergänzen.

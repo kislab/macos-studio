@@ -82,10 +82,10 @@ public enum LegacyInstaller {
         guard let data = try? Data(contentsOf: info),
               let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               (plist["Payload Image Info"] as? [String: Any])?["URL"] as? String == "InstallESD.dmg" else {
-            throw failure("Die Installer-App hat ein unbekanntes Format (InstallInfo.plist). Es wurde nichts installiert.")
+            throw failure(String(localized: "Die Installer-App hat ein unbekanntes Format (InstallInfo.plist). Es wurde nichts installiert."))
         }
         guard files["InstallESDDmg.pkg"] != nil, files["BaseSystem.dmg"] != nil else {
-            throw failure("Installationsdaten fehlen (InstallESD oder BaseSystem).")
+            throw failure(String(localized: "Installationsdaten fehlen (InstallESD oder BaseSystem)."))
         }
         for (part, source) in files.sorted(by: { $0.key < $1.key }) {
             guard let name = sharedSupportName(for: part) else { continue }
@@ -93,6 +93,43 @@ public enum LegacyInstaller {
             try? FileManager.default.removeItem(at: target)
             try FileManager.default.moveItem(at: source, to: target)
         }
+    }
+
+    /// OS X 10.10 – macOS 10.12 disk images: the expanded InstallOS.pkg / InstallMacOSX.pkg holds the installer
+    /// app in its Payload and InstallESD.dmg next to it (its postinstall script would move it into the app).
+    public static func diskImageContents(inExpanded folder: URL) -> (app: URL, esd: URL)? {
+        var apps: [URL] = [], images: [URL] = []
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey]
+        guard let walk = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: keys) else { return nil }
+        for case let url as URL in walk {
+            if (try? url.resourceValues(forKeys: Set(keys)))?.isSymbolicLink == true { walk.skipDescendants(); continue }
+            if url.pathExtension == "app", url.lastPathComponent.hasPrefix("Install "), url.deletingLastPathComponent().lastPathComponent == "Payload" {
+                apps.append(url); walk.skipDescendants()
+            } else if url.lastPathComponent == "InstallESD.dmg" {
+                images.append(url)
+            }
+        }
+        guard apps.count == 1, images.count == 1,
+              FileManager.default.isExecutableFile(atPath: apps[0].appendingPathComponent("Contents/Resources/createinstallmedia").path)
+        else { return nil }
+        return (apps[0], images[0])
+    }
+
+    /// Puts InstallESD.dmg into the app's SharedSupport folder (created if missing).
+    public static func assemble(app: URL, installESD: URL) throws {
+        let support = app.appendingPathComponent("Contents/SharedSupport", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let target = support.appendingPathComponent("InstallESD.dmg")
+        try? FileManager.default.removeItem(at: target)
+        try FileManager.default.moveItem(at: installESD, to: target)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: target.path)   // as Apple's link_package does
+    }
+
+    /// createinstallmedia up to macOS 10.13 offers (and up to 10.12 requires) --applicationpath; from 10.14 on it is deprecated.
+    public static func needsApplicationPath(tool: URL) -> Bool {
+        guard let data = try? Data(contentsOf: tool, options: .mappedIfSafe) else { return false }
+        return data.range(of: Data("--applicationpath, A path".utf8)) != nil
+            && data.range(of: Data("\"--applicationpath\" is deprecated".utf8)) == nil
     }
 
     private static func failure(_ message: String) -> NSError {
@@ -127,11 +164,21 @@ public enum MachO {
         }
     }
 
-    /// German hint when an Intel-only tool cannot run on this Apple-silicon Mac (Rosetta missing).
-    public static func rosettaIssue(executable: URL, hostIsARM: Bool, rosettaInstalled: Bool) -> String? {
-        guard hostIsARM, !rosettaInstalled else { return nil }
-        let archs = architectures(of: executable)
-        guard !archs.isEmpty, !archs.contains("arm64") else { return nil }
-        return "Dieser ältere Installer enthält nur ein Intel-Programm (createinstallmedia). Auf diesem Mac wird dafür Rosetta benötigt.\n\nRosetta im Terminal installieren:\nsoftwareupdate --install-rosetta --agree-to-license\n\nDer USB-Stick wurde nicht verändert."
+    /// Starts the tool once without arguments (createinstallmedia then only prints its usage and changes nothing).
+    /// True when macOS kills it at launch: Apple silicon refuses the Apple-signed Intel createinstallmedia of
+    /// OS X 10.10 – macOS 10.15 ("Killed: 9"), with or without Rosetta. Intel Macs run it normally.
+    public static func killedAtLaunch(_ tool: URL, timeout: TimeInterval = 15) -> Bool {
+        let process = Process()
+        process.executableURL = tool
+        process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+        process.standardInput = FileHandle.nullDevice
+        let done = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in done.signal() }
+        do { try process.run() } catch { return false }
+        if done.wait(timeout: .now() + timeout) == .timedOut { process.terminate(); return false }
+        return process.terminationReason == .uncaughtSignal && process.terminationStatus == SIGKILL
     }
+
+    public static let blockedOnAppleSilicon = String(localized: "Auf Macs mit Apple-Chip startet macOS das ältere Apple-Werkzeug createinstallmedia dieses Installers nicht mehr (es wird beim Start sofort beendet) – auch nicht mit Rosetta. Das betrifft OS X 10.10 bis macOS 10.15.\n\nDie Installer-App ist vollständig. Den USB-Stick bitte an einem Mac mit Intel-Prozessor erstellen: Installer-App dorthin kopieren und OS Studio dort verwenden.\n\nDer USB-Stick wurde nicht verändert.")
+
 }

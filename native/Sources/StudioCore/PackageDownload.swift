@@ -47,8 +47,8 @@ public final class PackageDownload: NSObject, URLSessionDownloadDelegate, @unche
         lock.lock(); let target = destination; lock.unlock()
         guard let target else { return }
         do {
-            if let http = downloadTask.response as? HTTPURLResponse, http.statusCode != 200 {
-                throw NSError(domain: "PackageDownload", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: "Apple-Server antwortet mit HTTP \(http.statusCode)."])
+            if let http = downloadTask.response as? HTTPURLResponse, http.statusCode != 200, http.statusCode != 206 {   // 206: resumed download
+                throw NSError(domain: "PackageDownload", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: String(localized: "Apple-Server antwortet mit HTTP \(String(http.statusCode)).")])
             }
             try? FileManager.default.removeItem(at: target)
             try FileManager.default.moveItem(at: location, to: target)
@@ -82,5 +82,5 @@ public enum Gzip {
         let deflate = Data(bytes[offset..<(bytes.count - 8)])
         return try (deflate as NSData).decompressed(using: .zlib) as Data
     }
-    private static var invalid: NSError { NSError(domain: "Gzip", code: 1, userInfo: [NSLocalizedDescriptionKey: "Apple-Katalog ist beschädigt."]) }
+    private static var invalid: NSError { NSError(domain: "Gzip", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Apple-Katalog ist beschädigt.")]) }
 }

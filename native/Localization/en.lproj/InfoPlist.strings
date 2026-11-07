@@ -1,0 +1,2 @@
+"NSRemovableVolumesUsageDescription" = "OS Studio needs access to removable volumes to create a bootable USB drive with Apple’s createinstallmedia.";
+"NSAppleEventsUsageDescription" = "OS Studio asks Finder to move root-owned installers to the Trash so they can be restored.";

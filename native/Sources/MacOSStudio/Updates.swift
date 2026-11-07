@@ -118,7 +118,7 @@ import Foundation
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
         if isBusy() {
             throw NSError(domain: "MacOSStudio.Updates", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Bitte den laufenden Vorgang zuerst abschließen oder abbrechen."])
+                          userInfo: [NSLocalizedDescriptionKey: String(localized: "Bitte den laufenden Vorgang zuerst abschließen oder abbrechen.")])
         }
     }
 
