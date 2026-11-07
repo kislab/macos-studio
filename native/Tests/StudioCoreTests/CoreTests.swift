@@ -213,6 +213,44 @@ final class CoreTests {
         XCTAssertNil(sums["old.ipsw"])                       // listed without SHA-1
         XCTAssertNil(sums["a.ipsw"])
     }
+    func testDeviceDiscovery() throws {
+        // Apple's lists: identifiers per device; newest macOS per Mac.
+        func restore(_ version: String) -> [String: Any] { ["Restore": ["ProductVersion": version, "BuildVersion": "X1", "FirmwareURL": "https://updates.cdn-apple.com/x.ipsw"]] }
+        let feed: [String: Any] = ["MobileDeviceSoftwareVersionsByVersion": [
+            "1": ["MobileDeviceSoftwareVersions": ["Mac18,2": ["A": restore("26.4")], "VirtualMac2,1": ["A": restore("27.2")]]],
+            "2": ["MobileDeviceSoftwareVersions": ["Mac18,2": ["B": restore("27.2")], "Mac14,2": ["B": restore("27.1")],
+                                                   "iPad19,1": ["C": restore("27.2")], "Watch7,1": ["D": restore("13.0")], "iPhone1,1; rm": ["E": restore("1.0")]]]]]
+        let data = try PropertyListSerialization.data(fromPropertyList: feed, format: .xml, options: 0)
+        XCTAssertEqual(DeviceDiscovery.macs(fromRestoreFeed: data), ["Mac18,2": "27.2", "Mac14,2": "27.1"])
+        XCTAssertEqual(DeviceDiscovery.mobileIdentifiers(fromDeviceList: data), ["iPad19,1"])
+        XCTAssertTrue(DeviceDiscovery.valid("MacBookPro18,3")); XCTAssertTrue(DeviceDiscovery.valid("iMac21,1"))
+        XCTAssertFalse(DeviceDiscovery.valid("../x")); XCTAssertFalse(DeviceDiscovery.valid("VirtualMac2,1"))
+        XCTAssertTrue(DeviceDiscovery.isMac("Macmini9,1")); XCTAssertFalse(DeviceDiscovery.isMac("iPad19,1"))
+        XCTAssertEqual(DeviceDiscovery.appleDBURL(for: "iPad19,1")?.absoluteString, "https://api.appledb.dev/device/iPad19,1.json")
+        XCTAssertNil(DeviceDiscovery.appleDBURL(for: "iPad19,1/../../x"))
+        // AppleDB records (shape as served by api.appledb.dev)
+        let pad = Data(#"{"name":"iPad mini (A20 Pro) Wi-Fi + Cellular","identifier":["iPad19,2"],"soc":"A20 Pro","type":"iPad mini","released":"2026-11-06","model":["A3596","A3597","bad"]}"#.utf8)
+        let record = try XCTUnwrap(DeviceDiscovery.record(fromAppleDB: pad, identifier: "iPad19,2"))
+        XCTAssertEqual(DeviceDiscovery.displayName(record), "iPad mini (A20 Pro)")
+        XCTAssertEqual(record.models, ["A3596", "A3597"])
+        XCTAssertNil(DeviceDiscovery.record(fromAppleDB: pad, identifier: "iPad19,1"))          // record for another device
+        XCTAssertNil(DeviceDiscovery.record(fromAppleDB: Data("{}".utf8), identifier: "iPad19,2"))
+        let imacData = Data(#"{"name":"iMac (24-inch, M6, 2026)","identifier":["Mac18,2"],"soc":"M6","type":"iMac","released":"2026-11-06","model":["A3589","A3590"]}"#.utf8)
+        let imac = DeviceDiscovery.macModel(identifier: "Mac18,2", record: try XCTUnwrap(DeviceDiscovery.record(fromAppleDB: imacData, identifier: "Mac18,2")), newestMacOS: "27.2")
+        XCTAssertEqual(imac.category, "iMac"); XCTAssertEqual(imac.year, 2026); XCTAssertEqual(imac.hw_icon, "imac_m_series.png")
+        XCTAssertEqual(imac.cpu, "Apple M6"); XCTAssertEqual(imac.supported_versions, ["Golden Gate"]); XCTAssertEqual(imac.min_macos, "macOS Golden Gate 27")
+        XCTAssertTrue(imac.supports(Installer(title: "macOS 27 Golden Gate", version: "27.2", build: "X")))
+        XCTAssertFalse(imac.supports(Installer(title: "macOS Tahoe", version: "26.4", build: "Y")))
+        XCTAssertTrue(imac.matches(query: "A3590"))
+        let future = DeviceDiscovery.macModel(identifier: "Mac20,1", record: DeviceDiscovery.Record(name: "Mac Pro (2028)", type: "Mac Pro", soc: nil, released: nil, models: []), newestMacOS: "29.0")
+        XCTAssertEqual(future.supported_versions, ["macOS 29"]); XCTAssertEqual(future.hw_icon, "mac_pro.png"); XCTAssertEqual(future.cpu, "Apple Silicon")
+        // Learned names fill gaps; the built-in table wins.
+        XCTAssertEqual(DeviceNames.name(for: "iPhone99,1"), "iPhone-Modell iPhone99,1")
+        DeviceNames.learn(["iPhone99,1": "iPhone 30 Pro", "iPhone17,1": "falsch"])
+        XCTAssertEqual(DeviceNames.name(for: "iPhone99,1"), "iPhone 30 Pro")
+        XCTAssertEqual(DeviceNames.name(for: "iPhone17,1"), "iPhone 16 Pro")
+        XCTAssertTrue(DeviceNames.isBuiltIn("iPad19,1")); XCTAssertFalse(DeviceNames.isBuiltIn("iPhone99,1"))
+    }
     func testIntegrityAndLegacyInstaller() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -627,6 +665,7 @@ final class LockedFlag: @unchecked Sendable {
         try tests.testSerialLookup()
         try tests.testFirmwareCatalog()
         try tests.testIntegrityAndLegacyInstaller()
+        try tests.testDeviceDiscovery()
         try tests.testDevicePhotos()
         tests.testDFUGuide()
         tests.testVDM()
@@ -708,6 +747,15 @@ final class LockedFlag: @unchecked Sendable {
             let missingMacs = macIDs.subtracting(knownMacs).sorted()
             print("Live Mac list: \(macIDs.count) Macs in Apple's macOS restore list, missing in database: \(missingMacs)")
             XCTAssertTrue(macIDs.count > 40 && missingMacs.isEmpty)
+            XCTAssertEqual(Set(DeviceDiscovery.macs(fromRestoreFeed: macFeed).keys), macIDs)
+            // Discovery against the real services: AppleDB names an iPad and a Mac like the built-in tables do.
+            let (padJSON, _) = try await URLSession.shared.data(from: DeviceDiscovery.appleDBURL(for: "iPad19,2")!)
+            XCTAssertEqual(DeviceDiscovery.displayName(try XCTUnwrap(DeviceDiscovery.record(fromAppleDB: padJSON, identifier: "iPad19,2"))), DeviceNames.name(for: "iPad19,2"))
+            let (macJSON, _) = try await URLSession.shared.data(from: DeviceDiscovery.appleDBURL(for: "Mac18,2")!)
+            let liveMac = DeviceDiscovery.macModel(identifier: "Mac18,2", record: try XCTUnwrap(DeviceDiscovery.record(fromAppleDB: macJSON, identifier: "Mac18,2")),
+                                                   newestMacOS: DeviceDiscovery.macs(fromRestoreFeed: macFeed)["Mac18,2"] ?? "")
+            print("Live discovery: Mac18,2 → \(liveMac.name), \(liveMac.category), \(liveMac.supported_versions)")
+            XCTAssertEqual(liveMac.category, "iMac")
             let (answer, _) = try await URLSession.shared.data(from: SerialLookup.url(for: "HV2R")!)
             XCTAssertEqual(SerialLookup.modelName(fromResponse: String(decoding: answer, as: UTF8.self)), "MacBook Pro (13-inch, 2017, Four Thunderbolt 3 Ports)")
             let (firmwareData, _) = try await URLSession.shared.data(from: FirmwareCatalog.url)
@@ -757,6 +805,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("21 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("22 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

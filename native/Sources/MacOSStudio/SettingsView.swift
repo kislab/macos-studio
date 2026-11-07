@@ -5,9 +5,10 @@ enum AppSettings {
     static let showChangelogKey = "showChangelogAfterUpdate"
     static let otherMacsKey = "showCatalogOnlyInstallers"
     static let photosKey = "loadDevicePhotos"
+    static let discoveryKey = "discoverNewDevices"
     /// Preferences "Alle Einstellungen zurücksetzen" removes. Update bookkeeping stays.
     static let resettable = ["selectedTargetMac", "macCategoryFilter", "macYearFilter", "firmwareFolder",
-                             showChangelogKey, otherMacsKey, photosKey]
+                             showChangelogKey, otherMacsKey, photosKey, discoveryKey]
 }
 
 @MainActor final class SettingsState: ObservableObject {
@@ -20,6 +21,7 @@ struct SettingsView: View {
     @ObservedObject var model: StudioModel
     @ObservedObject var firmware: FirmwareStore
     @ObservedObject var photos: DevicePhotoStore
+    @ObservedObject var discovery: DeviceDiscoveryStore
     @StateObject private var state = SettingsState()
 
     private var showChangelog: Binding<Bool> {
@@ -39,7 +41,7 @@ struct SettingsView: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    section("Updates", "arrow.triangle.2.circlepath") {
+                    section(String(localized: "Updates"), "arrow.triangle.2.circlepath") {
                         Toggle("Automatisch nach Updates suchen", isOn: Binding(get: { updates.automaticChecks }, set: { updates.automaticChecks = $0 }))
                         Toggle("Neuigkeiten nach einem Update anzeigen", isOn: showChangelog)
                         HStack {
@@ -48,7 +50,7 @@ struct SettingsView: View {
                             Button("Jetzt nach Updates suchen") { updates.check() }.disabled(!updates.canCheck || model.busy)
                         }
                     }
-                    section("macOS-Installer", "arrow.down.circle") {
+                    section(String(localized: "macOS-Installer"), "arrow.down.circle") {
                         Toggle("Installer für andere Macs anzeigen", isOn: $model.showOtherMacInstallers)
                         Text("Zeigt auch macOS-Versionen, die dieser Mac selbst nicht installieren kann – z. B. für USB-Sticks anderer Macs.")
                             .font(.caption).foregroundStyle(.secondary)
@@ -70,7 +72,27 @@ struct SettingsView: View {
                             Button("Zwischenspeicher leeren") { photos.clearCache(); state.notice = String(localized: "Gerätefotos gelöscht.") + (photos.enabled ? String(localized: " Sie werden neu von Apple geladen.") : "") }
                         }
                     }
-                    section("Diagnose & Hilfe", "stethoscope") {
+                    section(String(localized: "Neue Geräte"), "sparkle.magnifyingglass") {
+                        Toggle("Neue iPhones, iPads und Macs automatisch erkennen", isOn: $discovery.enabled)
+                        Text("Gleicht einmal täglich Apples Geräte- und macOS-Listen mit der eingebauten Datenbank ab. Nur für unbekannte Modellkennungen werden Name und Daten bei AppleDB (appledb.dev) nachgeschlagen; es werden keine Daten über diesen Mac gesendet.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Group {
+                                if discovery.running { Text("Wird geprüft …") }
+                                else if let error = discovery.lastError { Text(error) }
+                                else if let date = discovery.lastChecked {
+                                    Text("Zuletzt geprüft: \(date.formatted(date: .abbreviated, time: .shortened)) · \(discovery.discoveredNames.count) automatisch erkannt")
+                                } else { Text("Noch nicht geprüft") }
+                            }.font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Jetzt prüfen") { Task { await model.refreshDevices(force: true) } }
+                                .disabled(!discovery.enabled || discovery.running)
+                        }
+                        if !discovery.discoveredNames.isEmpty {
+                            Text(discovery.discoveredNames.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                        }
+                    }
+                    section(String(localized: "Diagnose & Hilfe"), "stethoscope") {
                         HStack {
                             Text("Fehlerbericht mit App-Infos und dem letzten Protokoll als Textdatei sichern.").foregroundStyle(.secondary)
                             Spacer()

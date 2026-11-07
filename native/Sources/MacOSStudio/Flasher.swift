@@ -6,6 +6,13 @@ import StudioCore
 /// iPhone & iPad flasher: restores a connected device (normal, recovery or DFU mode) with a chosen IPSW
 /// through Apple Configurator's `cfgutil`. Erases the device; asks before anything is written.
 @MainActor final class FlasherStore: ObservableObject {
+    /// Redraw device names once new devices were learned (DeviceDiscoveryStore).
+    private var learnedObserver: NSObjectProtocol?
+    init() {
+        learnedObserver = NotificationCenter.default.addObserver(forName: .devicesLearned, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.objectWillChange.send() }
+        }
+    }
     @Published var tool: String? = CfgUtil.locate()
     @Published var devices: [FlashDevice] = []
     @Published var scanning = false
@@ -236,7 +243,7 @@ import StudioCore
             if out.status == 0 {
                 progress = 100; result = true; phase = attempt > 1 ? done + " (im \(attempt). Versuch)" : done
             } else {
-                result = false; phase = "Fehlgeschlagen (Code \(out.status))"
+                result = false; phase = String(localized: "Fehlgeschlagen (Code \(String(out.status)))")
                 let target = devices.first { $0.ecid == ecid }
                 let hub = DeviceMonitor.shared.usbDevices.first { $0.locationID != nil && $0.locationID == target?.locationID }?.viaHub ?? false
                 lastLogFile = saveLog(out.output, args: args)
@@ -248,7 +255,7 @@ import StudioCore
             if error is CancellationError || userCancelled {
                 phase = String(localized: "Abgebrochen – das Gerät wurde nicht verändert."); progress = nil; stepInfo = ""
             } else {
-                phase = "Fehlgeschlagen"; self.error = error.localizedDescription
+                phase = String(localized: "Fehlgeschlagen"); self.error = error.localizedDescription
             }
         }
         // `running` is still true here (reset by the defer), so list directly instead of refresh().

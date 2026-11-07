@@ -3,10 +3,23 @@ import Foundation
 /// Marketing names for iPhone, iPad and iPod touch model identifiers. Unknown identifiers stay as they are.
 public enum DeviceNames {
     public static func name(for identifier: String) -> String {
-        if let name = table[identifier] { return name }
+        if let name = table[identifier] ?? learned(identifier) { return name }
         for family in ["iPhone", "iPad", "iPod"] where identifier.hasPrefix(family) { return "\(family)-Modell \(identifier)" }
         return identifier
     }
+
+    /// True when the built-in table knows this identifier.
+    public static func isBuiltIn(_ identifier: String) -> Bool { table[identifier] != nil }
+
+    /// Names found at runtime for devices newer than this app (see DeviceDiscovery). Built-in names win.
+    public static func learn(_ names: [String: String]) {
+        learnedLock.lock(); learnedNames.merge(names) { _, new in new }; learnedLock.unlock()
+    }
+    private static func learned(_ identifier: String) -> String? {
+        learnedLock.lock(); defer { learnedLock.unlock() }; return learnedNames[identifier]
+    }
+    private static let learnedLock = NSLock()
+    nonisolated(unsafe) private static var learnedNames: [String: String] = [:]
 
     public enum Family: Int, CaseIterable, Sendable { case iPhone, iPad, iPod
         public var title: String { switch self { case .iPhone: "iPhone"; case .iPad: "iPad"; case .iPod: "iPod touch" } }

@@ -28,7 +28,7 @@ Ab **Version 1.2** prüft die App automatisch auf neue Versionen. Seit **1.2.2**
 | --- | --- |
 | **Installer laden** | Live-Angebot von Apple plus Apples vollständiger Katalog (auch Versionen für andere Macs, ab macOS 10.13), Prüfsummen-Kontrolle, Versionssuche, Ziel-Mac-Filter, manuelle Versionsanforderung und passende Installer-Symbole. |
 | **Installer lokal** | Vorhandene Installer mit Größe und Pfad anzeigen, im Finder öffnen, für USB auswählen oder nach Bestätigung in den Papierkorb verschieben. |
-| **Mac prüfen** | Automatische Modellkennung, Gerätebilder, Modell- und Baujahrfilter, Kompatibilitätsübersicht und aufklappbare Details. |
+| **Mac prüfen** | Automatische Modellkennung, Gerätebilder, Modell- und Baujahrfilter, Kompatibilitätsübersicht und aufklappbare Details. Neue Macs, iPhones und iPads werden täglich aus Apples Listen erkannt (Namen von AppleDB, abschaltbar). |
 | **USB erstellen** | Externe USB-Volumes erkennen und mit Apples `createinstallmedia` ein bootfähiges Installationsmedium erstellen. |
 
 ### Downloads

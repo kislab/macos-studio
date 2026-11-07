@@ -51,6 +51,7 @@ struct MacOSStudioApp: App {
                     delegate.model = model
                     updates.isBusy = { model.busy || model.loading || model.scanning || model.localScanning }
                     await model.loadCatalog()
+                    Task { await model.refreshDevices() }        // new iPhones/iPads/Macs, at most once a day, in the background
                     startup.phase = String(localized: "Prüfe auf Updates …")
                     await updates.checkOnLaunch()
                     let deadline = Date().addingTimeInterval(15)
@@ -141,7 +142,7 @@ struct StudioView: View {
                     navigation("usb", String(localized: "USB erstellen"), "externaldrive")
                     navigation("firmware", String(localized: "iPhone & iPad"), "iphone")
                     navigation("extras", "Extras", "wrench.and.screwdriver")
-                    navigation("settings", "Einstellungen", "gearshape")
+                    navigation("settings", String(localized: "Einstellungen"), "gearshape")
                 }
                 Spacer()
                 if let version = updates.availableVersion {
@@ -178,7 +179,7 @@ struct StudioView: View {
                 else if model.section == "firmware" { FirmwareView(store: firmware, flasher: flasher, studio: model, photos: photos) }
                 else if model.section == "extras" { ExtrasView(monitor: monitor, photos: photos, openDevice: { firmware.section = .device; model.section = "firmware" },
                                                                    refreshDevices: { Task { await flasher.refresh() } }) }
-                else if model.section == "settings" { SettingsView(updates: updates, model: model, firmware: firmware, photos: photos) }
+                else if model.section == "settings" { SettingsView(updates: updates, model: model, firmware: firmware, photos: photos, discovery: model.discovery) }
                 else { usb }
                 if !model.activeTitle.isEmpty { activity }
             }

@@ -79,6 +79,12 @@ public struct MacModel: Decodable, Identifiable {
     public let max_macos: String
     public let supported_versions: [String]
     public let notes: String
+    public init(name: String, category: String, year: Int, identifiers: [String], model_numbers: [String]?, cpu: String,
+                hw_icon: String, arch: String, min_macos: String, max_macos: String, supported_versions: [String], notes: String) {
+        self.name = name; self.category = category; self.year = year; self.identifiers = identifiers
+        self.model_numbers = model_numbers; self.cpu = cpu; self.hw_icon = hw_icon; self.arch = arch
+        self.min_macos = min_macos; self.max_macos = max_macos; self.supported_versions = supported_versions; self.notes = notes
+    }
     public func matches(query: String) -> Bool {
         let text = "\(name) \(year) \(identifiers.joined(separator: " ")) \((model_numbers ?? []).joined(separator: " ")) \(cpu)"
         return query.split(whereSeparator: { $0.isWhitespace }).allSatisfy { text.localizedCaseInsensitiveContains(String($0)) }

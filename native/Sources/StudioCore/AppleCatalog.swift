@@ -103,7 +103,7 @@ public enum AppleCatalog {
     public static func marketingName(version: String) -> String? {
         let names = ["10.10": "OS X Yosemite", "10.11": "OS X El Capitan", "10.12": "macOS Sierra", "10.13": "macOS High Sierra",
                      "10.14": "macOS Mojave", "10.15": "macOS Catalina", "11": "macOS Big Sur", "12": "macOS Monterey",
-                     "13": "macOS Ventura", "14": "macOS Sonoma", "15": "macOS Sequoia", "26": "macOS Tahoe"]
+                     "13": "macOS Ventura", "14": "macOS Sonoma", "15": "macOS Sequoia", "26": "macOS Tahoe", "27": "macOS Golden Gate"]
         let parts = version.split(separator: ".")
         guard let major = parts.first else { return nil }
         if major == "10", parts.count > 1 { return names["10.\(parts[1])"] }

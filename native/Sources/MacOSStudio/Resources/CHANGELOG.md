@@ -1,3 +1,11 @@
+Version 1.8.0
+
+• Neue Geräte automatisch: Einmal täglich gleicht OS Studio Apples Geräte- und macOS-Listen mit der eingebauten Datenbank ab. Erscheint ein neues iPhone, iPad oder ein neuer Mac, holt die App Name und Daten von AppleDB – ohne App-Update. Neue Macs erscheinen sofort unter „Mac suchen“, neue iPhones und iPads mit Namen im Reiter „Gerät“. „Meinen Mac erkennen“ schlägt einen noch unbekannten Mac direkt nach.
+
+• Einstellungen → Neue Geräte: abschaltbar, mit „Jetzt prüfen“ und einer Liste der automatisch erkannten Geräte. An AppleDB gehen nur Modellkennungen unbekannter Geräte, keine Daten über diesen Mac.
+
+• Englisch: Abschnittstitel der Einstellungen, Statusabzeichen und einige Statusmeldungen waren noch deutsch.
+
 Version 1.7.1
 
 • Neue Geräte: iPad mini (A20 Pro), MacBook Pro 14" und 16" mit M5 Pro / M5 Max und PROLED-XDR-Display, MacBook Pro 14" (M6) und iMac 24" (M6) – alle vom November 2026. Damit kennt die App jedes iPhone und iPad aus Apples aktueller Firmwareliste und jeden Mac aus Apples macOS-Liste.

@@ -25,7 +25,7 @@ import StudioCore
     @Published var scanning = false
     @Published var busy = false
     @Published var flashing = false
-    @Published var status = "Bereit"
+    @Published var status = String(localized: "Bereit")
     @Published var catalogStatus = String(localized: "Apple-Katalog noch nicht geladen")
     @Published var progress: Double?
     @Published var amount: Double?
@@ -69,6 +69,22 @@ import StudioCore
         }
         extraLocalPaths.formUnion(fileAccess.installers)
         refreshLocal()
+        discovery = DeviceDiscoveryStore(builtInMacs: Set(models.flatMap(\.identifiers)))
+        models += discovery.macModels
+        if let saved = UserDefaults.standard.string(forKey: "selectedTargetMac"), models.contains(where: { $0.id == saved }) { selectedMac = saved }
+    }
+    /// New iPhones, iPads and Macs found at runtime (Apple's lists + AppleDB).
+    private(set) var discovery: DeviceDiscoveryStore!
+
+    /// Daily check for devices newer than this app; new Macs join "Mac suchen".
+    func refreshDevices(force: Bool = false) async {
+        await discovery.refresh(force: force)
+        mergeDiscoveredMacs()
+    }
+    private func mergeDiscoveredMacs() {
+        let known = Set(models.flatMap(\.identifiers))
+        let added = discovery.macModels.filter { !$0.identifiers.contains(where: known.contains) }
+        if !added.isEmpty { models += added }
     }
     var currentMac: MacModel? { models.first { $0.id == selectedMac } }
     /// Settings: list installers this Mac cannot run itself (for other Macs).
@@ -788,7 +804,9 @@ import StudioCore
         do {
             let result = try await Command().run("/usr/sbin/sysctl", ["-n", "hw.model"], timeout: 5)
             let id = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let model = models.first(where: { $0.identifiers.contains(id) }) {
+            var match = models.first(where: { $0.identifiers.contains(id) })
+            if match == nil, await discovery.resolveMac(id) != nil { mergeDiscoveredMacs(); match = models.first(where: { $0.identifiers.contains(id) }) }
+            if let model = match {
                 modelQuery = model.name; selectedMac = model.id; detectedMacID = model.id
             } else { modelQuery = id; error = String(localized: "\(id) ist in der übernommenen Modelldatenbank nicht enthalten.") }
         } catch { self.error = error.localizedDescription }

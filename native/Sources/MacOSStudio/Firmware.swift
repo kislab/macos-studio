@@ -5,6 +5,13 @@ import StudioCore
 /// iPhone & iPad: lists the current IPSW restore images from Apple's device software list and downloads
 /// them to ~/Downloads. Download only – nothing is written to a device.
 @MainActor final class FirmwareStore: ObservableObject {
+    /// Redraw device names once new devices were learned (DeviceDiscoveryStore).
+    private var learnedObserver: NSObjectProtocol?
+    init() {
+        learnedObserver = NotificationCenter.default.addObserver(forName: .devicesLearned, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.objectWillChange.send() }
+        }
+    }
     @Published var items: [Firmware] = []
     @Published var query = ""
     @Published var loading = false

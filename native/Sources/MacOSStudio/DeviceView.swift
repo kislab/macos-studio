@@ -21,7 +21,7 @@ struct DeviceView: View {
                         devicesCard
                         if firmware.downloading, store.pendingFlash != nil { downloadCard }
                         if store.running || (store.result != nil && store.lastWasRepair) {
-                            FlashProgressCard(store: store, title: "Fortschritt")
+                            FlashProgressCard(store: store, title: String(localized: "Fortschritt"))
                         }
                         AutoRecoveryPanel(monitor: monitor, disabled: store.running || store.pendingFlash != nil)
                         notesCard
@@ -225,10 +225,10 @@ struct DeviceView: View {
 
     private func badge(_ mode: Mode) -> some View {
         let (text, color): (String, Color) = switch mode {
-        case .recovery: ("Wiederherstellung", .orange)
+        case .recovery: (String(localized: "Wiederherstellung"), .orange)
         case .dfu: ("DFU", .purple)
-        case .normal: ("Normal", .green)
-        case .restoring: ("Restore-System", .red)
+        case .normal: (String(localized: "Normal"), .green)
+        case .restoring: (String(localized: "Restore-System"), .red)
         }
         return Text(text).font(.caption2.weight(.semibold)).foregroundStyle(color)
             .padding(.horizontal, 7).padding(.vertical, 2).background(color.opacity(0.15), in: Capsule())

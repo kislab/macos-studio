@@ -96,14 +96,14 @@ struct ExtrasView: View {
             }
             if monitor.restoringCount > 0 {
                 deviceRow(photo: nil, symbol: "arrow.triangle.2.circlepath", title: String(localized: "Gerät im Restore-System"),
-                          detail: String(localized: "Wird gerade wiederhergestellt – oder ist nach einem Abbruch dort hängen geblieben."), badge: ("Restore", .red),
+                          detail: String(localized: "Wird gerade wiederhergestellt – oder ist nach einem Abbruch dort hängen geblieben."), badge: (String(localized: "Restore"), .red),
                           note: String(localized: "Hängt es fest: in den DFU-Modus bringen und erneut flashen.")) {
                     Button("Zum Gerät …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
                 }
             }
             if monitor.blockedCount > 0 {
                 deviceRow(photo: nil, symbol: "lock.iphone", title: String(localized: "iPhone/iPad gesperrt"),
-                          detail: String(localized: "Angesteckt, aber das Gerät gibt per USB keine Daten frei."), badge: ("Gesperrt", .orange),
+                          detail: String(localized: "Angesteckt, aber das Gerät gibt per USB keine Daten frei."), badge: (String(localized: "Gesperrt"), .orange),
                           note: String(localized: "Entsperren (ggf. „Erlauben“ bzw. „Vertrauen“ tippen) – dann geht es automatisch weiter. Ohne Code: per Tasten.")) {
                     Button("Tasten-Anleitung", systemImage: "hand.point.down") { state.showRestart = true }
                 }
@@ -112,14 +112,14 @@ struct ExtrasView: View {
                 deviceRow(photo: photos.image(for: device.productType), symbol: device.productType.hasPrefix("iPad") ? "ipad" : "iphone",
                           title: device.name,
                           detail: [device.modelName, device.version.isEmpty ? nil : "iOS \(device.version)"].compactMap { $0 }.joined(separator: " · "),
-                          badge: ("Normal", .green), note: device.paired ? nil : String(localized: "Gesperrt oder nicht vertraut")) {
+                          badge: (String(localized: "Normal"), .green), note: device.paired ? nil : String(localized: "Gesperrt oder nicht vertraut")) {
                     Button("Wiederherstellungsmodus", systemImage: "arrow.uturn.down.circle") { state.confirm = device }
                         .disabled(monitor.working)
                 }
             }
             ForEach(inRecovery) { device in
                 deviceRow(photo: nil, symbol: "laptopcomputer.and.iphone", title: String(localized: "Gerät im Wiederherstellungsmodus"),
-                          detail: device.cpid.map { "CPID \($0)" } ?? "", badge: ("Wiederherstellung", .orange), note: nil) {
+                          detail: device.cpid.map { "CPID \($0)" } ?? "", badge: (String(localized: "Wiederherstellung"), .orange), note: nil) {
                     Button("Flashen …", systemImage: "bolt.fill") { openDevice() }.buttonStyle(.borderedProminent)
                     Button("Normal starten", systemImage: "power") { Task { await monitor.exitRecovery() } }
                         .disabled(monitor.working || !monitor.available)
