@@ -1,3 +1,7 @@
+Version 1.7.1
+
+• Neue Geräte: iPad mini (A20 Pro), MacBook Pro 14" und 16" mit M5 Pro / M5 Max und PROLED-XDR-Display, MacBook Pro 14" (M6) und iMac 24" (M6) – alle vom November 2026. Damit kennt die App jedes iPhone und iPad aus Apples aktueller Firmwareliste und jeden Mac aus Apples macOS-Liste.
+
 Version 1.7.0
 
 • Englisch: Ist macOS auf Englisch eingestellt, erscheint OS Studio jetzt auf Englisch – Menüs, Hinweise, Fehlermeldungen und Anleitungen. Auf Deutsch bleibt alles wie gewohnt. Die Sprache lässt sich pro App unter Systemeinstellungen → Allgemein → Sprache & Region wählen.

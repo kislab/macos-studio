@@ -1435,5 +1435,75 @@
     "oclp_supported": false,
     "notes": "Quelle: Apple-Support (Modellkennung, Golden-Gate-Kompatibilität). Ältere macOS-Versionen werden nicht angeboten.",
     "model_numbers": []
+  },
+  {
+    "name": "MacBook Pro (14\" & 16\", Ende 2026, M5 Pro / M5 Max, PROLED XDR)",
+    "category": "MacBook Pro",
+    "year": 2026,
+    "identifiers": [
+      "Mac17,10",
+      "Mac17,11",
+      "Mac17,12",
+      "Mac17,13"
+    ],
+    "cpu": "Apple M5 Pro / M5 Max",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Golden Gate 27",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate"
+    ],
+    "hw_icon": "macbook_pro_m_series.png",
+    "oclp_supported": false,
+    "notes": "Quelle: AppleDB (Modellkennung, Modellnummer, erschienen 6. November 2026); in Apples macOS-Wiederherstellungsliste für Golden Gate enthalten. Ältere macOS-Versionen werden nicht angeboten.",
+    "model_numbers": [
+      "A3375",
+      "A3376",
+      "A3468",
+      "A3469"
+    ]
+  },
+  {
+    "name": "MacBook Pro (14\", Ende 2026, M6)",
+    "category": "MacBook Pro",
+    "year": 2026,
+    "identifiers": [
+      "Mac18,1"
+    ],
+    "cpu": "Apple M6",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Golden Gate 27",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate"
+    ],
+    "hw_icon": "macbook_pro_m_series.png",
+    "oclp_supported": false,
+    "notes": "Quelle: AppleDB (Modellkennung, Modellnummer, erschienen 6. November 2026); in Apples macOS-Wiederherstellungsliste für Golden Gate enthalten. Ältere macOS-Versionen werden nicht angeboten.",
+    "model_numbers": [
+      "A3536"
+    ]
+  },
+  {
+    "name": "iMac (24\", 2026, M6)",
+    "category": "iMac",
+    "year": 2026,
+    "identifiers": [
+      "Mac18,2"
+    ],
+    "cpu": "Apple M6",
+    "arch": "Apple Silicon",
+    "min_macos": "macOS Golden Gate 27",
+    "max_macos": "macOS Golden Gate 27",
+    "supported_versions": [
+      "Golden Gate"
+    ],
+    "hw_icon": "imac_m_series.png",
+    "oclp_supported": false,
+    "notes": "Quelle: AppleDB (Modellkennung, Modellnummer, erschienen 6. November 2026); in Apples macOS-Wiederherstellungsliste für Golden Gate enthalten. Ältere macOS-Versionen werden nicht angeboten.",
+    "model_numbers": [
+      "A3589",
+      "A3590"
+    ]
   }
 ]

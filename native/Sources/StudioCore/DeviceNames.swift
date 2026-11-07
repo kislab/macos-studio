@@ -88,6 +88,7 @@ public enum DeviceNames {
         set("iPad mini (A17 Pro)", "iPad16,1", "iPad16,2"); set("iPad Pro (11\", M4)", "iPad16,3", "iPad16,4"); set("iPad Pro (13\", M4)", "iPad16,5", "iPad16,6")
         set("iPad Air (11\", M4)", "iPad16,8", "iPad16,9"); set("iPad Air (13\", M4)", "iPad16,10", "iPad16,11")
         set("iPad Pro (11\", M5)", "iPad17,1", "iPad17,2"); set("iPad Pro (13\", M5)", "iPad17,3", "iPad17,4")
+        set("iPad mini (A20 Pro)", "iPad19,1", "iPad19,2")
         return names
     }()
 }

@@ -182,6 +182,9 @@ final class CoreTests {
         XCTAssertEqual(DeviceNames.name(for: "iPhone12,8"), "iPhone SE (2. Generation)")
         XCTAssertEqual(DeviceNames.name(for: "iPhone19,7"), "iPhone 18 Pro Max")
         XCTAssertEqual(DeviceNames.name(for: "iPad17,3"), "iPad Pro (13\", M5)")
+        XCTAssertEqual(DeviceNames.name(for: "iPad19,2"), "iPad mini (A20 Pro)")
+        XCTAssertTrue(DeviceNames.design(of: "iPad19,1") == .padFullScreen)
+        XCTAssertEqual(DevicePhotos.heading(for: "iPad19,1"), "ipad mini (a20 pro)")
         XCTAssertEqual(DeviceNames.name(for: "iPhone99,9"), "iPhone-Modell iPhone99,9")
         XCTAssertTrue(DeviceNames.order("iPhone9,1", "iPhone17,1"))
         XCTAssertTrue(DeviceNames.newestFirst("iPhone13,2", "iPhone12,1"))
@@ -694,6 +697,17 @@ final class LockedFlag: @unchecked Sendable {
                 XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
                 XCTAssertEqual(response.expectedContentLength, Int64(image.bytes))
             }
+            // Every Mac in Apple's macOS restore list must be in the model database.
+            let (macFeed, _) = try await URLSession.shared.data(from: URL(string: "https://mesu.apple.com/assets/macos/com_apple_macOSIPSW/com_apple_macOSIPSW.xml")!)
+            let feed = try PropertyListSerialization.propertyList(from: macFeed, format: nil) as! [String: Any]
+            let macIDs = Set(((feed["MobileDeviceSoftwareVersionsByVersion"] as? [String: Any]) ?? [:]).values
+                .flatMap { (($0 as? [String: Any])?["MobileDeviceSoftwareVersions"] as? [String: Any] ?? [:]).keys })
+                .filter { !$0.hasPrefix("VirtualMac") }
+            let modelFile = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Sources/MacOSStudio/Resources/models.json")
+            let knownMacs = Set(try JSONDecoder().decode([MacModel].self, from: Data(contentsOf: modelFile)).flatMap(\.identifiers))
+            let missingMacs = macIDs.subtracting(knownMacs).sorted()
+            print("Live Mac list: \(macIDs.count) Macs in Apple's macOS restore list, missing in database: \(missingMacs)")
+            XCTAssertTrue(macIDs.count > 40 && missingMacs.isEmpty)
             let (answer, _) = try await URLSession.shared.data(from: SerialLookup.url(for: "HV2R")!)
             XCTAssertEqual(SerialLookup.modelName(fromResponse: String(decoding: answer, as: UTF8.self)), "MacBook Pro (13-inch, 2017, Four Thunderbolt 3 Ports)")
             let (firmwareData, _) = try await URLSession.shared.data(from: FirmwareCatalog.url)
