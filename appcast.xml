@@ -7,15 +7,15 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <description>Signierte Updates für OS Studio</description>
     <language>de</language>
     <item>
-      <title>OS Studio 1.6.0</title>
+      <title>OS Studio 1.7.0</title>
       <description>Eine neue Version von OS Studio ist verfügbar. Das Update wird direkt in der App installiert.</description>
-      <sparkle:version>47</sparkle:version>
-      <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+      <sparkle:version>48</sparkle:version>
+      <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.6.0/OS-Studio-1.6.0-Universal.zip" sparkle:edSignature="MeAawoX5fsU+qbHG5PS509WZsUYPqfgUWsww+L+XV+stWQzqf2Za1eaAqloZdYPfoV3apsbGBjO5TWlpoqoABQ==" length="5783062" type="application/octet-stream"></enclosure>
+      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.7.0/OS-Studio-1.7.0-Universal.zip" sparkle:edSignature="9Ly4ddVx46wOlGbEqoX4yQ1NAOUEp7WWz+NY9HsO8Bxqs0NAzVlkX4E/Q+bDl2M+ZfPGsVt5alXvEDR4T27bBA==" length="5881099" type="application/octet-stream"></enclosure>
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: 1aScrlqwcSyt7RsOQSwko/uacNaIxCBgVoxkxR9lIManNO4tbdpBXg6IkVflZ3IoLtvOS7OtIh3ChK4975TcDQ==
+edSignature: kxavMU4EYx1LPw+ReJqfFy5eOZXZI1CIRhSPetYK3+RFcKSDY1stkjvKywUA4lrNOfh2tfYuL/kDY+n0sxD0Dw==
 length: 1258
 -->
