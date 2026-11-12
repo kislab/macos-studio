@@ -10,6 +10,8 @@ public struct TerminalJob {
     public var logFile: URL { directory.appendingPathComponent("output.log") }
     /// Created by the app to ask the root command to stop (before erasing, or by ending createinstallmedia).
     public var cancelFile: URL { directory.appendingPathComponent("cancel") }
+    /// PID of the Terminal shell running the script; lets the app notice a closed Terminal window.
+    public var pidFile: URL { directory.appendingPathComponent("pid") }
 
     /// Exit codes of the USB root command besides createinstallmedia's own.
     public static let targetChangedExit: Int32 = 3
@@ -25,6 +27,7 @@ public struct TerminalJob {
         let status = shellQuote(statusFile.path)
         return """
         #!/bin/zsh
+        print -r -- "$$" > \(shellQuote(pidFile.path))
         clear
         print -r -- \(shellQuote(headline))
         print -r -- 'Bitte dein Mac-Passwort eingeben. Die Eingabe bleibt unsichtbar.'
@@ -37,10 +40,12 @@ public struct TerminalJob {
         """ + "\n"
     }
 
-    /// Creates a private (0700) directory and a read/execute-only (0500) script.
+    /// Creates a fresh private (0700) directory and a read/execute-only (0500) script.
+    /// An existing directory is never reused, so nothing prepared beforehand can end up in the root command's folder.
     public func write(rootCommand: String, headline: String) throws {
         let fm = FileManager.default
-        try fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try fm.createDirectory(at: directory.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fm.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         try Data(scriptText(rootCommand: rootCommand, headline: headline).utf8).write(to: script, options: .withoutOverwriting)
         try fm.setAttributes([.posixPermissions: 0o500], ofItemAtPath: script.path)
     }
@@ -49,6 +54,12 @@ public struct TerminalJob {
     public func exitStatus() -> Int32? {
         guard let text = try? String(contentsOf: statusFile, encoding: .utf8) else { return nil }
         return Int32(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    /// Whether the Terminal shell is still running: nil until it has started (no PID written yet).
+    public func shellRunning() -> Bool? {
+        guard let text = try? String(contentsOf: pidFile, encoding: .utf8),
+              let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 1 else { return nil }
+        return kill(pid, 0) == 0 || errno == EPERM
     }
     public func requestCancel() { try? Data().write(to: cancelFile) }
     public var cancelRequested: Bool { FileManager.default.fileExists(atPath: cancelFile.path) }

@@ -590,6 +590,14 @@ extension CoreTests {
         XCTAssertEqual((attrs[.posixPermissions] as? NSNumber)?.intValue, 0o500)
         XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: dir.path)[.posixPermissions] as? NSNumber)?.intValue, 0o700)
         XCTAssertNil(job.exitStatus())
+        XCTAssertTrue(text.contains("print -r -- \"$$\" > " + shellQuote(job.pidFile.path)))
+        XCTAssertNil(job.shellRunning())                       // Terminal has not started the script yet
+        try Data("\(getpid())\n".utf8).write(to: job.pidFile)
+        XCTAssertEqual(job.shellRunning(), true)
+        let ended = Process(); ended.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try ended.run(); ended.waitUntilExit()
+        try Data("\(ended.processIdentifier)\n".utf8).write(to: job.pidFile)
+        XCTAssertEqual(job.shellRunning(), false)              // Terminal window closed
         try Data("250\n".utf8).write(to: job.statusFile)
         XCTAssertEqual(job.exitStatus(), 250)
         var failed = false
@@ -715,9 +723,7 @@ final class LockedFlag: @unchecked Sendable {
                     }
                     XCTAssertTrue(false)                          // must not finish
                 } catch { XCTAssertTrue((error as? URLError)?.code == .cancelled) }
-                var resumeData = first.resumeData
-                for _ in 0..<20 where resumeData == nil { try await Task.sleep(nanoseconds: 100_000_000); resumeData = first.resumeData }
-                let data = try XCTUnwrap(resumeData)
+                let data = try XCTUnwrap(first.resumeData)          // handed over before run() returns, no waiting
                 let offset = LockedValue()
                 _ = try await PackageDownload().run(old.parts[0].url, to: resumed, resumeFrom: data) { written, _ in offset.min(written) }
                 XCTAssertTrue(offset.value > 1_000_000)               // continued, did not start over

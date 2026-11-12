@@ -10,6 +10,9 @@ public final class PackageDownload: NSObject, URLSessionDownloadDelegate, @unche
     private var session: URLSession?
     private var task: URLSessionDownloadTask?
     private var moveError: Error?
+    /// A cancel asked for resume data: the result is held back until that data has arrived.
+    private var awaitingResumeData = false
+    private var heldResult: Result<URL, Error>?
     /// Resume data captured when a download is cancelled or fails partway, so it can continue later.
     public private(set) var resumeData: Data?
 
@@ -25,16 +28,29 @@ public final class PackageDownload: NSObject, URLSessionDownloadDelegate, @unche
             lock.lock()
             self.continuation = continuation; self.destination = destination; self.onProgress = onProgress
             self.session = session; self.task = task; self.resumeData = nil
+            self.moveError = nil; self.awaitingResumeData = false; self.heldResult = nil
             lock.unlock()
             task.resume()
         }
     }
-    /// Cancels and keeps resume data for a later continuation (best effort).
+    /// Cancels and keeps resume data for a later continuation (best effort). `run` only returns once
+    /// URLSession has handed the resume data over (or reported that there is none), so callers can read
+    /// `resumeData` right after the cancellation error.
     public func cancel() {
-        lock.lock(); let task = task; lock.unlock()
-        task?.cancel { [weak self] data in
+        lock.lock()
+        guard let task, !awaitingResumeData else { lock.unlock(); return }
+        awaitingResumeData = true
+        lock.unlock()
+        task.cancel { [weak self] data in
             guard let self else { return }
-            self.lock.lock(); self.resumeData = data; self.lock.unlock()
+            self.lock.lock()
+            if let data { self.resumeData = data }
+            self.awaitingResumeData = false
+            let held = self.heldResult; self.heldResult = nil
+            let continuation = held == nil ? nil : self.continuation
+            if held != nil { self.continuation = nil }
+            self.lock.unlock()
+            if let held { continuation?.resume(with: held) }
         }
     }
 
@@ -56,14 +72,20 @@ public final class PackageDownload: NSObject, URLSessionDownloadDelegate, @unche
     }
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         lock.lock()
-        let continuation = continuation; self.continuation = nil
         let failure = error ?? moveError; let target = destination
         // Keep resume data the server/URL loading system provides on a resumable failure.
         if let data = (error as NSError?)?.userInfo[NSURLSessionDownloadTaskResumeData] as? Data { self.resumeData = data }
         self.session = nil; self.task = nil
+        let result: Result<URL, Error>? = failure.map { .failure($0) } ?? target.map { .success($0) }
+        var continuation: CheckedContinuation<URL, Error>?
+        if awaitingResumeData {
+            heldResult = result                 // resumed by the cancel handler once the resume data is in
+        } else {
+            continuation = self.continuation; self.continuation = nil
+        }
         lock.unlock()
         session.finishTasksAndInvalidate()
-        if let failure { continuation?.resume(throwing: failure) } else if let target { continuation?.resume(returning: target) }
+        if let result { continuation?.resume(with: result) }
     }
 }
 

@@ -45,8 +45,8 @@ import StudioCore
         verifying = item.fileName
         defer { verifying = nil }
         let size = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? NSNumber)?.int64Value
-        let sha = item.sha1 == nil ? nil : try? await Task.detached(priority: .userInitiated) { try? FirmwareCatalog.sha1(of: file) }.value
-        let result = FileVerify.result(actualSize: size, expectedSize: nil, actualSHA1: sha ?? nil, expectedSHA1: item.sha1)
+        let sha: String? = item.sha1 == nil ? nil : await Task.detached(priority: .userInitiated) { try? FirmwareCatalog.sha1(of: file) }.value
+        let result = FileVerify.result(actualSize: size, expectedSize: nil, actualSHA1: sha, expectedSHA1: item.sha1)
         verifyResults[item.id] = result
         if result == .ok { markConfirmed(file) }
     }

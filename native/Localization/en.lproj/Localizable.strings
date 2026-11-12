@@ -574,3 +574,6 @@
 "Wird geprüft …" = "Checking …";
 "Zuletzt geprüft: %@ · %lld automatisch erkannt" = "Last checked: %@ · %lld detected automatically";
 "macOS-Installer" = "macOS Installers";
+"Das Terminal-Fenster wurde geschlossen, bevor der Vorgang fertig war. Der USB-Stick ist möglicherweise unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden." = "The Terminal window was closed before the process finished. The USB drive may be incomplete and must be recreated or formatted before further use.";
+"Das Terminal-Fenster wurde geschlossen, bevor der Vorgang fertig war. Der USB-Stick wurde nicht verändert." = "The Terminal window was closed before the process finished. The USB drive was not changed.";
+"Terminal hat die USB-Erstellung nicht gestartet. Der USB-Stick wurde nicht verändert." = "Terminal did not start creating the USB drive. The USB drive was not changed.";

@@ -1,3 +1,13 @@
+Version 1.8.1
+
+• USB-Stick: Wird das Terminal-Fenster geschlossen, bevor der Vorgang fertig ist, merkt die App das jetzt sofort und meldet, ob der USB-Stick unverändert oder möglicherweise unvollständig ist. Bisher wartete sie ohne Ende und blockierte weitere Vorgänge und Updates.
+
+• Downloads fortsetzen: Beim Anhalten eines Apple-Pakets gingen die Daten zum Fortsetzen auf langsamen Macs gelegentlich verloren, sodass der Download von vorn begann. Die App wartet jetzt zuverlässig, bis sie gesichert sind.
+
+• Speicherplatz: Die Prüfung vor dem Download berücksichtigt jetzt auch den Zwischenspeicher für Apple-Pakete und blockiert nicht mehr, wenn macOS den freien Platz nicht meldet.
+
+• Schnellere Protokollanzeige bei langen Downloads und Wiederherstellungen.
+
 Version 1.8.0
 
 • Neue Geräte automatisch: Einmal täglich gleicht OS Studio Apples Geräte- und macOS-Listen mit der eingebauten Datenbank ab. Erscheint ein neues iPhone, iPad oder ein neuer Mac, holt die App Name und Daten von AppleDB – ohne App-Update. Neue Macs erscheinen sofort unter „Mac suchen“, neue iPhones und iPads mit Namen im Reiter „Gerät“. „Meinen Mac erkennen“ schlägt einen noch unbekannten Mac direkt nach.

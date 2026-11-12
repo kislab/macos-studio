@@ -5,3 +5,5 @@ Der Nutzer möchte fertige Updates automatisch veröffentlicht haben: Nach erfol
 Release-Ablauf und Schlüsselverwaltung: siehe docs/UPDATES.md. Zuerst Release-Dateien veröffentlichen, danach den signierten appcast.xml pushen. Private Schlüssel bleiben im lokalen Schlüsselbund. Vorhandene veröffentlichte Versionen nicht überschreiben. Nicht zugehörige unversionierte Assets nicht pauschal committen.
 
 Nach jeder erfolgreichen Veröffentlichung nur die drei neuesten veröffentlichten GitHub-Releases behalten. Ältere Releases samt Assets entfernen; Git-Tags und Quellcodehistorie behalten. Die aktuelle im appcast.xml referenzierte Version muss erhalten bleiben.
+
+Prüfungen: `cd native && swift run StudioChecks` (mit `STUDIO_LIVE=1` zusätzlich gegen Apples Server) und `./native/check-strings.sh`. `swift test` findet nichts, weil die Prüfungen ein eigenes Programm sind. Der Workflow `checks.yml` führt Build, Prüfungen und Übersetzungsprüfung bei jedem Push aus.

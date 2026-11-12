@@ -12,6 +12,11 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: appcast.xml
+          sparse-checkout-cone-mode: false
       - name: Remove releases older than the newest three
         env:
           GH_TOKEN: ${{ github.token }}
@@ -19,8 +24,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The release the signed feed points to must stay, even if it is not among the newest three.
+          keep="$(grep -o 'releases/download/[^/"]*' appcast.xml | head -n 1 | cut -d/ -f3 || true)"
+          echo "Release referenced by appcast.xml: ${keep:-none}"
           gh release list --limit 1000 --json tagName,publishedAt,isDraft \
             --jq '[.[] | select(.isDraft == false)] | sort_by(.publishedAt) | reverse | .[3:][] | .tagName' > /tmp/old-releases.txt
           while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            if [ "$tag" = "$keep" ]; then echo "Keeping $tag (referenced by appcast.xml)"; continue; fi
             gh release delete "$tag" --yes
           done < /tmp/old-releases.txt

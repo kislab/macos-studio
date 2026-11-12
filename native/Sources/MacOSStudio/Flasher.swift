@@ -283,7 +283,7 @@ import StudioCore
     private func report(_ chunk: String) {
         guard running else { return }
         log += chunk
-        if log.count > 200_000 { log = String(log.suffix(100_000)) }
+        if log.utf8.count > 200_000 { log = String(log.suffix(100_000)) }
         steps.consume(chunk)
         if let overall = steps.overall {
             // Step-wise output: one steady bar over all steps instead of the per-step percent.

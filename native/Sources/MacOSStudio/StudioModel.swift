@@ -157,7 +157,7 @@ import StudioCore
 
     func appendLog(_ text: String) {
         log += text
-        if log.count > 60_000 { log = String(log.suffix(50_000)) }
+        if log.utf8.count > 60_000 { log = String(log.suffix(50_000)) }
     }
     func refreshLocal() {
         let roots = ["/Applications", FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications").path]
@@ -388,8 +388,13 @@ import StudioCore
             }
             return
         }
-        let free = ((try? FileManager.default.attributesOfFileSystem(forPath: "/Applications")[.systemFreeSize]) as? NSNumber)?.doubleValue ?? 0
-        guard free > max(item.bytes * 2 + 5e9, 20e9) else { error = String(localized: "Nicht genügend freier Speicher für Download und Entpacken."); return }
+        // Same rule as everywhere else: unknown free space does not block. Apple packages are first
+        // stored in ~/Library/Caches, the finished installer lands in /Applications – check both volumes.
+        let need = Int64(max(item.bytes * 2 + 5e9, 20e9))
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].path
+        guard Disk.hasSpace(forPath: "/Applications", need: need, margin: 0), Disk.hasSpace(forPath: caches, need: need, margin: 0) else {
+            error = String(localized: "Nicht genügend freier Speicher für Download und Entpacken."); return
+        }
         if !item.offeredForThisMac, item.packageURL != nil { await downloadPackage(item); return }
         busy = true; flashing = false; completedPath = ""; log = ""; activeTitle = item.title + " " + item.version
         total = item.bytes; amount = nil; mbits = nil; progress = nil
@@ -616,8 +621,7 @@ import StudioCore
             }
             try? fileManager.removeItem(at: resume)
         } catch {
-            // Cancelling hands over resume data asynchronously; give it a moment.
-            if downloader.resumeData == nil { try? await Task.sleep(nanoseconds: 500_000_000) }
+            // PackageDownload only reports a cancellation once its resume data has been handed over.
             if let data = downloader.resumeData {
                 try? data.write(to: resume, options: .atomic)
             } else if resumeData != nil {
@@ -778,7 +782,7 @@ import StudioCore
         appendLog(text)
         buffer += text
         if let sample = ProgressSample.parse(buffer) { update(sample) }
-        if buffer.count > 2048 { buffer = String(buffer.suffix(512)) }
+        if buffer.utf8.count > 2048 { buffer = String(buffer.suffix(512)) }
     }
     private func update(_ sample: ProgressSample) {
         guard sample != lastSample else { return }
@@ -925,6 +929,7 @@ import StudioCore
             defer { waitingForTerminal = false; activeJob = nil; DockProgress.clear() }
             var exit: Int32?
             var shown = ""
+            let opened = Date()
             while exit == nil {
                 // Cancel requested but no reaction: Terminal is most likely still asking for the password.
                 if let asked = cancelRequestedAt, Date().timeIntervalSince(asked) > 20, job.output().isEmpty {
@@ -938,6 +943,23 @@ import StudioCore
                 }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 exit = job.exitStatus()
+                // Without a cancel request: notice a closed Terminal window (or a script that never started)
+                // instead of waiting forever. The status is written before the shell ends, so read it once more.
+                if exit == nil, cancelRequestedAt == nil {
+                    let running = job.shellRunning()
+                    if running == false || (running == nil && Date().timeIntervalSince(opened) > 120 && job.output().isEmpty) {
+                        exit = job.exitStatus()
+                        if exit == nil {
+                            let current = USBProgress.clean(job.output())
+                            log = header + current
+                            if running == nil { throw failure(String(localized: "Terminal hat die USB-Erstellung nicht gestartet. Der USB-Stick wurde nicht verändert.")) }
+                            let touched = current.contains(USBProgress.prepareMarker) || current.contains(USBProgress.startMarker)
+                            throw failure(touched
+                                ? String(localized: "Das Terminal-Fenster wurde geschlossen, bevor der Vorgang fertig war. Der USB-Stick ist möglicherweise unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden.")
+                                : String(localized: "Das Terminal-Fenster wurde geschlossen, bevor der Vorgang fertig war. Der USB-Stick wurde nicht verändert."))
+                        }
+                    }
+                }
                 // Mirror the Terminal output live: current step, percentage and log.
                 let current = job.output()
                 if current != shown {

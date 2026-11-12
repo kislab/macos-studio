@@ -340,8 +340,8 @@ struct MobileDevice: @unchecked Sendable {
     let reboot: DeviceCall
     let retain: DeviceVoid
     let release: DeviceVoid
-    func retainDevice(_ d: UnsafeMutableRawPointer) { retain(d) }
-    func releaseDevice(_ d: UnsafeMutableRawPointer) { release(d) }
+    func retainDevice(_ d: UnsafeMutableRawPointer) { _ = retain(d) }
+    func releaseDevice(_ d: UnsafeMutableRawPointer) { _ = release(d) }
 
     func string(_ device: UnsafeMutableRawPointer, _ key: String) -> String? {
         copyValue(device, nil, key as CFString)?.takeRetainedValue() as? String
