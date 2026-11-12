@@ -30,8 +30,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>OS Studio</string>
 <key>CFBundleDisplayName</key><string>OS Studio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.8.1</string>
-<key>CFBundleVersion</key><string>51</string>
+<key>CFBundleShortVersionString</key><string>1.8.2</string>
+<key>CFBundleVersion</key><string>52</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleDevelopmentRegion</key><string>de</string>
 <key>CFBundleLocalizations</key><array><string>de</string><string>en</string></array>
@@ -40,7 +40,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>NSRemovableVolumesUsageDescription</key><string>OS Studio benötigt Zugriff auf Wechselmedien, um mit Apples createinstallmedia einen bootfähigen USB-Stick zu erstellen.</string>
 <key>NSAppleEventsUsageDescription</key><string>OS Studio bittet den Finder, root-eigene Installer wiederherstellbar in den Papierkorb zu legen.</string>
 <key>SUFeedURL</key><string>https://raw.githubusercontent.com/kislab/macos-studio/main/appcast.xml</string>
-<key>SUPublicEDKey</key><string>xcZo5IOnSiJkaaCe+YyZkukO1pfn0PNEfk50dTKXJNs=</string>
+<key>SUPublicEDKey</key><string>xq0tRuG4Ddn5HYNr0SUqQ4eW4J7rtJhQq1P8BcAqfNs=</string>
 <key>SUEnableAutomaticChecks</key><true/>
 <key>SUScheduledCheckInterval</key><integer>21600</integer>
 <key>SUAutomaticallyUpdate</key><false/>

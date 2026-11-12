@@ -38,3 +38,5 @@ Die Ed25519-Update-Signatur ist unabhängig von Apples Developer-ID-Signierung u
 - [Sparkle-Dokumentation](https://sparkle-project.org/documentation/)
 - [SwiftUI-Integration](https://sparkle-project.org/documentation/programmatic-setup/)
 - [Sparkle-Lizenz](licenses/Sparkle.txt), auch im App-Bundle enthalten
+
+Schlüsselwechsel 2026-11-12: Der ursprüngliche private Schlüssel ging verloren. Ab 1.8.2 (Build 52) gilt der neue öffentliche Schlüssel `xq0tRuG4Ddn5HYNr0SUqQ4eW4J7rtJhQq1P8BcAqfNs=`. Versionen bis 1.8.1 akzeptieren diesen Feed nicht und müssen 1.8.2 einmal manuell installieren. Den neuen Schlüssel mit `generate_keys --account macos-studio-kislab -x <datei>` exportieren und außerhalb des Repos sicher aufbewahren.

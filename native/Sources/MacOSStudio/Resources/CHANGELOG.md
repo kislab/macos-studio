@@ -1,3 +1,7 @@
+Version 1.8.2
+
+• Updates: Neuer Signaturschlüssel für automatische Updates. Ab dieser Version kommen Updates wieder automatisch. Wer 1.8.1 oder älter nutzt, installiert 1.8.2 einmal von Hand aus der DMG.
+
 Version 1.8.1
 
 • USB-Stick: Wird das Terminal-Fenster geschlossen, bevor der Vorgang fertig ist, merkt die App das jetzt sofort und meldet, ob der USB-Stick unverändert oder möglicherweise unvollständig ist. Bisher wartete sie ohne Ende und blockierte weitere Vorgänge und Updates.
