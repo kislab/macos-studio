@@ -577,3 +577,9 @@
 "Das Terminal-Fenster wurde geschlossen, bevor der Vorgang fertig war. Der USB-Stick ist möglicherweise unvollständig und muss vor einer weiteren Verwendung neu erstellt oder formatiert werden." = "The Terminal window was closed before the process finished. The USB drive may be incomplete and must be recreated or formatted before further use.";
 "Das Terminal-Fenster wurde geschlossen, bevor der Vorgang fertig war. Der USB-Stick wurde nicht verändert." = "The Terminal window was closed before the process finished. The USB drive was not changed.";
 "Terminal hat die USB-Erstellung nicht gestartet. Der USB-Stick wurde nicht verändert." = "Terminal did not start creating the USB drive. The USB drive was not changed.";
+"Läuft bereits auf diesem Mac" = "Already running on this Mac";
+"Genau diese Version und dieser Build sind auf diesem Mac installiert." = "Exactly this version and build are installed on this Mac.";
+"Version %@ schon auf diesem Mac · dieser Build ist für andere Macs" = "Version %@ already on this Mac · this build is for other Macs";
+"Dein Mac hat macOS %@ bereits (Build %@). Apple erstellt für manche Macs eigene Builds derselben Version. Dieser Build ist für andere Macs und kann für deren USB-Stick als Apple-Paket geladen werden." = "Your Mac already has macOS %@ (build %@). Apple makes separate builds of the same version for some Macs. This build is for other Macs and can be downloaded as an Apple package for their USB drive.";
+"Neuere Version schon auf diesem Mac (%@) · dieser Build ist für andere Macs" = "Newer version already on this Mac (%@) · this build is for other Macs";
+"Dein Mac hat bereits macOS %@. Apple bietet diesen älteren Build deshalb nicht für diesen Mac an. Er kann für USB-Sticks anderer Macs als Apple-Paket geladen werden." = "Your Mac already has macOS %@, so Apple does not offer this older build for this Mac. It can be downloaded as an Apple package for USB drives of other Macs.";

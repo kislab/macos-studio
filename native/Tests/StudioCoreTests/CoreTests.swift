@@ -457,6 +457,18 @@ final class CoreTests {
         XCTAssertEqual(items[0].bytes, 2097152)
         XCTAssertTrue(Installer.parse("No installers").isEmpty)
     }
+    func testHostRelation() {
+        func r(_ v: String, _ b: String) -> HostRelation { HostSystem.relation(version: v, build: b, hostVersion: "27.2.1", hostBuild: "26B131") }
+        XCTAssertEqual(r("27.2.1", "26B131"), .installed)
+        XCTAssertEqual(r("27.2.1", "26B8132"), .sameVersion)
+        XCTAssertEqual(r("27.2", "26B8125"), .olderThanHost)
+        XCTAssertEqual(r("26.4", "25E1"), .olderThanHost)
+        XCTAssertEqual(r("27.3", "26C1"), .other)
+        XCTAssertEqual(r("Manuell", "X"), .other)
+        XCTAssertEqual(HostSystem.relation(version: "27.2", build: "A", hostVersion: "27.2.0", hostBuild: ""), .sameVersion)
+        XCTAssertFalse(HostSystem.build.isEmpty)
+        XCTAssertEqual(HostSystem.relation(version: HostSystem.version, build: HostSystem.build), .installed)
+    }
     func testVersionValidation() {
         XCTAssertTrue(Installer.validVersion("15.7.2"))
         XCTAssertFalse(Installer.validVersion("15; touch /tmp/bad"))
@@ -680,6 +692,7 @@ final class LockedFlag: @unchecked Sendable {
         tests.testFileVerify()
         try tests.testIPSWFlash()
         tests.testVersionValidation()
+        tests.testHostRelation()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
         tests.testQuoting()
@@ -811,6 +824,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("22 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("23 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

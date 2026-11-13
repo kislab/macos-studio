@@ -1,3 +1,7 @@
+Version 1.8.3
+
+• Installer-Liste: Statt „Nicht für diesen Mac“ zeigt die App jetzt, wenn die Version schon auf deinem Mac läuft. Der installierte Build ist grün markiert („Läuft bereits auf diesem Mac“); Builds derselben oder einer älteren Version für andere Macs sind als solche gekennzeichnet.
+
 Version 1.8.2
 
 • Updates: Neuer Signaturschlüssel für automatische Updates. Ab dieser Version kommen Updates wieder automatisch. Wer 1.8.1 oder älter nutzt, installiert 1.8.2 einmal von Hand aus der DMG.

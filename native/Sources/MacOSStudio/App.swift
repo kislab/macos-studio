@@ -293,7 +293,20 @@ struct StudioView: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                         .help("Macs mit Apple-Chip starten das createinstallmedia dieser älteren Versionen nicht mehr. Laden geht hier; den USB-Stick mit der fertigen Installer-App an einem Intel-Mac erstellen.")
                                 }
-                                if !item.offeredForThisMac {
+                                let host = HostSystem.relation(version: item.version, build: item.build)
+                                if host == .installed {
+                                    Label("Läuft bereits auf diesem Mac", systemImage: "checkmark.circle")
+                                        .font(.caption).foregroundStyle(.green)
+                                        .help("Genau diese Version und dieser Build sind auf diesem Mac installiert.")
+                                } else if !item.offeredForThisMac && host == .sameVersion {
+                                    Label("Version \(item.version) schon auf diesem Mac · dieser Build ist für andere Macs", systemImage: "checkmark.circle")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                        .help("Dein Mac hat macOS \(HostSystem.version) bereits (Build \(HostSystem.build)). Apple erstellt für manche Macs eigene Builds derselben Version. Dieser Build ist für andere Macs und kann für deren USB-Stick als Apple-Paket geladen werden.")
+                                } else if !item.offeredForThisMac && host == .olderThanHost {
+                                    Label("Neuere Version schon auf diesem Mac (\(HostSystem.version)) · dieser Build ist für andere Macs", systemImage: "checkmark.circle")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                        .help("Dein Mac hat bereits macOS \(HostSystem.version). Apple bietet diesen älteren Build deshalb nicht für diesen Mac an. Er kann für USB-Sticks anderer Macs als Apple-Paket geladen werden.")
+                                } else if !item.offeredForThisMac {
                                     Label("Nicht für diesen Mac · für andere Macs als Apple-Paket", systemImage: "shippingbox")
                                         .font(.caption).foregroundStyle(.orange)
                                         .help(item.assembledFromParts
