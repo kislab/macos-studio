@@ -7,15 +7,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <description>Signierte Updates für OS Studio</description>
     <language>de</language>
     <item>
-      <title>OS Studio 1.8.3</title>
-      <description>Eine neue Version von OS Studio ist verfügbar. Das Update wird direkt in der App installiert.</description>
-      <sparkle:version>53</sparkle:version>
-      <sparkle:shortVersionString>1.8.3</sparkle:shortVersionString>
+      <title>OS Studio 1.8.4</title>
+      <description sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.4 — übersichtlichere Installer-Liste</h3>
+<ul><li><b>Eine Zeile pro Version:</b> Builds für bestimmte Macs lassen sich unter der Version aufklappen. Der Build für deinen Mac steht oben.</li><li><b>Für welche Macs:</b> Builds für bestimmte Macs zeigen ihre Modelle, z. B. „Für: 4 × MacBook Pro“. Mit der Maus darüber erscheint die vollständige Liste.</li><li><b>Schalter „Nur für diesen Mac“</b> direkt über der Liste.</li><li><b>Update-Fenster:</b> Zeigt jetzt, was sich geändert hat.</li></ul>
+<p>Universal für Intel und Apple Silicon, ab macOS 13. Build 54. Wer 1.8.1 oder älter nutzt, installiert einmal von Hand aus der DMG.</p>]]></description>
+      <description xml:lang="en" sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.4 — a clearer installer list</h3>
+<ul><li><b>One row per version:</b> Builds for specific Macs can be expanded below the version. The build for your Mac comes first.</li><li><b>Which Macs:</b> Builds for specific Macs show their models, e.g. “For: 4 × MacBook Pro”. Hover for the full list.</li><li><b>“Only for this Mac” switch</b> right above the list.</li><li><b>Update window:</b> Now shows what has changed.</li></ul>
+<p>Universal for Intel and Apple silicon, macOS 13 or later. Build 54.</p>]]></description>
+      <sparkle:version>54</sparkle:version>
+      <sparkle:shortVersionString>1.8.4</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.8.3/OS-Studio-1.8.3-Universal.zip" sparkle:edSignature="vNUMV2ZFe/+CJ79pJIcdzP3KXSs5S05Y5e9QZDU7cAzJa4R4lUpTcLk2ap7neL63b4unc8z/OtCNQ2936ItjBg==" length="6036501" type="application/octet-stream"></enclosure>
+      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.8.4/OS-Studio-1.8.4-Universal.zip" sparkle:edSignature="Uw2NX/ljnA4AQwU6nLvo82rV7fcF72d88Id5pWEXuR9+lxXb9iQHYdS9IV/35RSPatYiPmRwCXEt/Q8oiyamAw==" length="6145539" type="application/octet-stream"></enclosure>
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: bhozoc4jTx/BaYn7pgZn7yzCuTOi6Xzc6EY9FZqkjMN2VuYhj8/x9GyPjvumnL2jJvIS9PloO+sUaEpHYeJCAw==
-length: 1258
+edSignature: wmwQS4NPFTT/6yRq/Ku9lyCleNrkY01Atvp8VCGxNHk+h5eDj37Z0lP72TXEVQVPbNJhS8QaLW/BhN1DtUFaAg==
+length: 2502
 -->
