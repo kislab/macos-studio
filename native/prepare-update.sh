@@ -22,6 +22,16 @@ LENGTH="$(stat -f %z "$ARCHIVE")"
 # Tags are v<marketing-version>.0 for two-component marketing versions.
 TAG="v$VERSION"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && TAG="$TAG.0"
+NOTES="docs/release-$VERSION.md"
+NOTES_EN="docs/release-$VERSION.en.md"
+[ -f "$NOTES" ] || { echo "Release notes missing: $NOTES" >&2; exit 1; }
+NOTES_HTML="$(/usr/bin/python3 -I native/scripts/release-notes-html.py "$NOTES")"
+DESCRIPTIONS="      <description sparkle:descriptionFormat=\"html\"><![CDATA[$NOTES_HTML]]></description>"
+if [ -f "$NOTES_EN" ]; then
+  NOTES_EN_HTML="$(/usr/bin/python3 -I native/scripts/release-notes-html.py "$NOTES_EN")"
+  DESCRIPTIONS="$DESCRIPTIONS
+      <description xml:lang=\"en\" sparkle:descriptionFormat=\"html\"><![CDATA[$NOTES_EN_HTML]]></description>"
+fi
 cat > appcast.xml <<XML
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
@@ -32,7 +42,7 @@ cat > appcast.xml <<XML
     <language>de</language>
     <item>
       <title>OS Studio $VERSION</title>
-      <description>Eine neue Version von OS Studio ist verfügbar. Das Update wird direkt in der App installiert.</description>
+$DESCRIPTIONS
       <sparkle:version>$BUILD</sparkle:version>
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>

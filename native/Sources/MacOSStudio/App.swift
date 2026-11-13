@@ -107,6 +107,7 @@ struct MacOSStudioApp: App {
 
 @MainActor final class ViewState: ObservableObject {
     @Published var manual = false
+    @Published var expandedVersions: Set<String> = []
     @Published var version = ""
     @Published var confirmErase = false
     @Published var details = false
@@ -270,61 +271,36 @@ struct StudioView: View {
                     .help("Apple-Katalog neu laden").disabled(model.loading || model.busy)
                 Button("Version eingeben") { ui.manual = true }.disabled(model.loading || model.busy)
             }
-            HStack {
+            HStack(spacing: 16) {
                 Picker("Ziel-Mac", selection: $model.selectedMac) {
                     Text("Alle angebotenen Installer").tag("")
                     ForEach(model.models) { Text($0.name).tag($0.id) }
                 }
                 if !model.selectedMac.isEmpty { Button("Zurücksetzen") { model.selectedMac = "" } }
+                Toggle("Nur für diesen Mac", isOn: Binding(get: { !model.showOtherMacInstallers }, set: { model.showOtherMacInstallers = !$0 }))
+                    .toggleStyle(.switch).fixedSize()
+                    .help("Blendet Builds aus, die Apple nur für andere Macs anbietet.")
             }
             if model.loading { ProgressView(model.catalogStatus).padding() }
             ScrollView {
                 LazyVStack(spacing: 10) {
-                    ForEach(model.filteredInstallers) { item in
-                        HStack(spacing: 16) {
-                            InstallerArtwork(title: item.title)
-                                .frame(width: 58, height: 58)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(item.title).font(.headline)
-                                Text("\(item.version)  ·  Build \(item.build)").font(.subheadline).foregroundStyle(.secondary)
-                                Text(String(format: "%.2f GB", item.bytes / 1e9)).font(.caption).foregroundStyle(.secondary)
-                                if item.assembledFromParts && StudioModel.hostIsARM {
-                                    Label("USB-Stick nur an einem Intel-Mac möglich", systemImage: "cpu")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                        .help("Macs mit Apple-Chip starten das createinstallmedia dieser älteren Versionen nicht mehr. Laden geht hier; den USB-Stick mit der fertigen Installer-App an einem Intel-Mac erstellen.")
-                                }
-                                let host = HostSystem.relation(version: item.version, build: item.build)
-                                if host == .installed {
-                                    Label("Läuft bereits auf diesem Mac", systemImage: "checkmark.circle")
-                                        .font(.caption).foregroundStyle(.green)
-                                        .help("Genau diese Version und dieser Build sind auf diesem Mac installiert.")
-                                } else if !item.offeredForThisMac && host == .sameVersion {
-                                    Label("Version \(item.version) schon auf diesem Mac · dieser Build ist für andere Macs", systemImage: "checkmark.circle")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                        .help("Dein Mac hat macOS \(HostSystem.version) bereits (Build \(HostSystem.build)). Apple erstellt für manche Macs eigene Builds derselben Version. Dieser Build ist für andere Macs und kann für deren USB-Stick als Apple-Paket geladen werden.")
-                                } else if !item.offeredForThisMac && host == .olderThanHost {
-                                    Label("Neuere Version schon auf diesem Mac (\(HostSystem.version)) · dieser Build ist für andere Macs", systemImage: "checkmark.circle")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                        .help("Dein Mac hat bereits macOS \(HostSystem.version). Apple bietet diesen älteren Build deshalb nicht für diesen Mac an. Er kann für USB-Sticks anderer Macs als Apple-Paket geladen werden.")
-                                } else if !item.offeredForThisMac {
-                                    Label("Nicht für diesen Mac · für andere Macs als Apple-Paket", systemImage: "shippingbox")
-                                        .font(.caption).foregroundStyle(.orange)
-                                        .help(item.assembledFromParts
-                                              ? "Apple bietet diese ältere Version für diesen Mac nicht an. Die Installationsdateien werden direkt aus Apples Katalog geladen, jede gegen Apples Prüfsumme geprüft und zu einer Installer-App für USB-Sticks anderer Macs zusammengesetzt. Kein Administratorpasswort nötig."
-                                              : "Apple bietet diese Version für diesen Mac nicht an. Sie wird direkt aus Apples Katalog geladen, geprüft und als Installer-App für USB-Sticks anderer Macs erstellt. Dafür ist das Administratorpasswort nötig.")
-                                }
-                            }
-                            Spacer()
-                            if model.canResume(item) {
-                                Button("Verwerfen", systemImage: "trash") { model.discardPartial(item) }
-                                    .disabled(model.busy || model.loading)
-                                    .help("Bereits geladene Teile dieses Installers löschen und später von vorn laden.")
-                                Button("Fortsetzen", systemImage: "arrow.clockwise") { Task { await model.download(item) } }
-                                    .buttonStyle(.borderedProminent).disabled(model.busy || model.loading)
-                                    .help("Der letzte Download wurde unterbrochen. Lädt ab der Abbruchstelle weiter.")
-                            } else {
-                                Button("Laden", systemImage: "arrow.down") { Task { await model.download(item) } }
-                                    .buttonStyle(.borderedProminent).disabled(model.busy || model.loading)
+                    ForEach(InstallerGroup.groups(model.filteredInstallers)) { group in
+                        VStack(alignment: .leading, spacing: 12) {
+                            installerRow(group.primary, compact: false)
+                            if !group.others.isEmpty {
+                                DisclosureGroup(isExpanded: Binding(get: { ui.expandedVersions.contains(group.id) },
+                                                                    set: { if $0 { ui.expandedVersions.insert(group.id) } else { ui.expandedVersions.remove(group.id) } })) {
+                                    VStack(spacing: 8) {
+                                        ForEach(group.others) { item in
+                                            installerRow(item, compact: true)
+                                                .padding(12).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+                                        }
+                                    }.padding(.top, 6)
+                                } label: {
+                                    Text(group.others.count == 1 ? String(localized: "1 weiterer Build dieser Version für bestimmte Macs")
+                                                                 : String(localized: "\(group.others.count) weitere Builds dieser Version für bestimmte Macs"))
+                                        .font(.callout).foregroundStyle(.secondary)
+                                }.padding(.leading, 74)
                             }
                         }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 16))
                     }
@@ -338,6 +314,71 @@ struct StudioView: View {
                 }
             }
             Text(model.catalogStatus).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+    private func targetMacs(_ item: Installer) -> (text: String, all: String)? {
+        guard !item.offeredForThisMac, let summary = MacBoards.summary(for: item.supportedDevices, in: model.macBoards) else { return nil }
+        let all = MacBoards.names(for: item.supportedDevices, in: model.macBoards).map(\.name).joined(separator: "\n")
+        let text: String
+        switch summary {
+        case .names(let names): text = names.count == 1 ? names[0] : String(localized: "\(names[0]) und \(names[1])")
+        case .types(let types): text = types.map { $0.count == 1 ? $0.type : "\($0.count) × \($0.type)" }.joined(separator: ", ")
+        case .many(let count): text = String(localized: "\(count) Mac-Modelle")
+        }
+        return (text, all)
+    }
+    private func installerRow(_ item: Installer, compact: Bool) -> some View {
+        HStack(spacing: 16) {
+            if !compact {
+                InstallerArtwork(title: item.title).frame(width: 58, height: 58)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                if !compact { Text(item.title).font(.headline) }
+                Text("\(item.version)  ·  Build \(item.build)").font(compact ? .callout.weight(.medium) : .subheadline).foregroundStyle(compact ? .primary : .secondary)
+                Text(String(format: "%.2f GB", item.bytes / 1e9)).font(.caption).foregroundStyle(.secondary)
+                if item.assembledFromParts && StudioModel.hostIsARM {
+                    Label("USB-Stick nur an einem Intel-Mac möglich", systemImage: "cpu")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .help("Macs mit Apple-Chip starten das createinstallmedia dieser älteren Versionen nicht mehr. Laden geht hier; den USB-Stick mit der fertigen Installer-App an einem Intel-Mac erstellen.")
+                }
+                let host = HostSystem.relation(version: item.version, build: item.build)
+                if host == .installed {
+                    Label("Läuft bereits auf diesem Mac", systemImage: "checkmark.circle")
+                        .font(.caption).foregroundStyle(.green)
+                        .help("Genau diese Version und dieser Build sind auf diesem Mac installiert.")
+                } else if !item.offeredForThisMac && host == .sameVersion {
+                    Label("Version \(item.version) schon auf diesem Mac · dieser Build ist für andere Macs", systemImage: "checkmark.circle")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .help("Dein Mac hat macOS \(HostSystem.version) bereits (Build \(HostSystem.build)). Apple erstellt für manche Macs eigene Builds derselben Version. Dieser Build ist für andere Macs und kann für deren USB-Stick als Apple-Paket geladen werden.")
+                } else if !item.offeredForThisMac && host == .olderThanHost {
+                    Label("Neuere Version schon auf diesem Mac (\(HostSystem.version)) · dieser Build ist für andere Macs", systemImage: "checkmark.circle")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .help("Dein Mac hat bereits macOS \(HostSystem.version). Apple bietet diesen älteren Build deshalb nicht für diesen Mac an. Er kann für USB-Sticks anderer Macs als Apple-Paket geladen werden.")
+                } else if !item.offeredForThisMac {
+                    Label("Nicht für diesen Mac · für andere Macs als Apple-Paket", systemImage: "shippingbox")
+                        .font(.caption).foregroundStyle(.orange)
+                        .help(item.assembledFromParts
+                              ? "Apple bietet diese ältere Version für diesen Mac nicht an. Die Installationsdateien werden direkt aus Apples Katalog geladen, jede gegen Apples Prüfsumme geprüft und zu einer Installer-App für USB-Sticks anderer Macs zusammengesetzt. Kein Administratorpasswort nötig."
+                              : "Apple bietet diese Version für diesen Mac nicht an. Sie wird direkt aus Apples Katalog geladen, geprüft und als Installer-App für USB-Sticks anderer Macs erstellt. Dafür ist das Administratorpasswort nötig.")
+                }
+                if host != .installed, let target = targetMacs(item) {
+                    Label("Für: \(target.text)", systemImage: "laptopcomputer")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        .help(target.all)
+                }
+            }
+            Spacer()
+            if model.canResume(item) {
+                Button("Verwerfen", systemImage: "trash") { model.discardPartial(item) }
+                    .disabled(model.busy || model.loading)
+                    .help("Bereits geladene Teile dieses Installers löschen und später von vorn laden.")
+                Button("Fortsetzen", systemImage: "arrow.clockwise") { Task { await model.download(item) } }
+                    .buttonStyle(.borderedProminent).disabled(model.busy || model.loading)
+                    .help("Der letzte Download wurde unterbrochen. Lädt ab der Abbruchstelle weiter.")
+            } else {
+                Button("Laden", systemImage: "arrow.down") { Task { await model.download(item) } }
+                    .buttonStyle(.borderedProminent).disabled(model.busy || model.loading)
+            }
         }
     }
     private var localLibrary: some View {

@@ -1,3 +1,13 @@
+Version 1.8.4
+
+• Installer-Liste: Pro macOS-Version gibt es jetzt eine Zeile. Builds für bestimmte Macs lassen sich darunter aufklappen; der Build für deinen Mac steht oben.
+
+• Für welche Macs: Builds für bestimmte Macs zeigen jetzt, für welche Modelle sie sind, z. B. „Für: 4 × MacBook Pro“. Mit der Maus darüber erscheint die vollständige Liste.
+
+• Neuer Schalter „Nur für diesen Mac“ direkt über der Liste.
+
+• Updates zeigen jetzt im Update-Fenster, was sich geändert hat.
+
 Version 1.8.3
 
 • Installer-Liste: Statt „Nicht für diesen Mac“ zeigt die App jetzt, wenn die Version schon auf deinem Mac läuft. Der installierte Build ist grün markiert („Läuft bereits auf diesem Mac“); Builds derselben oder einer älteren Version für andere Macs sind als solche gekennzeichnet.

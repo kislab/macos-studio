@@ -469,6 +469,42 @@ final class CoreTests {
         XCTAssertFalse(HostSystem.build.isEmpty)
         XCTAssertEqual(HostSystem.relation(version: HostSystem.version, build: HostSystem.build), .installed)
     }
+    func testBuildTargets() {
+        let dist = "var supportedBoardIDs = [];\nvar supportedDeviceIDs = ['K114cAP', 'K116cAP', 'J833ctAP', 'bad id!', 'K114cAP'];"
+        XCTAssertEqual(AppleCatalog.supportedDevices(distribution: dist), ["k114cap", "k116cap", "j833ctap"])
+        XCTAssertEqual(AppleCatalog.supportedDevices(distribution: "var supportedBoardIDs = ['Mac-1E7E29AD0135F9BC'];"), ["mac-1e7e29ad0135f9bc"])
+        XCTAssertEqual(AppleCatalog.supportedDevices(distribution: "<installer-gui-script/>"), [])
+        let json = Data(#"""
+            [{"name":"MacBook Pro (14-inch, M5 Max)","type":"MacBook Pro","board":["K114cAP"],"identifier":["Mac17,11"]},
+            {"name":"MacBook Pro (16-inch, M5 Max)","type":"MacBook Pro","board":["K116cAP"],"identifier":["Mac17,10"]},
+            {"name":"MacBook Pro (14-inch, M5 Pro)","type":"MacBook Pro","board":["K114sAP"],"identifier":["Mac17,13"]},
+            {"name":"iMac (24-inch, M6)","type":"iMac","board":["J833ctAP"],"identifier":["Mac18,2"]},
+            {"name":"iPhone 20","type":"iPhone","board":["D99AP"],"identifier":["iPhone20,1"]},
+            {"name":"Broken","type":"Mac","board":["X1AP"],"identifier":["NotAMac"]}]
+            """#.utf8)
+        let table = MacBoards.table(fromAppleDB: json)
+        XCTAssertEqual(Set(table.keys), ["k114cap", "k116cap", "k114sap", "j833ctap"])
+        XCTAssertEqual(table["j833ctap"]?.identifiers, ["Mac18,2"])
+        XCTAssertNil(MacBoards.summary(for: ["unknown"], in: table))
+        XCTAssertEqual(MacBoards.summary(for: ["J833ctAP"], in: table), .names(["iMac (24-inch, M6)"]))
+        XCTAssertEqual(MacBoards.summary(for: ["k114cap", "j833ctap"], in: table), .names(["iMac (24-inch, M6)", "MacBook Pro (14-inch, M5 Max)"]))
+        XCTAssertEqual(MacBoards.summary(for: ["k114cap", "k116cap", "k114sap", "j833ctap"], in: table), .types([("MacBook Pro", 3), ("iMac", 1)]))
+        XCTAssertEqual(MacBoards.summary(for: ["k114cap", "k116cap", "k114sap"], in: table), .types([("MacBook Pro", 3)]))
+
+        func item(_ build: String, offered: Bool = false, devices: Int = 0, version: String = "27.2.1") -> Installer {
+            Installer(title: "macOS 27", version: version, build: build, offeredForThisMac: offered, supportedDevices: Array(repeating: "x", count: devices))
+        }
+        let groups = InstallerGroup.groups([item("26B8132", devices: 4), item("26B7131", devices: 2), item("26B131", devices: 60),
+                                            item("26B8125", devices: 4, version: "27.2"), item("26B123", devices: 60, version: "27.2")], hostBuild: "26B131")
+        XCTAssertEqual(groups.count, 2)
+        XCTAssertEqual(groups[0].primary.build, "26B131")
+        XCTAssertEqual(groups[0].others.map(\.build), ["26B8132", "26B7131"])
+        XCTAssertEqual(groups[1].primary.build, "26B123")
+        XCTAssertEqual(InstallerGroup.groups([item("A", devices: 60), item("B", offered: true, devices: 2)], hostBuild: "Z")[0].primary.build, "B")
+        let merged = AppleCatalog.merge(offered: [Installer(title: "macOS 27", version: "27.2.1", build: "26B131")],
+                                        catalog: [item("26B131", devices: 3)])
+        XCTAssertEqual(merged[0].supportedDevices.count, 3)
+    }
     func testVersionValidation() {
         XCTAssertTrue(Installer.validVersion("15.7.2"))
         XCTAssertFalse(Installer.validVersion("15; touch /tmp/bad"))
@@ -693,6 +729,7 @@ final class LockedFlag: @unchecked Sendable {
         try tests.testIPSWFlash()
         tests.testVersionValidation()
         tests.testHostRelation()
+        tests.testBuildTargets()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
         tests.testQuoting()
@@ -703,6 +740,15 @@ final class LockedFlag: @unchecked Sendable {
             let (data, _) = try await URLSession.shared.data(from: AppleCatalog.url)
             let products = AppleCatalog.products(fromCatalog: try Gzip.decompress(data))
             XCTAssertTrue(products.count > 5)
+            // Newest full installer names its Macs through AppleDB's board table.
+            let boards = MacBoards.table(fromAppleDB: try await URLSession.shared.data(from: MacBoards.url).0)
+            XCTAssertTrue(boards.count > 50)
+            if let newest = products.last(where: { !$0.legacy }) {
+                let dist = String(decoding: try await URLSession.shared.data(from: newest.distribution).0, as: UTF8.self)
+                let devices = AppleCatalog.supportedDevices(distribution: dist)
+                print("Live build targets: \(newest.id) → \(devices.count) IDs, \(MacBoards.names(for: devices, in: boards).count) named, summary \(String(describing: MacBoards.summary(for: devices, in: boards)))")
+                if !devices.isEmpty { XCTAssertFalse(MacBoards.names(for: devices, in: boards).isEmpty) }
+            }
             let (dist, _) = try await URLSession.shared.data(from: products.last!.distribution)
             let info = try XCTUnwrap(AppleCatalog.describe(distribution: String(decoding: dist, as: UTF8.self)))
             // Small signed Apple package from the same product: exercises download, size and signature check.
@@ -824,6 +870,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("23 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("24 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, build targets/groups, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

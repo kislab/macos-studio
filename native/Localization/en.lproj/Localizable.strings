@@ -583,3 +583,11 @@
 "Dein Mac hat macOS %@ bereits (Build %@). Apple erstellt für manche Macs eigene Builds derselben Version. Dieser Build ist für andere Macs und kann für deren USB-Stick als Apple-Paket geladen werden." = "Your Mac already has macOS %@ (build %@). Apple makes separate builds of the same version for some Macs. This build is for other Macs and can be downloaded as an Apple package for their USB drive.";
 "Neuere Version schon auf diesem Mac (%@) · dieser Build ist für andere Macs" = "Newer version already on this Mac (%@) · this build is for other Macs";
 "Dein Mac hat bereits macOS %@. Apple bietet diesen älteren Build deshalb nicht für diesen Mac an. Er kann für USB-Sticks anderer Macs als Apple-Paket geladen werden." = "Your Mac already has macOS %@, so Apple does not offer this older build for this Mac. It can be downloaded as an Apple package for USB drives of other Macs.";
+"%@ und %@" = "%@ and %@";
+"%lld Mac-Modelle" = "%lld Mac models";
+"%lld weitere Builds dieser Version für bestimmte Macs" = "%lld more builds of this version for specific Macs";
+"1 weiterer Build dieser Version für bestimmte Macs" = "1 more build of this version for specific Macs";
+"Blendet Builds aus, die Apple nur für andere Macs anbietet." = "Hides builds that Apple offers only for other Macs.";
+"Damit die Installer-Liste zeigt, für welche Macs ein Build ist, lädt die App außerdem höchstens einmal pro Woche AppleDBs allgemeine Geräteliste." = "So the installer list can show which Macs a build is for, the app also downloads AppleDB's general device list at most once a week.";
+"Für: %@" = "For: %@";
+"Nur für diesen Mac" = "Only for this Mac";

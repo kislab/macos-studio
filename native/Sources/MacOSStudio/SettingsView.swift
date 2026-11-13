@@ -76,6 +76,8 @@ struct SettingsView: View {
                         Toggle("Neue iPhones, iPads und Macs automatisch erkennen", isOn: $discovery.enabled)
                         Text("Gleicht einmal täglich Apples Geräte- und macOS-Listen mit der eingebauten Datenbank ab. Nur für unbekannte Modellkennungen werden Name und Daten bei AppleDB (appledb.dev) nachgeschlagen; es werden keine Daten über diesen Mac gesendet.")
                             .font(.caption).foregroundStyle(.secondary)
+                        Text("Damit die Installer-Liste zeigt, für welche Macs ein Build ist, lädt die App außerdem höchstens einmal pro Woche AppleDBs allgemeine Geräteliste.")
+                            .font(.caption).foregroundStyle(.secondary)
                         HStack {
                             Group {
                                 if discovery.running { Text("Wird geprüft …") }

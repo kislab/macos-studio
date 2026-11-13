@@ -68,12 +68,29 @@ public enum AppleCatalog {
         return (title, version, build)
     }
 
+    /// Hardware IDs a distribution accepts (Apple silicon device IDs such as "J316cAP", Intel board IDs such as
+    /// "Mac-1E7E29AD0135F9BC"), lowercased. Empty when the distribution does not restrict the hardware.
+    public static func supportedDevices(distribution text: String) -> [String] {
+        var result: [String] = []
+        for name in ["supportedDeviceIDs", "supportedBoardIDs"] {
+            guard let regex = try? NSRegularExpression(pattern: "var\\s+\(name)\\s*=\\s*\\[([^\\]]*)\\]"),
+                  let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                  let range = Range(match.range(at: 1), in: text) else { continue }
+            for raw in text[range].split(separator: ",") {
+                let id = raw.trimmingCharacters(in: CharacterSet(charactersIn: " \t\r\n'\"")).lowercased()
+                if id.range(of: "^[a-z0-9-]{2,40}$", options: .regularExpression) != nil, !result.contains(id) { result.append(id) }
+            }
+        }
+        return result
+    }
+
     /// Adds catalog-only installers to the ones softwareupdate offers. Offered entries win, but keep the package as fallback.
     public static func merge(offered: [Installer], catalog: [Installer]) -> [Installer] {
         var result = offered.map { item -> Installer in
             var copy = item; copy.offeredForThisMac = true
             if let match = catalog.first(where: { $0.version == item.version && $0.build == item.build }) {
                 copy.packageURL = match.packageURL; copy.packageParts = match.packageParts
+                copy.supportedDevices = match.supportedDevices
             }
             return copy
         }

@@ -4,6 +4,8 @@ import StudioCore
 
 @MainActor final class StudioModel: ObservableObject {
     @Published var installers: [Installer] = []
+    /// Board ID → Mac, to name the Macs a catalog build is for (from AppleDB, cached for a week).
+    @Published var macBoards: [String: MacBoards.Mac] = MacBoardsCache.load()?.table ?? [:]
     @Published var models: [MacModel] = []
     @Published var disks: [ExternalDisk] = []
     @Published var localInstallers: [String] = []
@@ -302,7 +304,9 @@ import StudioCore
         defer { loading = false }
         async let offeredResult = Self.offeredInstallers()
         async let catalogResult = Self.catalogInstallers()
+        async let boardsResult = discovery.enabled ? MacBoardsCache.refreshed() : nil
         let (offered, catalog) = await (offeredResult, catalogResult)
+        if let boards = await boardsResult, !boards.isEmpty { macBoards = boards }
         let merged = AppleCatalog.merge(offered: (try? offered.get()) ?? [], catalog: (try? catalog.get()) ?? [])
         guard !merged.isEmpty else {
             catalogStatus = String(localized: "Katalog konnte nicht geladen werden")
@@ -337,9 +341,11 @@ import StudioCore
                 for product in products {
                     group.addTask {
                         guard let (text, _) = try? await URLSession.shared.data(for: URLRequest(url: product.distribution, timeoutInterval: 30)),
-                              let info = AppleCatalog.describe(distribution: String(decoding: text, as: UTF8.self)) else { return nil }
+                              case let distribution = String(decoding: text, as: UTF8.self),
+                              let info = AppleCatalog.describe(distribution: distribution) else { return nil }
                         return Installer(title: info.title, version: info.version, build: info.build, bytes: product.bytes,
-                                         packageURL: product.package, packageParts: product.parts, offeredForThisMac: false)
+                                         packageURL: product.package, packageParts: product.parts, offeredForThisMac: false,
+                                         supportedDevices: AppleCatalog.supportedDevices(distribution: distribution))
                     }
                 }
                 var collected: [Installer] = []
@@ -1050,4 +1056,30 @@ final class CancelFlag: @unchecked Sendable {
     func set() { lock.lock(); flag = true; lock.unlock() }
     func reset() { lock.lock(); flag = false; lock.unlock() }
     var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
+}
+
+/// AppleDB's device list is large and changes rarely: kept in Caches and fetched again after a week.
+enum MacBoardsCache {
+    struct Saved: Codable { let date: Date; let table: [String: MacBoards.Mac] }
+    private static var file: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("com.appletools.macosstudio/MacBoards.json")
+    }
+    static func load() -> Saved? {
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        return try? JSONDecoder().decode(Saved.self, from: data)
+    }
+    /// The cached table while it is fresh, otherwise a new download; nil when nothing new could be loaded.
+    nonisolated static func refreshed() async -> [String: MacBoards.Mac]? {
+        if let saved = load(), Date().timeIntervalSince(saved.date) < 7 * 24 * 3600 { return saved.table }
+        var request = URLRequest(url: MacBoards.url, timeoutInterval: 30)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        let table = MacBoards.table(fromAppleDB: data)
+        guard table.count > 20 else { return nil }
+        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let encoded = try? JSONEncoder().encode(Saved(date: Date(), table: table)) { try? encoded.write(to: file, options: .atomic) }
+        return table
+    }
 }

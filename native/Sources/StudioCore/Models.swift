@@ -16,10 +16,13 @@ public struct Installer: Identifiable, Equatable {
     public var fromDiskImage: Bool { packageParts.count == 1 && packageParts[0].name.hasSuffix(".dmg") }
     /// True when `softwareupdate --list-full-installers` offers this installer on the current Mac.
     public var offeredForThisMac: Bool
+    /// Apple's hardware IDs (board or device IDs, lowercased) this build installs on; empty when unknown or for every Mac.
+    public var supportedDevices: [String] = []
     public init(title: String, version: String, build: String = "Manuell", bytes: Double = 0,
-                packageURL: URL? = nil, packageParts: [CatalogPart] = [], offeredForThisMac: Bool = true) {
+                packageURL: URL? = nil, packageParts: [CatalogPart] = [], offeredForThisMac: Bool = true, supportedDevices: [String] = []) {
         self.title = title; self.version = version; self.build = build; self.bytes = bytes
         self.packageURL = packageURL; self.packageParts = packageParts; self.offeredForThisMac = offeredForThisMac
+        self.supportedDevices = supportedDevices
     }
     public static func parse(_ text: String) -> [Installer] {
         let pattern = #"Title:\s*([^,]+),\s*Version:\s*([^,]+),\s*Size:\s*(\d+)\s*KiB,\s*Build:\s*([^,\r\n]+)"#
