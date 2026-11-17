@@ -49,7 +49,7 @@ struct MacOSStudioApp: App {
                     guard !startup.started else { return }
                     startup.started = true
                     delegate.model = model
-                    updates.isBusy = { model.busy || model.loading || model.scanning || model.localScanning }
+                    updates.isBusy = { model.busy || model.loading || model.scanning || model.localScanning || MaintenanceStore.shared.working }
                     await model.loadCatalog()
                     Task { await model.refreshDevices() }        // new iPhones/iPads/Macs, at most once a day, in the background
                     startup.phase = String(localized: "Prüfe auf Updates …")
@@ -92,10 +92,11 @@ struct MacOSStudioApp: App {
         for window in NSApp.windows { window.delegate = self }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard model?.busy == true else { return .terminateNow }
+        let maintenance = MaintenanceStore.shared.working
+        guard model?.busy == true || maintenance else { return .terminateNow }
         let alert = NSAlert()
         alert.messageText = String(localized: "Ein Vorgang läuft noch")
-        alert.informativeText = model?.flashing == true ? String(localized: "Bitte die USB-Erstellung abschließen lassen.") : String(localized: "Bitte den Download zuerst abbrechen.")
+        alert.informativeText = maintenance ? String(localized: "Bitte die Mac-Wartung im Terminal abschließen lassen oder abbrechen.") : model?.flashing == true ? String(localized: "Bitte die USB-Erstellung abschließen lassen.") : String(localized: "Bitte den Download zuerst abbrechen.")
         alert.runModal()
         return .terminateCancel
     }

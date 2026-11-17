@@ -5,7 +5,9 @@ import Foundation
 /// to write `.IAPhysicalMedia` on the freshly erased USB volume.
 public struct TerminalJob {
     public let directory: URL
-    public var script: URL { directory.appendingPathComponent("USB-Stick erstellen.command") }
+    /// File name of the script; Terminal shows it as the window title.
+    public let name: String
+    public var script: URL { directory.appendingPathComponent(name + ".command") }
     public var statusFile: URL { directory.appendingPathComponent("status") }
     public var logFile: URL { directory.appendingPathComponent("output.log") }
     /// Created by the app to ask the root command to stop (before erasing, or by ending createinstallmedia).
@@ -19,7 +21,10 @@ public struct TerminalJob {
     public static let noWriteAccessExit: Int32 = 77
     public static let cancelledExit: Int32 = 130
 
-    public init(directory: URL) { self.directory = directory }
+    public init(directory: URL, name: String = "USB-Stick erstellen") {
+        self.directory = directory
+        self.name = name.filter { $0 != "/" && $0 != ":" }.isEmpty ? "OS Studio" : name.filter { $0 != "/" && $0 != ":" }
+    }
 
     /// zsh script: sudo runs the already safety-checked root command, output is mirrored into the log,
     /// and the exit status is written atomically for the app to pick up.

@@ -10,7 +10,8 @@ import StudioCore
     @Published var dfuReached = false
     @Published var confirmMacDFU = false
     @Published var confirmMacReboot = false
-    @Published var macTab = false
+    /// 0: iPhone & iPad, 1: Mac (USB-C), 2: Mac-Wartung
+    @Published var tab = 0
     @Published var showRestart = false
     var guideTask: Task<Void, Never>?
 }
@@ -32,16 +33,19 @@ struct ExtrasView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Extras").font(.system(size: 32, weight: .bold, design: .rounded))
-                Text("Geräte in den Wiederherstellungs- oder DFU-Modus bringen – und wieder heraus.")
+                Text("Geräte in den Wiederherstellungs- oder DFU-Modus bringen – und wieder heraus. Dazu Werkzeuge zur Mac-Wartung.")
                     .foregroundStyle(.secondary)
             }
-            Picker("Bereich", selection: $state.macTab) {
-                Label("iPhone & iPad", systemImage: "iphone").tag(false)
-                Label("Mac (USB-C)", systemImage: "laptopcomputer").tag(true)
-            }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 360)
+            Picker("Bereich", selection: $state.tab) {
+                Label("iPhone & iPad", systemImage: "iphone").tag(0)
+                Label("Mac (USB-C)", systemImage: "laptopcomputer").tag(1)
+                Label("Mac-Wartung", systemImage: "wrench.and.screwdriver").tag(2)
+            }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 520)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if state.macTab {
+                    if state.tab == 2 {
+                        MaintenanceView(store: MaintenanceStore.shared)
+                    } else if state.tab == 1 {
                         macDFUCard
                     } else {
                         AutoRecoveryPanel(monitor: monitor, disabled: monitor.working)

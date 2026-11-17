@@ -505,6 +505,66 @@ final class CoreTests {
                                         catalog: [item("26B131", devices: 3)])
         XCTAssertEqual(merged[0].supportedDevices.count, 3)
     }
+    func testMaintenance() throws {
+        // Spotlight repair: user-level LaunchServices, root only for mdutil, cancel stops before anything runs.
+        let cancelURL = URL(fileURLWithPath: "/tmp/x y/cancel")
+        let repair = SpotlightRepair.rootCommand(cancelFile: cancelURL)
+        XCTAssertTrue(repair.hasPrefix("if [ -e '/tmp/x y/cancel' ]"))
+        XCTAssertTrue(repair.contains("/usr/bin/sudo -u \"$user\" '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister' -delete -r -domain local -domain system -domain user"))
+        XCTAssertTrue(repair.contains("/usr/bin/mdutil -E /"))
+        XCTAssertTrue(repair.contains("/usr/bin/killall -u \"$user\" Dock Finder SystemUIServer"))
+        XCTAssertNil(SpotlightRepair.step(in: "Passwort:"))
+        XCTAssertEqual(SpotlightRepair.step(in: "REPAIR-STEP 1 3\r\nfoo\nREPAIR-STEP 2 3\n"), 2)
+
+        // Time Machine: names, listing, and the real delete command on a fake Backups.backupdb.
+        XCTAssertFalse(TimeMachineBackups.valid("../x")); XCTAssertFalse(TimeMachineBackups.valid(".hidden")); XCTAssertFalse(TimeMachineBackups.valid("a/b"))
+        XCTAssertTrue(TimeMachineBackups.valid("Kevins MacBook Pro"))
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("tm-test-" + UUID().uuidString)
+        defer { try? fm.removeItem(at: root) }
+        let db = root.appendingPathComponent("Volume/Backups.backupdb")
+        let machine = db.appendingPathComponent("Alter Mac 'Test'")
+        for snap in ["2024-01-01-120000", "2024-02-01-120000", "2024-03-01-120000"] {
+            try fm.createDirectory(at: machine.appendingPathComponent(snap + "/Macintosh HD"), withIntermediateDirectories: true)
+            try Data("x".utf8).write(to: machine.appendingPathComponent(snap + "/Macintosh HD/file"))
+        }
+        try fm.createSymbolicLink(atPath: machine.appendingPathComponent("Latest").path, withDestinationPath: "2024-03-01-120000")
+        try fm.createDirectory(at: db.appendingPathComponent("Anderer Mac/2023-01-01-000000"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: db.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
+        XCTAssertEqual(try TimeMachineBackups.machines(in: db), [.init(name: "Alter Mac 'Test'", backups: 3), .init(name: "Anderer Mac", backups: 1)])
+        XCTAssertEqual(TimeMachineBackups.databases(volumes: [root.appendingPathComponent("Volume"), root]).map(\.path), [db.path])
+        XCTAssertNil(TimeMachineBackups.deleteCommand(database: db, machine: "../Anderer Mac", cancelFile: root.appendingPathComponent("cancel")))
+        func run(_ command: String) throws -> (Int32, String) {
+            let process = Process(); let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/bin/bash"); process.arguments = ["-c", command]
+            process.standardOutput = pipe; process.standardError = pipe
+            try process.run(); process.waitUntilExit()
+            return (process.terminationStatus, String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
+        }
+        // Cancelled before the first backup: nothing deleted.
+        let cancel = root.appendingPathComponent("cancel")
+        try Data().write(to: cancel)
+        let (cancelled, cancelOutput) = try run(try XCTUnwrap(TimeMachineBackups.deleteCommand(database: db, machine: "Alter Mac 'Test'", cancelFile: cancel)))
+        XCTAssertEqual(cancelled, 130); XCTAssertTrue(cancelOutput.contains("TM-CANCEL"))
+        XCTAssertEqual(try TimeMachineBackups.machines(in: db).first?.backups, 3)
+        try fm.removeItem(at: cancel)
+        // Full run: every backup, then the folder; the other computer stays.
+        let (code, output) = try run(try XCTUnwrap(TimeMachineBackups.deleteCommand(database: db, machine: "Alter Mac 'Test'", cancelFile: cancel)))
+        if code != 0 { print(output) }; XCTAssertEqual(code, 0)
+        let progress = TimeMachineBackups.progress(in: output)
+        XCTAssertEqual(progress.total, 3); XCTAssertEqual(progress.done, 3); XCTAssertTrue(progress.finished); XCTAssertEqual(progress.fraction, 1)
+        XCTAssertFalse(fm.fileExists(atPath: machine.path))
+        XCTAssertEqual(try TimeMachineBackups.machines(in: db).map(\.name), ["Anderer Mac"])
+        // Missing folder: stops without changes.
+        let (missing, _) = try run(try XCTUnwrap(TimeMachineBackups.deleteCommand(database: db, machine: "Gibt es nicht", cancelFile: cancel)))
+        XCTAssertEqual(missing, TimeMachineBackups.missingExit)
+        let partial = TimeMachineBackups.progress(in: "TM-TOTAL 4\nTM-STEP 1 4 2024-01-01\nTM-STEP 2 4 2024-02-01 x\n")
+        XCTAssertEqual(partial.current, "2024-02-01 x"); XCTAssertEqual(partial.fraction, 0.25)
+        XCTAssertTrue(TimeMachineBackups.progress(in: "TM-NOACCESS\n").noAccess)
+        XCTAssertTrue(TimeMachineBackups.isAccessDenied(NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError)))
+        XCTAssertTrue(TimeMachineBackups.isAccessDenied(NSError(domain: NSCocoaErrorDomain, code: 260, userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM))])))
+        XCTAssertEqual(TerminalJob(directory: root, name: "Time-Machine: Backups/löschen").script.lastPathComponent, "Time-Machine Backupslöschen.command")
+    }
     func testVersionValidation() {
         XCTAssertTrue(Installer.validVersion("15.7.2"))
         XCTAssertFalse(Installer.validVersion("15; touch /tmp/bad"))
@@ -730,6 +790,7 @@ final class LockedFlag: @unchecked Sendable {
         tests.testVersionValidation()
         tests.testHostRelation()
         tests.testBuildTargets()
+        try tests.testMaintenance()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
         tests.testQuoting()
@@ -870,6 +931,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("24 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, build targets/groups, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("25 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, build targets/groups, maintenance tools, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

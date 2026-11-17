@@ -1,3 +1,9 @@
+Version 1.8.5
+
+• Neu unter Extras › Mac-Wartung: „Spotlight & LaunchServices reparieren“ baut die LaunchServices-Datenbank neu auf, setzt den Spotlight-Index zurück und startet Dock, Finder und Menüleiste neu.
+
+• Neu unter Extras › Mac-Wartung: „Alte Time-Machine-Backups löschen“ zeigt die Rechner auf einem Time-Machine-Laufwerk (Mac OS Extended) mit der Zahl ihrer Backups und löscht einen Rechner mit Fortschritt und freigegebenem Speicher. Abbrechen ist zwischen zwei Backups möglich.
+
 Version 1.8.4
 
 • Installer-Liste: Pro macOS-Version gibt es jetzt eine Zeile. Builds für bestimmte Macs lassen sich darunter aufklappen; der Build für deinen Mac steht oben.
