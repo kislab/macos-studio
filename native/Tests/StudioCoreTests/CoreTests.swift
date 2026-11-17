@@ -564,6 +564,19 @@ final class CoreTests {
         XCTAssertTrue(TimeMachineBackups.isAccessDenied(NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError)))
         XCTAssertTrue(TimeMachineBackups.isAccessDenied(NSError(domain: NSCocoaErrorDomain, code: 260, userInfo: [NSUnderlyingErrorKey: NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM))])))
         XCTAssertEqual(TerminalJob(directory: root, name: "Time-Machine: Backups/löschen").script.lastPathComponent, "Time-Machine Backupslöschen.command")
+        // Exported scripts: valid syntax for their shell, same steps as in the app.
+        for (script, shell) in [(MacTweaksScripts.spotlight, "/bin/bash"), (MacTweaksScripts.timeMachine, "/bin/zsh")] {
+            XCTAssertTrue(script.hasPrefix("#!" + shell + "\n"))
+            let file = root.appendingPathComponent(UUID().uuidString + ".sh")
+            try Data(script.utf8).write(to: file)
+            let check = Process(); check.executableURL = URL(fileURLWithPath: shell); check.arguments = ["-n", file.path]
+            try check.run(); check.waitUntilExit()
+            XCTAssertEqual(check.terminationStatus, 0)
+        }
+        XCTAssertTrue(MacTweaksScripts.spotlight.contains("lsregister -delete -r -domain local -domain system -domain user"))
+        XCTAssertTrue(MacTweaksScripts.spotlight.contains("sudo /usr/bin/mdutil -E /"))
+        XCTAssertTrue(MacTweaksScripts.timeMachine.contains("/Volumes/*/Backups.backupdb(N/)"))
+        XCTAssertTrue(MacTweaksScripts.timeMachine.contains("sudo tmutil delete -p \"$TARGET/$s\""))
     }
     func testVersionValidation() {
         XCTAssertTrue(Installer.validVersion("15.7.2"))
@@ -931,6 +944,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("25 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, build targets/groups, maintenance tools, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("25 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, build targets/groups, MacTweaks tools/scripts, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

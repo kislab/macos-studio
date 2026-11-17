@@ -7,8 +7,12 @@ import StudioCore
 @MainActor final class MaintenanceStore: ObservableObject {
     static let shared = MaintenanceStore()
 
-    enum Tool { case repair, timeMachine }
+    enum Tool: CaseIterable { case repair, timeMachine }
     @Published private(set) var running: Tool?
+    /// Tool whose status, progress and log are shown.
+    @Published private(set) var lastTool: Tool?
+    /// The tool opened from the MacTweaks overview; nil shows the overview.
+    @Published var openTool: Tool?
     @Published var status = ""
     @Published var log = ""
     @Published var progress: Double?
@@ -115,6 +119,23 @@ import StudioCore
         loadMachines()
     }
 
+    /// Saves the tool as a standalone shell script (runs without the app). Available at any time.
+    func export(_ tool: Tool) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = tool == .repair ? MacTweaksScripts.spotlightFileName : MacTweaksScripts.timeMachineFileName
+        panel.allowedContentTypes = [.shellScript]
+        panel.canCreateDirectories = true
+        panel.message = String(localized: "Das Skript läuft ohne OS Studio im Terminal.")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try Data((tool == .repair ? MacTweaksScripts.spotlight : MacTweaksScripts.timeMachine).utf8).write(to: url, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } catch {
+            message = String(localized: "Das Skript konnte nicht gespeichert werden: ") + error.localizedDescription
+        }
+    }
+
     func cancel() {
         cancelRequested = true
         job?.requestCancel()
@@ -126,7 +147,7 @@ import StudioCore
     /// Opens the root command in Terminal and waits for it. Returns true on success; failures go to `message`.
     private func run(_ tool: Tool, name: String, headline: String, command: String, directory: URL? = nil,
                      update: @escaping (String) -> Void) async -> Bool {
-        running = tool; log = ""; progress = nil; message = nil; cancelRequested = false
+        running = tool; lastTool = tool; log = ""; progress = nil; message = nil; cancelRequested = false
         status = String(localized: "Im Terminal-Fenster das Mac-Passwort eingeben …")
         defer { running = nil; job = nil; progress = nil }
         let job = TerminalJob(directory: directory ?? FileManager.default.temporaryDirectory.appendingPathComponent("macOSStudio-Wartung-" + UUID().uuidString), name: name)
@@ -175,20 +196,64 @@ import StudioCore
     }
 }
 
-/// Extras › Mac-Wartung.
+/// Extras › MacTweaks: an overview of the tools, each opens on its own and can be exported as a shell script.
 struct MaintenanceView: View {
     @ObservedObject var store: MaintenanceStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if store.working || !store.status.isEmpty { statusCard }
-            repairCard
-            timeMachineCard
+            if let tool = store.openTool {
+                HStack {
+                    Button { store.openTool = nil } label: { Label("MacTweaks", systemImage: "chevron.left") }
+                    Spacer()
+                    Button("Als .sh exportieren …", systemImage: "square.and.arrow.up") { store.export(tool) }
+                        .help("Speichert dieses Werkzeug als eigenständiges Shell-Skript, das ohne OS Studio im Terminal läuft.")
+                }
+                if store.lastTool == tool && (store.working || !store.status.isEmpty) { statusCard }
+                if tool == .repair { repairCard } else { timeMachineCard }
+            } else {
+                overview
+            }
         }
-        .onAppear { if store.databases.isEmpty && !store.working { store.refreshDatabases() } }
+        .onChange(of: store.openTool) { tool in if tool == .timeMachine && !store.working { store.refreshDatabases() } }
         .alert("Hinweis", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
             Button("OK") { store.message = nil }
         } message: { Text(store.message ?? "") }
+    }
+
+    private var overview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Kleine Werkzeuge für deinen Mac. Jedes öffnet sich einzeln und lässt sich als Shell-Skript exportieren.")
+                .font(.callout).foregroundStyle(.secondary)
+            tile(.repair, String(localized: "Spotlight & LaunchServices reparieren"), "magnifyingglass",
+                 String(localized: "Bei falschen „Öffnen mit“-Einträgen, fehlenden Symbolen oder wenn Spotlight nichts findet."))
+            tile(.timeMachine, String(localized: "Alte Time-Machine-Backups löschen"), "clock.arrow.circlepath",
+                 String(localized: "Alle Backups eines Rechners von einem Time-Machine-Laufwerk entfernen und Platz freigeben."))
+        }
+    }
+
+    private func tile(_ tool: MaintenanceStore.Tool, _ title: String, _ symbol: String, _ detail: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.system(size: 26)).foregroundStyle(.blue).frame(width: 44)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(title).font(.headline)
+                    if store.running == tool {
+                        Text("Läuft").font(.caption2.weight(.semibold)).foregroundStyle(.orange)
+                            .padding(.horizontal, 7).padding(.vertical, 2).background(Color.orange.opacity(0.15), in: Capsule())
+                    }
+                }
+                Text(detail).font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Als .sh exportieren …", systemImage: "square.and.arrow.up") { store.export(tool) }
+                .help("Speichert dieses Werkzeug als eigenständiges Shell-Skript, das ohne OS Studio im Terminal läuft.")
+            Button("Öffnen", systemImage: "arrow.right.circle") { store.openTool = tool }.buttonStyle(.borderedProminent)
+        }
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 16))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture { store.openTool = tool }
     }
 
     private var statusCard: some View {

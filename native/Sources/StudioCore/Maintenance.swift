@@ -143,3 +143,140 @@ public enum TimeMachineBackups {
         return result
     }
 }
+
+/// Standalone shell scripts of the MacTweaks tools, for exporting and running without the app.
+public enum MacTweaksScripts {
+    public static let spotlightFileName = "Spotlight reparieren.sh"
+    public static let timeMachineFileName = "Time-Machine-Backups löschen.sh"
+
+    public static let spotlight = #"""
+    #!/bin/bash
+    # Spotlight & LaunchServices reparieren – exportiert aus OS Studio (MacTweaks).
+    # Baut die LaunchServices-Datenbank neu auf, setzt den Spotlight-Index zurück und startet Dock, Finder und Menüleiste neu.
+    # Nutzung: im Terminal ausführen; für den Spotlight-Schritt wird das Mac-Passwort abgefragt (sudo). Danach den Mac neu starten.
+
+    echo "-----------------------------------------------------"
+    echo "   Spotlight & LaunchServices reparieren"
+    echo "-----------------------------------------------------"
+
+    echo "[1/3] LaunchServices-Datenbank wird neu aufgebaut ..."
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -delete -r -domain local -domain system -domain user
+
+    echo "[2/3] Spotlight-Index wird zurückgesetzt (Passwort nötig) ..."
+    sudo /usr/bin/mdutil -E / || { echo "Spotlight-Index konnte nicht zurückgesetzt werden."; exit 1; }
+
+    echo "[3/3] Dock, Finder und Menüleiste werden neu gestartet ..."
+    /usr/bin/killall Dock Finder SystemUIServer 2>/dev/null
+
+    echo "-----------------------------------------------------"
+    echo "REPARATUR ABGESCHLOSSEN."
+    echo "Bitte den Mac jetzt neu starten, damit alles vollständig wirkt."
+    echo "-----------------------------------------------------"
+
+    """#
+
+    public static let timeMachine = #"""
+    #!/bin/zsh
+    # Alte Time-Machine-Backups löschen – exportiert aus OS Studio (MacTweaks).
+    # Löscht alle Backups eines Rechners aus Backups.backupdb (Time-Machine-Laufwerke im Format Mac OS Extended), mit Fortschritt.
+    # Terminal braucht dafür „Festplattenvollzugriff“ (Systemeinstellungen › Datenschutz & Sicherheit).
+
+    DBS=(/Volumes/*/Backups.backupdb(N/))
+    if [[ ${#DBS[@]} -eq 0 ]]; then
+      echo "Kein Time-Machine-Laufwerk mit Backups.backupdb angeschlossen."; exit 1
+    fi
+    if [[ ${#DBS[@]} -eq 1 ]]; then
+      DB="${DBS[1]}"
+    else
+      echo "Time-Machine-Laufwerke:"
+      for n in {1..${#DBS[@]}}; do printf "  %2d) %s\n" $n "${DBS[$n]:h:t}"; done
+      read "?Welches Laufwerk? Nummer eingeben (Enter = abbrechen): " PICK
+      if [[ -z "$PICK" || ! "$PICK" =~ '^[0-9]+$' || $PICK -lt 1 || $PICK -gt ${#DBS[@]} ]]; then echo "Abgebrochen."; exit 0; fi
+      DB="${DBS[$PICK]}"
+    fi
+    VOL="${DB:h}"
+
+    if ! ls "$DB" >/dev/null 2>&1; then
+      echo "Kein Zugriff auf $DB:"
+      ls "$DB" 2>&1 | head -3
+      echo "Bitte Terminal unter Systemeinstellungen > Datenschutz & Sicherheit > Festplattenvollzugriff erlauben und Terminal neu starten."
+      exit 1
+    fi
+
+    MACHINES=("${(@f)$(ls -1 "$DB")}")
+    if [[ ${#MACHINES[@]} -eq 0 || -z "${MACHINES[1]}" ]]; then
+      echo "Keine Rechner-Ordner in $DB gefunden."; exit 1
+    fi
+
+    echo "Rechner-Ordner auf ${VOL:t}:"
+    for n in {1..${#MACHINES[@]}}; do
+      cnt=$(ls -1 "$DB/${MACHINES[$n]}" 2>/dev/null | grep -vc '^Latest$')
+      printf "  %2d) %s  (%s Backups)\n" $n "${MACHINES[$n]}" "$cnt"
+    done
+    echo
+    read "?Welchen Rechner löschen? Nummer eingeben (Enter = abbrechen): " CHOICE
+    if [[ -z "$CHOICE" || ! "$CHOICE" =~ '^[0-9]+$' || $CHOICE -lt 1 || $CHOICE -gt ${#MACHINES[@]} ]]; then
+      echo "Abgebrochen."; exit 0
+    fi
+    MACHINE="${MACHINES[$CHOICE]}"
+    TARGET="$DB/$MACHINE"
+
+    SNAPS=("${(@f)$(ls -1 "$TARGET" | grep -v '^Latest$')}")
+    TOTAL=${#SNAPS[@]}
+    echo "Zu löschen: $TARGET  ($TOTAL Backups)"
+    read "?ACHTUNG: Das ist endgültig und nicht rückgängig zu machen. Wirklich löschen? (ja/nein) " ANSWER
+    [[ "$ANSWER" == "ja" ]] || { echo "Abgebrochen."; exit 0; }
+
+    sudo -v || exit 1
+    # sudo-Passwort während des Löschens gültig halten
+    ( while true; do sudo -n true 2>/dev/null; sleep 50; done ) &
+    KEEPALIVE=$!
+    trap 'kill $KEEPALIVE 2>/dev/null' EXIT
+
+    free_kb() { df -k "$VOL" | awk 'NR==2{print $4}'; }
+    gb() { awk -v k="$1" 'BEGIN{printf "%.1f", k/1048576}'; }
+
+    START_FREE=$(free_kb)
+    echo "Frei vor dem Löschen: $(gb $START_FREE) GB"
+    echo
+
+    # Zeigt Balken + Live-Werte, solange PID $1 läuft
+    show_progress() {
+      local pid=$1 snap_start=$2 last=$(free_kb) last_t=$SECONDS rate="0.0"
+      while kill -0 $pid 2>/dev/null; do
+        local now=$(free_kb)
+        local pct=$(( (i - 1) * 100 / TOTAL ))
+        local filled=$(( pct / 2 ))
+        local bar=$(printf '%*s' $filled '' | tr ' ' '#')$(printf '%*s' $((50-filled)) '' | tr ' ' '-')
+        if (( SECONDS - last_t >= 2 )); then
+          rate=$(awk -v d=$((now - last)) -v t=$((SECONDS - last_t)) 'BEGIN{v=d/1024/t; if(v<0)v=0; printf "%.1f", v}')
+          last=$now; last_t=$SECONDS
+        fi
+        printf "\r[%s] %3d%%  (%d/%d) %s\n" "$bar" "$pct" "$i" "$TOTAL" "$s"
+        printf "  dieses Backup: %6s GB | gesamt freigegeben: %6s GB | jetzt frei: %6s GB | %6s MB/s   \033[1A\r" \
+          "$(gb $((now - snap_start)))" "$(gb $((now - START_FREE)))" "$(gb $now)" "$rate"
+        sleep 1
+      done
+    }
+
+    i=0
+    for s in "${SNAPS[@]}"; do
+      [[ -z "$s" ]] && continue
+      i=$((i+1))
+      SNAP_START=$(free_kb)
+      sudo tmutil delete -p "$TARGET/$s" >/dev/null 2>&1 &
+      PID=$!
+      show_progress $PID $SNAP_START
+      wait $PID || sudo rm -rf "$TARGET/$s"
+    done
+    END_FREE=$(free_kb)
+    printf "\r[%s] 100%%  (%d/%d) fertig%*s\n" "$(printf '%*s' 50 '' | tr ' ' '#')" "$TOTAL" "$TOTAL" 30 ''
+    printf "  gesamt freigegeben: %s GB | jetzt frei: %s GB%*s\n" "$(gb $((END_FREE - START_FREE)))" "$(gb $END_FREE)" 30 ''
+    echo
+    echo "Räume Restordner auf ..."
+    sudo rm -rf "$TARGET" 2>/dev/null
+    [[ -e "$TARGET" ]] && echo "Rest von $TARGET konnte nicht entfernt werden." || echo "Fertig: $MACHINE gelöscht."
+    echo "Insgesamt freigegeben: $(gb $(( $(free_kb) - START_FREE ))) GB – jetzt frei: $(gb $(free_kb)) GB"
+
+    """#
+}

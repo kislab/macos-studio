@@ -604,7 +604,6 @@
 "Ausgewählten Rechner löschen …" = "Delete selected computer …";
 "Backup %lld von %lld" = "Backup %lld of %lld";
 "Backups endgültig löschen?" = "Permanently delete backups?";
-"Bitte die Mac-Wartung im Terminal abschließen lassen oder abbrechen." = "Please let the Mac maintenance in Terminal finish or cancel it.";
 "Das Terminal-Fenster wurde geschlossen, bevor der Vorgang fertig war." = "The Terminal window was closed before the task finished.";
 "Dock, Finder und Menüleiste neu starten" = "Restart Dock, Finder and menu bar";
 "Dock, Finder und Menüleiste starten kurz neu, Spotlight indexiert danach eine Weile neu. Es werden keine Dateien gelöscht." = "Dock, Finder and the menu bar restart briefly; Spotlight then re-indexes for a while. No files are deleted.";
@@ -616,7 +615,6 @@
 "Fertig – bitte den Mac jetzt neu starten." = "Done – please restart the Mac now.";
 "Fertig: „%@“ gelöscht." = "Done: “%@” deleted.";
 "Für Time-Machine-Laufwerke im Format Mac OS Extended (Ordner „Backups.backupdb“). APFS-Backups verwaltet macOS selbst." = "For Time Machine drives formatted as Mac OS Extended (folder “Backups.backupdb”). macOS manages APFS backups itself.";
-"Geräte in den Wiederherstellungs- oder DFU-Modus bringen – und wieder heraus. Dazu Werkzeuge zur Mac-Wartung." = "Put devices into recovery or DFU mode – and back out. Plus tools for Mac maintenance.";
 "Hilft, wenn Spotlight nichts findet, Programme doppelt oder falsch im „Öffnen mit“-Menü erscheinen, Symbole fehlen oder Dock und Finder hängen." = "Helps when Spotlight finds nothing, apps appear twice or wrongly in the “Open With” menu, icons are missing, or Dock and Finder hang.";
 "Im Terminal-Fenster das Mac-Passwort eingeben …" = "Enter your Mac password in the Terminal window …";
 "Kein solches Time-Machine-Laufwerk angeschlossen." = "No such Time Machine drive connected.";
@@ -626,7 +624,6 @@
 "LaunchServices-Datenbank wird neu aufgebaut" = "Rebuilding the LaunchServices database";
 "Letzter Vorgang" = "Last task";
 "Löscht alle Backups eines Rechners von einem Time-Machine-Laufwerk, z. B. von einem alten Mac, und gibt den Platz frei." = "Deletes all backups of one computer from a Time Machine drive, e.g. of an old Mac, and frees the space.";
-"Mac-Wartung" = "Mac maintenance";
 "OS Studio – LaunchServices und Spotlight reparieren" = "OS Studio – repair LaunchServices and Spotlight";
 "OS Studio – Time-Machine-Backups löschen\nRechner: %@ (%lld Backups)\nLaufwerk: %@ – wird endgültig gelöscht" = "OS Studio – delete Time Machine backups\nComputer: %@ (%lld backups)\nDrive: %@ – will be permanently deleted";
 "Reparatur abgeschlossen. Bitte den Mac jetzt neu starten." = "Repair finished. Please restart the Mac now.";
@@ -645,3 +642,15 @@
 "Unter Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff OS Studio einschalten, dann hier erneut laden. Nach einem App-Update kann macOS die Freigabe erneut verlangen. Zum Löschen braucht auch Terminal diesen Zugriff." = "Turn on OS Studio under System Settings › Privacy & Security › Full Disk Access, then reload here. After an app update macOS may ask for it again. Terminal also needs this access for deleting.";
 "Wird abgebrochen …" = "Cancelling …";
 "macOS schützt Time-Machine-Backups. OS Studio braucht dafür „Festplattenvollzugriff“, um die Rechner aufzulisten." = "macOS protects Time Machine backups. OS Studio needs “Full Disk Access” to list the computers.";
+"Alle Backups eines Rechners von einem Time-Machine-Laufwerk entfernen und Platz freigeben." = "Remove all backups of one computer from a Time Machine drive and free up space.";
+"Als .sh exportieren …" = "Export as .sh …";
+"Bei falschen „Öffnen mit“-Einträgen, fehlenden Symbolen oder wenn Spotlight nichts findet." = "For wrong “Open With” entries, missing icons or when Spotlight finds nothing.";
+"Bitte das MacTweaks-Werkzeug im Terminal abschließen lassen oder abbrechen." = "Please let the MacTweaks tool in Terminal finish or cancel it.";
+"Das Skript konnte nicht gespeichert werden: " = "The script could not be saved: ";
+"Das Skript läuft ohne OS Studio im Terminal." = "The script runs in Terminal without OS Studio.";
+"Geräte in den Wiederherstellungs- oder DFU-Modus bringen – und wieder heraus. Dazu MacTweaks für deinen Mac." = "Put devices into recovery or DFU mode – and back out. Plus MacTweaks for your Mac.";
+"Kleine Werkzeuge für deinen Mac. Jedes öffnet sich einzeln und lässt sich als Shell-Skript exportieren." = "Small tools for your Mac. Each opens on its own and can be exported as a shell script.";
+"Läuft" = "Running";
+"MacTweaks" = "MacTweaks";
+"Speichert dieses Werkzeug als eigenständiges Shell-Skript, das ohne OS Studio im Terminal läuft." = "Saves this tool as a standalone shell script that runs in Terminal without OS Studio.";
+"Öffnen" = "Open";

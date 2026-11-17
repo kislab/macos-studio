@@ -10,7 +10,7 @@ import StudioCore
     @Published var dfuReached = false
     @Published var confirmMacDFU = false
     @Published var confirmMacReboot = false
-    /// 0: iPhone & iPad, 1: Mac (USB-C), 2: Mac-Wartung
+    /// 0: iPhone & iPad, 1: Mac (USB-C), 2: MacTweaks
     @Published var tab = 0
     @Published var showRestart = false
     var guideTask: Task<Void, Never>?
@@ -33,13 +33,13 @@ struct ExtrasView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Extras").font(.system(size: 32, weight: .bold, design: .rounded))
-                Text("Geräte in den Wiederherstellungs- oder DFU-Modus bringen – und wieder heraus. Dazu Werkzeuge zur Mac-Wartung.")
+                Text("Geräte in den Wiederherstellungs- oder DFU-Modus bringen – und wieder heraus. Dazu MacTweaks für deinen Mac.")
                     .foregroundStyle(.secondary)
             }
             Picker("Bereich", selection: $state.tab) {
                 Label("iPhone & iPad", systemImage: "iphone").tag(0)
                 Label("Mac (USB-C)", systemImage: "laptopcomputer").tag(1)
-                Label("Mac-Wartung", systemImage: "wrench.and.screwdriver").tag(2)
+                Label("MacTweaks", systemImage: "wrench.and.screwdriver").tag(2)
             }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 520)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {

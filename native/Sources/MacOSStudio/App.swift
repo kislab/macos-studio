@@ -96,7 +96,7 @@ struct MacOSStudioApp: App {
         guard model?.busy == true || maintenance else { return .terminateNow }
         let alert = NSAlert()
         alert.messageText = String(localized: "Ein Vorgang läuft noch")
-        alert.informativeText = maintenance ? String(localized: "Bitte die Mac-Wartung im Terminal abschließen lassen oder abbrechen.") : model?.flashing == true ? String(localized: "Bitte die USB-Erstellung abschließen lassen.") : String(localized: "Bitte den Download zuerst abbrechen.")
+        alert.informativeText = maintenance ? String(localized: "Bitte das MacTweaks-Werkzeug im Terminal abschließen lassen oder abbrechen.") : model?.flashing == true ? String(localized: "Bitte die USB-Erstellung abschließen lassen.") : String(localized: "Bitte den Download zuerst abbrechen.")
         alert.runModal()
         return .terminateCancel
     }

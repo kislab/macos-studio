@@ -1,3 +1,9 @@
+Version 1.8.6
+
+• Extras › Mac-Wartung heißt jetzt MacTweaks. Eine Übersicht zeigt die Werkzeuge; jedes öffnet sich einzeln.
+
+• Jedes Werkzeug lässt sich jederzeit als eigenständiges Shell-Skript (.sh) exportieren, das ohne OS Studio im Terminal läuft.
+
 Version 1.8.5
 
 • Neu unter Extras › Mac-Wartung: „Spotlight & LaunchServices reparieren“ baut die LaunchServices-Datenbank neu auf, setzt den Spotlight-Index zurück und startet Dock, Finder und Menüleiste neu.
