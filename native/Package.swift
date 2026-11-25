@@ -6,6 +6,6 @@ let package = Package(
     dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1")],
     targets: [
         .target(name: "StudioCore"),
-        .executableTarget(name: "MacOSStudio", dependencies: ["StudioCore", .product(name: "Sparkle", package: "Sparkle")], resources: [.copy("Resources/CHANGELOG.md"), .copy("Resources/models.json"), .copy("Resources/InstallerIcons"), .copy("Resources/Hardware")]),
+        .executableTarget(name: "MacOSStudio", dependencies: ["StudioCore", .product(name: "Sparkle", package: "Sparkle")], resources: [.copy("Resources/CHANGELOG.md"), .copy("Resources/models.json"), .copy("Resources/InstallerIcons"), .copy("Resources/Hardware"), .copy("Resources/ChromeExtensions")]),
         .executableTarget(name: "StudioChecks", dependencies: ["StudioCore"], path: "Tests/StudioCoreTests")
     ])

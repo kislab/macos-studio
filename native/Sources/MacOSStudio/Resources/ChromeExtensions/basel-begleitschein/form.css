@@ -1,0 +1,63 @@
+@page { size: A4; margin: 10mm 12mm; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: #e5e5ea; font-family: "Times New Roman", Times, serif; color: #000; }
+
+.toolbar { position: sticky; top: 0; background: #fff; padding: 10px 16px; border-bottom: 1px solid #ccc;
+  font: 13px -apple-system, BlinkMacSystemFont, sans-serif; display: flex; gap: 12px; align-items: center; }
+.toolbar button { background: #0071e3; color: #fff; border: 0; border-radius: 6px; padding: 7px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+
+.page { width: 210mm; min-height: 297mm; margin: 16px auto; padding: 12mm 14mm; background: #fff; font-size: 9.6pt; }
+
+h1 { font-size: 12.5pt; text-align: center; margin: 0 0 4mm; line-height: 1.25; }
+
+.grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.grid td { border: 1px solid #000; padding: 1.2mm 1.6mm; vertical-align: top; }
+.top { border-top: 2px solid #000; }
+.small { font-size: 8.6pt; line-height: 1.35; }
+.tiny { font-family: Arial, sans-serif; font-size: 7.5pt; }
+.indent { padding-left: 14mm; }
+u { text-decoration: none; border-bottom: 1px solid #555; font-family: Arial, sans-serif; }
+
+.cb { display: flex; gap: 2mm; margin: 0.8mm 0; }
+.box { font-family: "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", sans-serif; font-size: 11pt; line-height: 1; }
+
+.row4 { height: 9mm; }
+.countries td { height: 13mm; border-top: 0; }
+
+.hand { color: #1e3796; font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive; font-size: 14pt; margin-left: 1mm; }
+
+.decl { border: 1px solid #000; border-top: 0; padding: 1.5mm 2mm 2mm; }
+.decl p { margin: 2mm 0 1.5mm; }
+.decl ol { margin: 0; padding-left: 7mm; }
+.decl li { margin-bottom: 0.6mm; text-align: justify; }
+.signrow { padding-bottom: 1.5mm; display: grid; grid-template-columns: 20% 21% 29% 30%; margin-top: 4mm; align-items: end; }
+.sigcell { position: relative; }
+#sig { position: absolute; left: 17mm; bottom: 0; height: 10mm; max-width: calc(100% - 19mm); object-fit: contain; object-position: left bottom; }
+#sig:not([src]) { display: none; }
+
+.equip { border-top: 2px solid #000; text-align: center; font-weight: bold; font-size: 9.4pt; }
+.equip .head td { height: 20mm; }
+.equip .body td { height: 30mm; vertical-align: middle; }
+.equip .left { text-align: left; font-weight: normal; }
+
+.recv { margin-top: 0; border-top: 2px solid #000; font-size: 9.4pt; }
+.center { text-align: center; height: 13mm; vertical-align: middle !important; }
+.recvsign { height: 15mm; display: table-cell; }
+.recvsign span { display: inline-block; width: 32%; padding-top: 5mm; }
+
+.shipper { border: 1px solid #000; margin-top: 7mm; padding: 2mm 3mm; min-height: 20mm; }
+.circle { border: 2px solid #000; border-radius: 50%; padding: 0 2mm; }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none; }
+  .page { margin: 0; padding: 0 1.5mm 0 0; width: auto; min-height: 0; page-break-inside: avoid; zoom: 0.92; }
+}
+
+/* Handschriftliches blaues Kreuz über dem Kästchen (Electronic Component) */
+.handx { position: relative; }
+.handx span { position: absolute; left: 0.4mm; top: -0.3mm; color: #1e3796; font-size: 13pt; font-weight: bold; }
+
+.date4 { margin-left: 22mm; font-size: 15pt; }
+.qty { font-size: 24pt; font-weight: normal; margin: 2mm 0 0; }

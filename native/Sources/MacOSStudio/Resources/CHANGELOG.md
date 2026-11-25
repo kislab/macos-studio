@@ -1,3 +1,9 @@
+Version 1.8.7
+
+• Neu unter Extras › Chrome: Die eigene Chrome-Erweiterung „Basel Begleitschein“ ist in OS Studio enthalten. Ein Klick legt sie in einem festen Ordner ab, aus dem Chrome sie lädt; eine Schritt-für-Schritt-Anleitung erklärt die Installation.
+
+• Nach einem Update zeigt OS Studio, wenn der Ordner eine ältere Version enthält, und aktualisiert ihn mit einem Klick. Die Erweiterung lässt sich auch als ZIP exportieren.
+
 Version 1.8.6
 
 • Extras › Mac-Wartung heißt jetzt MacTweaks. Eine Übersicht zeigt die Werkzeuge; jedes öffnet sich einzeln.

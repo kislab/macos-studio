@@ -505,6 +505,49 @@ final class CoreTests {
                                         catalog: [item("26B131", devices: 3)])
         XCTAssertEqual(merged[0].supportedDevices.count, 3)
     }
+    func testChromeExtension() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("studio-ext-" + UUID().uuidString)
+        defer { try? fm.removeItem(at: root) }
+        let bundled = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/MacOSStudio/Resources/ChromeExtensions")
+        let all = ChromeExtension.all(in: bundled)
+        XCTAssertEqual(all.map(\.name), ["Basel Begleitschein"])
+        let ext = try XCTUnwrap(all.first)
+        XCTAssertFalse(ext.version.isEmpty)
+        // Fresh install into a missing folder, then the same version is not "newer"
+        let target = root.appendingPathComponent("Basel")
+        try ext.install(to: target)
+        XCTAssertEqual(ext.installedVersion(at: target), ext.version)
+        XCTAssertTrue(fm.fileExists(atPath: target.appendingPathComponent("img/icon128.png").path))
+        XCTAssertFalse(ext.isNewer(than: target))
+        // An older copy is detected and replaced in place, stale files disappear
+        let manifest = target.appendingPathComponent("manifest.json")
+        let old = try String(contentsOf: manifest, encoding: .utf8).replacingOccurrences(of: "\"version\": \"\(ext.version)\"", with: "\"version\": \"0.9\"")
+        try old.write(to: manifest, atomically: true, encoding: .utf8)
+        try "x".write(to: target.appendingPathComponent("stale.js"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(ext.isNewer(than: target))
+        try ext.install(to: target)
+        XCTAssertEqual(ext.installedVersion(at: target), ext.version)
+        XCTAssertFalse(fm.fileExists(atPath: target.appendingPathComponent("stale.js").path))
+        // A folder with other content is never emptied
+        let foreign = root.appendingPathComponent("Fremd")
+        try fm.createDirectory(at: foreign, withIntermediateDirectories: true)
+        try "wichtig".write(to: foreign.appendingPathComponent("notiz.txt"), atomically: true, encoding: .utf8)
+        XCTAssertThrows { try ext.install(to: foreign) }
+        XCTAssertTrue(fm.fileExists(atPath: foreign.appendingPathComponent("notiz.txt").path))
+        // ZIP export has manifest.json at the top level
+        let zip = root.appendingPathComponent("ext.zip")
+        try ext.exportZip(to: zip)
+        let list = Process(); let pipe = Pipe()
+        list.executableURL = URL(fileURLWithPath: "/usr/bin/unzip"); list.arguments = ["-Z1", zip.path]; list.standardOutput = pipe
+        try list.run(); list.waitUntilExit()
+        let names = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).split(separator: "\n").map(String.init)
+        XCTAssertTrue(names.contains("manifest.json"))
+        XCTAssertEqual(ChromeExtension.compare("1.10", "1.9"), .orderedDescending)
+        XCTAssertEqual(ChromeExtension.compare("1.3", "1.3.0"), .orderedSame)
+    }
+
     func testMaintenance() throws {
         // Spotlight repair: user-level LaunchServices, root only for mdutil, cancel stops before anything runs.
         let cancelURL = URL(fileURLWithPath: "/tmp/x y/cancel")
@@ -804,6 +847,7 @@ final class LockedFlag: @unchecked Sendable {
         tests.testHostRelation()
         tests.testBuildTargets()
         try tests.testMaintenance()
+        try tests.testChromeExtension()
         try tests.testProgressAndMetrics()
         try tests.testDiskValidationFailsClosed()
         tests.testQuoting()
@@ -944,6 +988,6 @@ final class LockedFlag: @unchecked Sendable {
         let stopped = try await cancelled.run("/bin/sleep", ["10"], timeout: 30)
         XCTAssertTrue(stopped.cancelled)
         XCTAssertFalse(stopped.timedOut)
-        print("25 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, build targets/groups, MacTweaks tools/scripts, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
+        print("26 Swift test groups passed: local installers/trash, catalog, Apple catalog/gzip, integrity data/legacy installer, device discovery, serial lookup, firmware list, device photos, DFU guide, VDM, file verify, IPSW flasher, versions, host macOS, build targets/groups, MacTweaks tools/scripts, Chrome extension, metrics, disk protection, quoting, terminal job, USB progress, USB root command, output, timeout, cancellation")
     }
 }

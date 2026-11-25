@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Basel Movement Document</title>
+  <link rel="stylesheet" href="form.css">
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button id="print">Als PDF speichern / Drucken</button>
+    <span>Im Druckdialog als Ziel „Als PDF speichern“ wählen.</span>
+  </div>
+
+  <div class="page">
+    <h1>Movement document for transboundary transport of used equipment<br>
+      falling under paragraph 31(b) of the Basel Technical Guidelines and<br>
+      equivalent national legislation/guidelines</h1>
+
+    <table class="grid top">
+      <colgroup><col style="width:36%"><col style="width:38%"><col style="width:26%"></colgroup>
+      <tr>
+        <td class="small">
+          <b>1. Person who arranges the transport</b><br>
+          Name: <u>Compustore PC GmbH</u><br>
+          Address: <u>Hauptstraße 28</u><br>
+          <span class="indent"><u>91054 Erlangen</u></span><br>
+          Contact person: Apple Trade Compliance<br>
+          Tel.: <u>03312370320</u><br>
+          Fax: <u>-</u><br>
+          E-mail: <u>BASELinquiries@group.apple.com</u>
+        </td>
+        <td class="small">
+          <b>2. Receiving facility</b><br>
+          Name: Schenker s.r.o.<br>
+          Address: Všechromy 65, 251 64 Strančice,<br>
+          Czechia<br>
+          Contact person: KBB Receiving TEAM<br>
+          Tel.:<br>
+          Fax:<br>
+          E-mail: <u>ac.customerservice.czdc@schenker.cz</u>
+        </td>
+        <td class="small">
+          <b>3. Purpose of the transport:</b>
+          <div class="cb"><span class="box">☒</span>Failure analysis/ root cause analysis</div>
+          <div class="cb"><span class="box">☒</span>Repair under warranty</div>
+          <div class="cb"><span class="box">☐</span>Repair</div>
+          <div class="cb"><span class="box">☐</span>Refurbishment</div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="3" class="row4"><b>4. Start date of transport: today’s date</b> <span class="hand date4" id="date-us"></span></td>
+      </tr>
+      <tr><td colspan="3"><b>5. Countries/States concerned</b></td></tr>
+    </table>
+
+    <table class="grid countries">
+      <colgroup><col style="width:36%"><col style="width:38%"><col style="width:26%"></colgroup>
+      <tr>
+        <td>Export/dispatch<br><span class="tiny">Germany</span></td>
+        <td>Transit</td>
+        <td>Import/destination<br><span class="tiny">Czechia</span></td>
+      </tr>
+    </table>
+
+    <div class="decl">
+      <b>6. Declaration of the person/holder arranging the transport</b>
+      <p>I declare that I am entitled to represent my company legally and that:</p>
+      <ol type="a">
+        <li>The electrical and electronic equipment (EEE) in this transport is EEE equipment that is not defined as or considered to be waste in any of the countries involved in the transport.</li>
+        <li>A contract fulfilling the conditions set out in paragraph 31(b) (ii) of the Basel Convention <i>Technical guidelines on transboundary movements of electrical and electronic waste and used electrical and electronic equipment, in particular regarding the distinction between waste and non-waste under the Basel Convention,</i> is in place. For Europe: a contract fulfilling the conditions set out in paragraph 13 of the <i>Correspondent Guidelines No 1</i> and if applicable a contract according to paragraph 14 of these guidelines is in place. The shipment is taking place in the framework of a business-to-business transfer agreement.</li>
+        <li>The used EEE, in case of shipments according to paragraph 12(b) of the European Correspondent’s Guidelines No 1, is used EEE for professional use only.</li>
+        <li>Upon request from the relevant authorities, I will make available underlying documentation (e.g., contracts or equivalent documents) that can be used to verify the statements contained in subparagraphs (a) and (b) above.</li>
+        <li>The above information is complete and correct, to the best of my knowledge.</li>
+      </ol>
+      <div class="signrow">
+        <span>Name: <span class="hand" id="name"></span></span>
+        <span>Function: <span class="tiny">Technician</span></span>
+        <span>Date: &nbsp; Today’s date <span class="hand" id="date-de"></span></span>
+        <span class="sigcell">Signature: <img id="sig" alt=""></span>
+      </div>
+    </div>
+
+    <table class="grid equip">
+      <colgroup>
+        <col style="width:17%"><col style="width:9%"><col style="width:12%"><col style="width:12%">
+        <col style="width:14%"><col style="width:14%"><col style="width:12%">
+      </colgroup>
+      <tr class="head">
+        <td>7. Description of the equipment (e.g. name)</td>
+        <td>8. Name of the producer (if available)</td>
+        <td>9. Identification number (type No.) (if applicable/if available)</td>
+        <td>10. Year of production (if available)</td>
+        <td>11. Year of earlier repair / refurbishment and kind of repair or refurbishment (optional);</td>
+        <td>12. Under warranty (yes/no) and if yes, remaining duration of warranty</td>
+        <td>13. Quantity of equipment <div class="hand qty" id="qty"></div></td>
+      </tr>
+      <tr class="body">
+        <td class="left">
+          <div class="cb"><span class="box">☑</span>Smart Electronic Device</div>
+          <div class="cb"><span class="box handx">☐<span>✗</span></span>Electronic Component</div>
+          <div class="cb"><span class="box">☐</span>Electronic Accessory</div>
+          <div class="cb"><span class="box">☐</span>Computer</div>
+        </td>
+        <td>Apple</td>
+        <td>Not Available</td>
+        <td>Not Available</td>
+        <td>---</td>
+        <td>Yes, up to 7 year warranty on availability of service parts</td>
+        <td>Cumulative value of all parts covered by document</td>
+      </tr>
+    </table>
+
+    <table class="grid recv">
+      <tr><td colspan="2" class="center"><b>TO BE COMPLETED BY THE RECEIVING FACILITY</b></td></tr>
+      <tr>
+        <td style="width:45%"><b>14. Movement received at the receiving facility:</b></td>
+        <td><b>15. Quantity/volume received:</b></td>
+      </tr>
+      <tr>
+        <td colspan="2" class="recvsign"><span>Name: <span class="hand" id="name"></span></span><span>Date:</span><span>Signature:</span></td>
+      </tr>
+    </table>
+
+    <div class="shipper">
+      <b>To be completed by the shipper:</b><br>
+      <b>Please Circle one of the following and complete the number below:</b>
+      HAWB <span class="circle">RMA</span> STO/PO
+    </div>
+  </div>
+
+  <script src="storage.js"></script>
+  <script src="form.js"></script>
+</body>
+</html>
