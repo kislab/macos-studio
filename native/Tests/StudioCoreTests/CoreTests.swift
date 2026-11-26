@@ -512,7 +512,8 @@ final class CoreTests {
         let bundled = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/MacOSStudio/Resources/ChromeExtensions")
         let all = ChromeExtension.all(in: bundled)
-        XCTAssertEqual(all.map(\.name), ["Basel Begleitschein"])
+        XCTAssertEqual(all.map(\.name), ["Basel Begleitschein", "GSX Termine → Kalender"])
+        XCTAssertTrue(all.allSatisfy { !$0.version.isEmpty && FileManager.default.fileExists(atPath: $0.folder.appendingPathComponent("img/icon128.png").path) })
         let ext = try XCTUnwrap(all.first)
         XCTAssertFalse(ext.version.isEmpty)
         // Fresh install into a missing folder, then the same version is not "newer"

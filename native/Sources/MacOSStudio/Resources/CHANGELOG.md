@@ -1,3 +1,7 @@
+Version 1.8.8
+
+• Extras › Chrome enthält jetzt auch die Erweiterung „GSX Termine → Kalender“. Sie liest Termine aus GSX und exportiert sie mit Vor- und Nachnamen in den Apple Kalender. Installation und Aktualisieren wie bei „Basel Begleitschein“.
+
 Version 1.8.7
 
 • Neu unter Extras › Chrome: Die eigene Chrome-Erweiterung „Basel Begleitschein“ ist in OS Studio enthalten. Ein Klick legt sie in einem festen Ordner ab, aus dem Chrome sie lädt; eine Schritt-für-Schritt-Anleitung erklärt die Installation.

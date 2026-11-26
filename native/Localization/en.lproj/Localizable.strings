@@ -668,13 +668,9 @@
 "Anderen Ordner …" = "Other Folder …";
 "Als ZIP exportieren …" = "Export as ZIP …";
 "Speichert die Erweiterung als ZIP, z. B. zum Weitergeben oder für den Chrome Web Store." = "Saves the extension as a ZIP, e.g. to share it or for the Chrome Web Store.";
-"Nach dem Aktualisieren in Chrome unter chrome://extensions beim Eintrag auf ↻ (Neu laden) klicken. Personen und Unterschriften bleiben erhalten." = "After updating, click ↻ (Reload) on the entry in chrome://extensions. People and signatures are kept.";
-"So installierst du sie in Chrome" = "How to install it in Chrome";
-"Oben auf **Ordner anlegen** klicken. Den Ordner danach nicht löschen oder verschieben – Chrome lädt die Erweiterung von dort." = "Click **Create Folder** above. Don’t delete or move the folder afterwards – Chrome loads the extension from there.";
 "**Chrome öffnen** klicken. Die Adresse `chrome://extensions` ist schon kopiert: in die Adresszeile einfügen (⌘V) und Return drücken." = "Click **Open Chrome**. The address `chrome://extensions` is already copied: paste it into the address bar (⌘V) and press Return.";
 "Oben rechts den **Entwicklermodus** einschalten." = "Turn on **Developer mode** in the top right.";
 "**Entpackte Erweiterung laden** klicken und den Ordner aus Schritt 1 wählen (**Im Finder zeigen** verrät, wo er liegt)." = "Click **Load unpacked** and choose the folder from step 1 (**Show in Finder** tells you where it is).";
-"Über das Puzzle-Symbol rechts neben der Adresszeile die Erweiterung **anheften**. Beim ersten Start öffnet sich die Einrichtung für Name und Unterschrift." = "**Pin** the extension via the puzzle icon next to the address bar. On first launch, the setup for name and signature opens.";
 "Chrome öffnen" = "Open Chrome";
 "Google Chrome ist nicht installiert." = "Google Chrome is not installed.";
 "Google Chrome ist auf diesem Mac nicht installiert." = "Google Chrome is not installed on this Mac.";
@@ -683,3 +679,8 @@
 "Ordner für „%@“ wählen. Chrome lädt die Erweiterung später von hier – den Ordner danach nicht löschen oder verschieben." = "Choose a folder for “%@”. Chrome will load the extension from here – don’t delete or move the folder afterwards.";
 "Der Ordner „%@“ ist nicht leer und enthält keine Version dieser Erweiterung. Bitte einen leeren Ordner wählen." = "The folder “%@” is not empty and contains no version of this extension. Please choose an empty folder.";
 "Die ZIP-Datei konnte nicht gespeichert werden: " = "The ZIP file could not be saved: ";
+
+"So installierst du eine Erweiterung in Chrome" = "How to install an extension in Chrome";
+"Bei der gewünschten Erweiterung auf **Ordner anlegen** klicken. Den Ordner danach nicht löschen oder verschieben – Chrome lädt die Erweiterung von dort." = "Click **Create Folder** on the extension you want. Don’t delete or move the folder afterwards – Chrome loads the extension from there.";
+"Über das Puzzle-Symbol rechts neben der Adresszeile die Erweiterung **anheften**. Für jede weitere Erweiterung die Schritte 1 und 4 wiederholen." = "**Pin** the extension via the puzzle icon next to the address bar. For each further extension, repeat steps 1 and 4.";
+"Nach dem Aktualisieren in Chrome unter chrome://extensions beim Eintrag auf ↻ (Neu laden) klicken. Gespeicherte Einstellungen bleiben erhalten." = "After updating, click ↻ (Reload) on the entry in chrome://extensions. Saved settings are kept.";

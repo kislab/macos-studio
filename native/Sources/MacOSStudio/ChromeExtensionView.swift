@@ -134,19 +134,19 @@ struct ChromeExtensionView: View {
                     .help("Speichert die Erweiterung als ZIP, z. B. zum Weitergeben oder für den Chrome Web Store.")
             }
             if outdated {
-                Label("Nach dem Aktualisieren in Chrome unter chrome://extensions beim Eintrag auf ↻ (Neu laden) klicken. Personen und Unterschriften bleiben erhalten.", systemImage: "info.circle")
+                Label("Nach dem Aktualisieren in Chrome unter chrome://extensions beim Eintrag auf ↻ (Neu laden) klicken. Gespeicherte Einstellungen bleiben erhalten.", systemImage: "info.circle")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
 
     private var guide: some View {
-        card(String(localized: "So installierst du sie in Chrome"), "list.number") {
-            step(1, String(localized: "Oben auf **Ordner anlegen** klicken. Den Ordner danach nicht löschen oder verschieben – Chrome lädt die Erweiterung von dort."))
+        card(String(localized: "So installierst du eine Erweiterung in Chrome"), "list.number") {
+            step(1, String(localized: "Bei der gewünschten Erweiterung auf **Ordner anlegen** klicken. Den Ordner danach nicht löschen oder verschieben – Chrome lädt die Erweiterung von dort."))
             step(2, String(localized: "**Chrome öffnen** klicken. Die Adresse `chrome://extensions` ist schon kopiert: in die Adresszeile einfügen (⌘V) und Return drücken."))
             step(3, String(localized: "Oben rechts den **Entwicklermodus** einschalten."))
             step(4, String(localized: "**Entpackte Erweiterung laden** klicken und den Ordner aus Schritt 1 wählen (**Im Finder zeigen** verrät, wo er liegt)."))
-            step(5, String(localized: "Über das Puzzle-Symbol rechts neben der Adresszeile die Erweiterung **anheften**. Beim ersten Start öffnet sich die Einrichtung für Name und Unterschrift."))
+            step(5, String(localized: "Über das Puzzle-Symbol rechts neben der Adresszeile die Erweiterung **anheften**. Für jede weitere Erweiterung die Schritte 1 und 4 wiederholen."))
             HStack {
                 Button("Chrome öffnen", systemImage: "globe") { store.openChrome() }
                     .disabled(ChromeExtensionStore.chromeURL == nil)
