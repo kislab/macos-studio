@@ -1,3 +1,7 @@
+Version 1.8.10
+
+• Chrome-Erweiterung „GSX Termine → Kalender“ 1.2.1: Jeder Termin wird im Kalender eine Stunde lang eingetragen, z. B. 15:00–16:00 Uhr. Unter Extras › Chrome auf „Ordner aktualisieren“ klicken und die Erweiterung in Chrome neu laden.
+
 Version 1.8.9
 
 • Chrome-Erweiterung „GSX Termine → Kalender“ 1.2.0: Neu festgelegte Termine werden wie stornierte ausgelassen.

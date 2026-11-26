@@ -9,7 +9,7 @@ openBtn.addEventListener('click', async () => {
   catch (e) { setStatus('Öffnen nicht möglich – bitte die Datei in den Downloads anklicken.', 'warn'); }
 });
 
-const DURATION_MIN = 20; // GSX-Termine liegen im 20-Minuten-Raster
+const DURATION_MIN = 60; // Jeder Termin wird im Kalender eine Stunde lang eingetragen (z. B. 15:00–16:00)
 const fullName = (a) => [a.firstName, a.lastName].filter(Boolean).join(' ');
 // Titel im Kalender, z. B. „Apple Termin, Max Mustermann, iPhone“
 const eventTitle = (a) => ['Apple Termin', fullName(a), a.product].filter(Boolean).join(', ');
