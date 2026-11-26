@@ -7,20 +7,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <description>Signierte Updates für OS Studio</description>
     <language>de</language>
     <item>
-      <title>OS Studio 1.8.9</title>
-      <description sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.9 — GSX Termine → Kalender 1.2.0</h3>
-<ul><li><b>Neu festgelegte Termine</b> werden jetzt wie stornierte ausgelassen.</li><li><b>Downloads bleiben sauber:</b> Die exportierte Kalenderdatei wird 2 Minuten nach dem Öffnen im Apple Kalender wieder gelöscht.</li><li>Zum Übernehmen unter Extras › Chrome auf <b>Ordner aktualisieren</b> klicken und in <code>chrome://extensions</code> bei der Erweiterung auf ↻ klicken.</li></ul>
-<p>Universal für Intel und Apple Silicon, ab macOS 13. Build 59.</p>]]></description>
-      <description xml:lang="en" sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.9 — GSX Termine → Kalender 1.2.0</h3>
-<ul><li><b>Rescheduled appointments</b> (“Neu festgelegt”) are now skipped like cancelled ones.</li><li><b>Clean Downloads:</b> The exported calendar file is deleted again 2 minutes after it opens in Apple Calendar.</li><li>To apply, click <b>Update Folder</b> under Extras › Chrome and click ↻ on the extension in <code>chrome://extensions</code>.</li></ul>
-<p>Universal for Intel and Apple silicon, macOS 13 or later. Build 59.</p>]]></description>
-      <sparkle:version>59</sparkle:version>
-      <sparkle:shortVersionString>1.8.9</sparkle:shortVersionString>
+      <title>OS Studio 1.8.10</title>
+      <description sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.10 — GSX Termine → Kalender 1.2.1</h3>
+<ul><li><b>Eine Stunde pro Termin:</b> Termine werden im Kalender immer eine Stunde lang eingetragen, z. B. 15:00–16:00 Uhr (bisher 20 Minuten).</li><li>Zum Übernehmen unter Extras › Chrome auf <b>Ordner aktualisieren</b> klicken und in <code>chrome://extensions</code> bei der Erweiterung auf ↻ klicken.</li></ul>
+<p>Universal für Intel und Apple Silicon, ab macOS 13. Build 60.</p>]]></description>
+      <description xml:lang="en" sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.10 — GSX Termine → Kalender 1.2.1</h3>
+<ul><li><b>One hour per appointment:</b> Appointments are always added to the calendar for one hour, e.g. 3:00–4:00 PM (previously 20 minutes).</li><li>To apply, click <b>Update Folder</b> under Extras › Chrome and click ↻ on the extension in <code>chrome://extensions</code>.</li></ul>
+<p>Universal for Intel and Apple silicon, macOS 13 or later. Build 60.</p>]]></description>
+      <sparkle:version>60</sparkle:version>
+      <sparkle:shortVersionString>1.8.10</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.8.9/OS-Studio-1.8.9-Universal.zip" sparkle:edSignature="g0u9Fc2H7E/1OeOs0SukE+HnKkL3DxjB2QakRerN+gLkwviTWM/DFh1VXnQmk2pOEoPjHJaF31QQP5YGibBiCg==" length="6554020" type="application/octet-stream"></enclosure>
+      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.8.10/OS-Studio-1.8.10-Universal.zip" sparkle:edSignature="MAW7j+6zhzEdo2Q0HszYkSWrp7hImmN8+TCwHEzjcKER5K4V04riFYmb/hhzwUk6N9ZU3cKMqIIGv/p7v+0xBg==" length="6554108" type="application/octet-stream"></enclosure>
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: u+XkUToFk7VLUuVSuZEd5aSw1FAYtlLV3q9e1SLoKU7YyhC9nZsuXjZzAZwDMiLUPXHlHVVMNzLdjVYbIoDhDg==
-length: 2326
+edSignature: bx0rs5auSmkwBMZTSEj9suHPCS2YZjsSBmji6LmCz1J4a7aEtn60GQXKUAyhLGJvk2kEV6xABSxSLZQ7UfpRDQ==
+length: 2186
 -->
