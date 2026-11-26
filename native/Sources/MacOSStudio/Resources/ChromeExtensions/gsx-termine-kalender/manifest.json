@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "GSX Termine → Kalender",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Liest Termine aus GSX und exportiert sie mit Vor- und Nachnamen in den Apple Kalender.",
   "permissions": [
     "activeTab",
     "scripting",
     "downloads",
-    "downloads.open"
+    "downloads.open",
+    "storage",
+    "alarms"
   ],
   "action": {
     "default_title": "GSX-Termine exportieren",
@@ -23,5 +25,8 @@
     "32": "img/icon32.png",
     "48": "img/icon48.png",
     "128": "img/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
   }
 }

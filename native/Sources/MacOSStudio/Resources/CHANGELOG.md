@@ -1,3 +1,9 @@
+Version 1.8.9
+
+• Chrome-Erweiterung „GSX Termine → Kalender“ 1.2.0: Neu festgelegte Termine werden wie stornierte ausgelassen.
+
+• Die exportierte Kalenderdatei verschwindet 2 Minuten nach dem Öffnen im Apple Kalender wieder aus den Downloads. Unter Extras › Chrome auf „Ordner aktualisieren“ klicken und die Erweiterung in Chrome neu laden.
+
 Version 1.8.8
 
 • Extras › Chrome enthält jetzt auch die Erweiterung „GSX Termine → Kalender“. Sie liest Termine aus GSX und exportiert sie mit Vor- und Nachnamen in den Apple Kalender. Installation und Aktualisieren wie bei „Basel Begleitschein“.
