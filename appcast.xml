@@ -7,20 +7,20 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <description>Signierte Updates für OS Studio</description>
     <language>de</language>
     <item>
-      <title>OS Studio 1.8.8</title>
-      <description sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.8 — GSX Termine → Kalender</h3>
-<ul><li><b>Extras › Chrome:</b> Neu dabei ist die Erweiterung „GSX Termine → Kalender“. Sie liest Termine aus GSX und exportiert sie mit Vor- und Nachnamen in den Apple Kalender.</li><li>Ordner anlegen, aktualisieren und als ZIP exportieren funktionieren wie bei „Basel Begleitschein“; die Anleitung gilt für beide Erweiterungen.</li></ul>
-<p>Universal für Intel und Apple Silicon, ab macOS 13. Build 58.</p>]]></description>
-      <description xml:lang="en" sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.8 — GSX appointments → Calendar</h3>
-<ul><li><b>Extras › Chrome:</b> New extension “GSX Termine → Kalender”. It reads appointments from GSX and exports them with first and last names to Apple Calendar.</li><li>Creating the folder, updating and exporting as ZIP work like for “Basel Begleitschein”; the guide covers both extensions.</li></ul>
-<p>Universal for Intel and Apple silicon, macOS 13 or later. Build 58.</p>]]></description>
-      <sparkle:version>58</sparkle:version>
-      <sparkle:shortVersionString>1.8.8</sparkle:shortVersionString>
+      <title>OS Studio 1.8.9</title>
+      <description sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.9 — GSX Termine → Kalender 1.2.0</h3>
+<ul><li><b>Neu festgelegte Termine</b> werden jetzt wie stornierte ausgelassen.</li><li><b>Downloads bleiben sauber:</b> Die exportierte Kalenderdatei wird 2 Minuten nach dem Öffnen im Apple Kalender wieder gelöscht.</li><li>Zum Übernehmen unter Extras › Chrome auf <b>Ordner aktualisieren</b> klicken und in <code>chrome://extensions</code> bei der Erweiterung auf ↻ klicken.</li></ul>
+<p>Universal für Intel und Apple Silicon, ab macOS 13. Build 59.</p>]]></description>
+      <description xml:lang="en" sparkle:descriptionFormat="html"><![CDATA[<h3>OS Studio 1.8.9 — GSX Termine → Kalender 1.2.0</h3>
+<ul><li><b>Rescheduled appointments</b> (“Neu festgelegt”) are now skipped like cancelled ones.</li><li><b>Clean Downloads:</b> The exported calendar file is deleted again 2 minutes after it opens in Apple Calendar.</li><li>To apply, click <b>Update Folder</b> under Extras › Chrome and click ↻ on the extension in <code>chrome://extensions</code>.</li></ul>
+<p>Universal for Intel and Apple silicon, macOS 13 or later. Build 59.</p>]]></description>
+      <sparkle:version>59</sparkle:version>
+      <sparkle:shortVersionString>1.8.9</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.8.8/OS-Studio-1.8.8-Universal.zip" sparkle:edSignature="9TL4aFIynaQyQcF2X4dcoTz9V3dNMIe/G6rt3d15ayk/b+2miEmYhlS1MByJ2s8KCsGBmDB6A2x88SBobWJ+Ag==" length="6551972" type="application/octet-stream"></enclosure>
+      <enclosure url="https://github.com/kislab/macos-studio/releases/download/v1.8.9/OS-Studio-1.8.9-Universal.zip" sparkle:edSignature="g0u9Fc2H7E/1OeOs0SukE+HnKkL3DxjB2QakRerN+gLkwviTWM/DFh1VXnQmk2pOEoPjHJaF31QQP5YGibBiCg==" length="6554020" type="application/octet-stream"></enclosure>
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: YRB215vadN5vnlQ0TxdYcVWOIx1Yn1FuVfjC4ajJQLeHK37I/rLYecYbtZuv56X4ixGOtmkSeLXmDxfrzvAiDQ==
-length: 2228
+edSignature: u+XkUToFk7VLUuVSuZEd5aSw1FAYtlLV3q9e1SLoKU7YyhC9nZsuXjZzAZwDMiLUPXHlHVVMNzLdjVYbIoDhDg==
+length: 2326
 -->
